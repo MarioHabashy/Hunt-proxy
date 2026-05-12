@@ -1,0 +1,21 @@
+fixes:
+when send websocket in repeater it dont appear in browser 
+freez with large responses
+repeater group send parallel
+
+scanner tab :
+    need to make interact.sh cli and auto used to detect blind one
+
+
+
+jwt tab:
+    change matched logic to be Status code not length
+
+    continue algo confusion in analyzer
+    add algo confusion using brute force
+
+    key manager when add new key any type i can paste the needed key like what done in RSA key
+    ability to edit any key after creating
+
+
+    ngrok warning msg make it not useful
