@@ -33,7 +33,9 @@ import time as _time_mod
 import logging
 from typing import Dict, List, Tuple, Set, Any, Optional
 from datetime import datetime
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+import warnings
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 from collections import deque
 
 try:
@@ -12383,15 +12385,6 @@ class AnalysisTabMixin:
                 for c, item in enumerate(row_items):
                     if item:
                         self.param_table.setItem(nr, c, item)
-        # update badge
-        count = self.param_table.rowCount()
-        if hasattr(self, 'param_count_badge'):
-            self.param_count_badge.setText(f"{count} param{'s' if count != 1 else ''}")
-            self.param_count_badge.setStyleSheet(
-                f"color: {'#7ec87e' if count else '#888'}; font-size: 10px; "
-                "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
-            )
-
     def _extract_parameter_values(self, finding: Dict) -> Dict:
         """Extract all parameter values from a finding"""
         values = {}
@@ -13524,6 +13517,16 @@ class AnalysisTabMixin:
             prev.quit()
             prev.wait(80)
 
+        # Reset param badge + table immediately so stale counts don't linger
+        if hasattr(self, 'param_count_badge'):
+            self.param_count_badge.setText("…")
+            self.param_count_badge.setStyleSheet(
+                "color: #888; font-size: 10px; "
+                "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+            )
+        if hasattr(self, 'param_table'):
+            self.param_table.setRowCount(0)
+
         # Show loading indicator
         self.auto_analyze.setText("↺ Analyzing…")
 
@@ -13612,6 +13615,16 @@ class AnalysisTabMixin:
             prev.quit()
             prev.wait(80)
 
+        # Reset leak badge + table immediately so stale counts don't linger
+        if hasattr(self, 'leak_count_badge'):
+            self.leak_count_badge.setText("…")
+            self.leak_count_badge.setStyleSheet(
+                "color: #888; font-size: 10px; "
+                "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+            )
+        if hasattr(self, 'highlight_table'):
+            self.highlight_table.setRowCount(0)
+
         # Show loading indicator
         self.auto_highlight.setText("· Scanning…")
 
@@ -13636,6 +13649,12 @@ class AnalysisTabMixin:
             if hasattr(self, 'highlight_stats'):
                 self.highlight_stats.setText("○ No patterns detected")
             self.auto_highlight.setText("· Auto")
+            if hasattr(self, 'leak_count_badge'):
+                self.leak_count_badge.setText("0 findings")
+                self.leak_count_badge.setStyleSheet(
+                    "color: #888; font-size: 10px; "
+                    "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+                )
             return
 
         # Pass every detected pattern to the table; per-row visibility is
@@ -13644,6 +13663,12 @@ class AnalysisTabMixin:
 
         if not filtered_patterns:
             self.auto_highlight.setText("· Auto")
+            if hasattr(self, 'leak_count_badge'):
+                self.leak_count_badge.setText("0 findings")
+                self.leak_count_badge.setStyleSheet(
+                    "color: #888; font-size: 10px; "
+                    "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+                )
             return
 
         # ── Removed: _apply_highlighting_to_response_text ──
@@ -13734,6 +13759,18 @@ class AnalysisTabMixin:
                 should_show = True
             
             self.param_table.setRowHidden(row, not should_show)
+
+        # Update badge to reflect only visible rows
+        visible = sum(
+            1 for r in range(self.param_table.rowCount())
+            if not self.param_table.isRowHidden(r)
+        )
+        if hasattr(self, 'param_count_badge'):
+            self.param_count_badge.setText(f"{visible} param{'s' if visible != 1 else ''}")
+            self.param_count_badge.setStyleSheet(
+                f"color: {'#7ec87e' if visible else '#888'}; font-size: 10px; "
+                "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+            )
 
     def toggle_all_filters(self):
         """Toggle all location filters"""
