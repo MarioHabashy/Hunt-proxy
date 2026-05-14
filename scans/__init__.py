@@ -23,6 +23,7 @@ from .nosqli_scan import NoSqliScanMixin
 from .bypass_scan import BypassScanMixin
 from .cors_scan import CorsScanMixin
 from .open_redirect_scan import OpenRedirectScanMixin
+from .ssti_scan import SstiScanMixin
 
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     "BypassScanMixin",
     "CorsScanMixin",
     "OpenRedirectScanMixin",
+    "SstiScanMixin",
 ]
