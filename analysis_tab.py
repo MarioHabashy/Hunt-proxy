@@ -21,7 +21,10 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QEvent
 from PyQt5.QtGui import QTextCharFormat, QColor, QFont, QTextCursor
 
-import re
+try:
+    import regex as re   # pip install regex  — faster engine, same API
+except ImportError:
+    import re
 import os
 import json
 import html as _html
@@ -12736,7 +12739,8 @@ class AnalysisTabMixin:
         cursor.endEditBlock()
         self.response_text.setTextCursor(cursor)
     
-    def _detect_highlight_patterns(self, text: str) -> Dict[str, List[str]]:
+    @staticmethod
+    def _detect_highlight_patterns(text: str) -> Dict[str, List[str]]:
         """Detect comprehensive information leakage patterns"""
         patterns = {}
         
@@ -13498,29 +13502,61 @@ class AnalysisTabMixin:
 
     def perform_automatic_analysis(self, finding: Dict):
         """
-        Perform automatic analysis when a request is selected
-        Called from HTTP History tab
+        Perform automatic analysis when a request is selected.
+        Called from HTTP History tab.
+
+        Heavy analysis runs in a background thread (SelectionAnalysisWorker)
+        so the UI never freezes on large responses.  Results are delivered
+        back to the main thread via the _on_selection_analysis_finished slot.
+        Returns None immediately; callers must NOT rely on the return value.
         """
         if not hasattr(self, 'auto_analyze') or not self.auto_analyze.isChecked():
-            return
-        
-        # Store the current finding for value extraction
+            return None
+
+        # Store the current finding so stale callbacks can be detected
         self.current_analysis_finding = finding
-        
-        # Run analysis
-        analysis_results = SecurityAnalyzer.analyze_finding(finding)
-        
+        self._pending_analysis_finding = finding
+
+        # Cancel any previous worker still running (rapid selections)
+        prev = getattr(self, '_selection_analysis_worker', None)
+        if prev is not None and prev.isRunning():
+            prev.finished.disconnect()
+            prev.quit()
+            prev.wait(80)
+
+        # Show loading indicator
+        self.auto_analyze.setText("↺ Analyzing…")
+
+        # Launch background worker
+        worker = SelectionAnalysisWorker(finding)
+        worker.finished.connect(self._on_selection_analysis_finished)
+        worker.error.connect(lambda msg: self.auto_analyze.setText("↺ Auto"))
+        worker.start()
+        self._selection_analysis_worker = worker
+
+        return None
+
+    def _on_selection_analysis_finished(self, finding: dict, analysis_results: dict):
+        """
+        Called on the main thread when SelectionAnalysisWorker is done.
+        Performs all UI updates that were previously inside
+        perform_automatic_analysis.
+        """
+        # Discard stale results if the user already selected a different row
+        if getattr(self, '_pending_analysis_finding', None) is not finding:
+            return
+
         # Store results
         self.last_analysis_results = analysis_results
-        
-        # Update finding
-        finding['params'] = analysis_results['params']
+
+        # Update finding in-place so the rest of the UI sees the results
+        finding['params']   = analysis_results['params']
         finding['severity'] = analysis_results['severity']
         finding['analyzed'] = True
 
         # Auto-save detections to project recordings
         self._auto_save_recording(finding, analysis_results)
-        
+
         # Display results WITH VALUES
         self._display_parameter_analysis(analysis_results, finding)
 
@@ -13530,19 +13566,18 @@ class AnalysisTabMixin:
 
         # Apply filters
         self.filter_parameters_by_checkbox()
-        
-        # Show brief status in auto-analyze label
-        total = len(analysis_results['params'])
-        critical = sum(1 for v in analysis_results['params'].values() 
-                    if 'CRITICAL' in str(v))
-        
+
+        # Update the vulnerability panel (was previously done by the caller
+        # in on_history_selection_changed using the synchronous return value)
+        if analysis_results.get('params') and hasattr(self, 'load_vulnerabilities_organized'):
+            self.load_vulnerabilities_organized(finding)
+
         # Update auto-analyze label to show count
+        total = len(analysis_results['params'])
         if total > 0:
             self.auto_analyze.setText(f"↺ Auto ({total})")
         else:
-            self.auto_analyze.setText(f"↺ Auto")
-        
-        return analysis_results
+            self.auto_analyze.setText("↺ Auto")
 
     def perform_automatic_highlighting(self, response_text: str):
         """
@@ -13551,56 +13586,79 @@ class AnalysisTabMixin:
         the response text widget is NOT coloured automatically.
         (Manual highlighting is still available via the Apply button.)
         Called from HTTP History tab.
+
+        Pattern detection runs in a background thread so large responses do
+        not freeze the UI.  Results are delivered via
+        _on_selection_highlight_finished.
         """
         if not hasattr(self, 'auto_highlight') or not self.auto_highlight.isChecked():
             return
-        
+
         if not response_text:
             # Clear table even if response is empty (fix data persistence bug)
             if hasattr(self, 'highlight_table'):
                 self.highlight_table.setRowCount(0)
             self.auto_highlight.setText("· Auto")
             return
-        
-        # Store for re-highlighting
+
+        # Store for re-highlighting and stale-result detection
         self.last_response_text = response_text
-        
-        # Detect patterns
-        patterns_found = self._detect_highlight_patterns(response_text)
-        
+        self._pending_highlight_text = response_text
+
+        # Cancel any previous worker still running
+        prev = getattr(self, '_selection_highlight_worker', None)
+        if prev is not None and prev.isRunning():
+            prev.finished.disconnect()
+            prev.quit()
+            prev.wait(80)
+
+        # Show loading indicator
+        self.auto_highlight.setText("· Scanning…")
+
+        # Launch background worker
+        worker = SelectionHighlightWorker(response_text)
+        worker.finished.connect(self._on_selection_highlight_finished)
+        worker.error.connect(lambda msg: self.auto_highlight.setText("· Auto"))
+        worker.start()
+        self._selection_highlight_worker = worker
+
+    def _on_selection_highlight_finished(self, patterns_found):
+        """
+        Called on the main thread when SelectionHighlightWorker is done.
+        """
+        # Discard stale results if a newer response was already loaded
+        if getattr(self, '_pending_highlight_text', None) is not self.last_response_text:
+            return
+
         if not patterns_found:
-            # Clear table when no patterns found (fix persistence bug)
             if hasattr(self, 'highlight_table'):
                 self.highlight_table.setRowCount(0)
             if hasattr(self, 'highlight_stats'):
                 self.highlight_stats.setText("○ No patterns detected")
-            # Update auto-highlight label
-            self.auto_highlight.setText(f"· Auto")
+            self.auto_highlight.setText("· Auto")
             return
-        
+
         # Pass every detected pattern to the table; per-row visibility is
         # managed by filter_highlight_table (severity / category checkboxes).
         filtered_patterns = dict(patterns_found)
-        
+
         if not filtered_patterns:
-            self.auto_highlight.setText(f"· Auto")
+            self.auto_highlight.setText("· Auto")
             return
-        
+
         # ── Removed: _apply_highlighting_to_response_text ──
         # Response text is no longer coloured automatically on load.
         # Users can still trigger it manually via the Apply / highlight button.
 
         # Display results in leakage scanner table
         self._display_highlight_results(filtered_patterns)
-        
+
         # Update auto-highlight label to show count
         total_matches = sum(len(matches) for matches in filtered_patterns.values())
         if total_matches > 0:
             self.auto_highlight.setText(f"· Auto ({total_matches})")
         else:
-            self.auto_highlight.setText(f"· Auto")
-        
-        return filtered_patterns
+            self.auto_highlight.setText("· Auto")
     
     def filter_parameters_by_checkbox(self):
         """Filter parameter table based on checkbox selections - UPDATED for all locations"""
@@ -14028,3 +14086,68 @@ class BatchAnalysisWorker(QThread):
     def stop(self):
         """Stop the worker"""
         self.running = False
+
+
+# ── Module-level picklable functions for ProcessPoolExecutor ─────────────────
+# Must be top-level so pickle can serialize them by name.
+# On Linux the default 'fork' start method means the worker process already
+# has the full module in memory — no Qt import happens in the child.
+
+def _mp_run_analysis(finding_dict: dict) -> dict:
+    """Subprocess entry-point: runs SecurityAnalyzer.analyze_finding()."""
+    return SecurityAnalyzer.analyze_finding(finding_dict)
+
+
+def _mp_run_highlight(text: str) -> dict:
+    """Subprocess entry-point: runs highlight pattern detection."""
+    return AnalysisTabMixin._detect_highlight_patterns(text)
+
+
+class SelectionAnalysisWorker(QThread):
+    """
+    Runs SecurityAnalyzer.analyze_finding() in a *separate process* via
+    ProcessPoolExecutor so that CPU/regex work never holds the shared GIL
+    and the main Qt thread stays completely responsive.
+    """
+    finished = pyqtSignal(dict, dict)   # (finding, analysis_results)
+    error    = pyqtSignal(str)
+
+    def __init__(self, finding: dict):
+        super().__init__()
+        self._finding = dict(finding)       # shallow-copy; only basic types
+        self._original_finding = finding    # live reference updated on main thread
+
+    def run(self):
+        from concurrent.futures import ProcessPoolExecutor
+        try:
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_mp_run_analysis, self._finding)
+                results = future.result(timeout=180)
+            self.finished.emit(self._original_finding, results)
+        except Exception as e:
+            logger.error(f"SelectionAnalysisWorker error: {e}", exc_info=True)
+            self.error.emit(str(e))
+
+
+class SelectionHighlightWorker(QThread):
+    """
+    Runs _detect_highlight_patterns() in a *separate process* so large
+    responses do not block the main thread at all.
+    """
+    finished = pyqtSignal(object)
+    error    = pyqtSignal(str)
+
+    def __init__(self, text: str):
+        super().__init__()
+        self._text = text
+
+    def run(self):
+        from concurrent.futures import ProcessPoolExecutor
+        try:
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_mp_run_highlight, self._text)
+                patterns = future.result(timeout=180)
+            self.finished.emit(patterns)
+        except Exception as e:
+            logger.error(f"SelectionHighlightWorker error: {e}", exc_info=True)
+            self.error.emit(str(e))

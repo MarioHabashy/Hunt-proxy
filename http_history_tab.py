@@ -2123,9 +2123,10 @@ class HTTPHistoryTab(AnalysisTabMixin):
             )
 
         if hasattr(self, 'perform_automatic_analysis'):
-            analysis_results = self.perform_automatic_analysis(finding)
-            if analysis_results and analysis_results.get('params'):
-                self.load_vulnerabilities_organized(finding)
+            # Analysis now runs in a background thread (SelectionAnalysisWorker).
+            # _on_selection_analysis_finished handles load_vulnerabilities_organized
+            # once the worker finishes, so we no longer use the return value here.
+            self.perform_automatic_analysis(finding)
 
         # Update split view with current request/response
         self._update_split_view_texts()

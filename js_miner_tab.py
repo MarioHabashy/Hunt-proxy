@@ -13,7 +13,10 @@ Features:
   • Export per-file or full session
 """
 
-import re
+try:
+    import regex as re   # pip install regex  — faster engine, same API
+except ImportError:
+    import re
 import os
 import json
 import math
@@ -357,8 +360,285 @@ def _candidate_map_urls(js_url: str, js_content: str) -> List[str]:
     return [c for c in candidates if not (c in seen or seen.add(c))]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Module-level picklable function for ProcessPoolExecutor
+# Must be at module scope so multiprocessing can serialize it by name.
+# On Linux the default 'fork' start method means child processes already have
+# the full module loaded — no cold-import penalty.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _mp_run_js_engines(url: str, js: str) -> dict:
+    """
+    Subprocess entry-point: run all JS analysis engines on *js* for *url*.
+    This is the same logic as the old JSAnalysisWorker._run_all_engines() but
+    without any self.progress.emit() calls (those are emitted by the QThread
+    wrapper in the main process before/after the subprocess call).
+    """
+    from collections import defaultdict
+    from datetime import datetime
+
+    results = {
+        "url":        url,
+        "size":       len(js),
+        "analysed":   datetime.now().isoformat(),
+        "js_content": js[:500_000],
+        "categories": defaultdict(list),
+        "summary": {
+            "critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0,
+            "total": 0
+        }
+    }
+    cats = results["categories"]
+
+    try:
+        from analysis_tab import JavaScriptAnalyzer, FrameworkDetector
+    except ImportError:
+        JavaScriptAnalyzer = None
+        FrameworkDetector = None
+
+    if JavaScriptAnalyzer is None:
+        results["error"] = "JavaScriptAnalyzer not available"
+        return results
+
+    # 1. Secrets & Keys
+    for item in JavaScriptAnalyzer.extract_cloud_infrastructure(js):
+        sev = "CRITICAL" if item["type"] in ("AWS_ACCESS_KEY", "GOOGLE_API_KEY") else "HIGH"
+        value = item["value"]
+        entropy = _shannon_entropy(value)
+        if item["type"] in ("AWS_ACCESS_KEY", "GOOGLE_API_KEY", "FIREBASE_DB",
+                            "FIREBASE_APP", "S3_BUCKET", "S3_BUCKET_URI"):
+            if not _entropy_ok(value, item["type"]):
+                continue
+            cats["🔑 Secrets & Keys"].append({
+                "sev": sev, "title": item["type"],
+                "value": value, "context": item["context"],
+                "note": f"Entropy: {entropy:.2f} — verify credential is active"
+            })
+        else:
+            cats["☁️ Cloud Infrastructure"].append({
+                "sev": "HIGH", "title": item["type"],
+                "value": value, "context": item["context"]
+            })
+
+    # Hardcoded secrets via SecurityAnalyzer — entropy filtered
+    try:
+        from analysis_tab import SecurityAnalyzer
+        for s in SecurityAnalyzer._detect_javascript_secrets(js):
+            value = s.get("value", "")[:120]
+            stype = s.get("type", "GENERIC_SECRET")
+            entropy = _shannon_entropy(value)
+            if not _entropy_ok(value, stype):
+                continue
+            cats["🔑 Secrets & Keys"].append({
+                "sev": "CRITICAL",
+                "title": stype,
+                "value": value,
+                "context": s.get("context", "")[:200],
+                "note": f"Entropy: {entropy:.2f} — Variable: {s.get('var_name', '?')}"
+            })
+    except Exception:
+        pass
+
+    # 2. Endpoints & Paths
+    for ep in JavaScriptAnalyzer.extract_endpoints(js):
+        cats["🗺️ Endpoints & Paths"].append({
+            "sev": "HIGH", "title": ep["value"],
+            "value": ep["value"], "context": ep["context"],
+            "note": "Probe this endpoint: auth bypass, IDOR, hidden functionality"
+        })
+
+    # 3. Hosts & Subdomains
+    for h in JavaScriptAnalyzer.extract_subdomains_and_hosts(js):
+        cats["🌐 Hosts & Subdomains"].append({
+            "sev": h["severity"], "title": h["type"],
+            "value": h["value"], "context": h["context"],
+            "note": f"Host: {h['host']}"
+        })
+
+    # 4. DOM XSS Sinks
+    try:
+        from analysis_tab import SecurityAnalyzer
+        for sink in SecurityAnalyzer._detect_dom_xss_sinks(js):
+            cats["💥 DOM XSS Sinks"].append({
+                "sev": sink["severity"],
+                "title": sink["sink"],
+                "value": sink["context"][:120],
+                "context": sink["context"],
+                "note": f"Type: {sink['type']} — trace user input to this sink"
+            })
+    except Exception:
+        pass
+
+    # 5. Taint Flows
+    flows = JavaScriptAnalyzer.detect_critical_flow(js)
+    for flow_key, tags in flows.items():
+        sev = "CRITICAL" if "CONFIRMED" in tags else "HIGH"
+        chain = next((t for t in tags if t.startswith("CHAIN:")), "")
+        source = next((t for t in tags if t.startswith("SOURCE:")), "")
+        cats["🌊 Taint Flows"].append({
+            "sev": sev, "title": flow_key,
+            "value": chain.replace("CHAIN:", ""),
+            "context": source.replace("SOURCE:", ""),
+            "note": "Confirmed taint flow — high confidence XSS/RCE/redirect"
+                    if sev == "CRITICAL" else "Possible taint flow — verify manually"
+        })
+
+    # 6. Open Redirects
+    for rd in JavaScriptAnalyzer.detect_open_redirects(js):
+        cats["🔀 Open Redirects"].append({
+            "sev": rd["severity"], "title": rd["sink"],
+            "value": rd["value"], "context": rd["context"],
+            "note": "User-controlled redirect — test with external URL"
+                    if rd["user_input"] else "Variable redirect — trace origin"
+        })
+
+    # 7. WebSocket & postMessage
+    for wf in JavaScriptAnalyzer.detect_websocket_issues(js):
+        cats["📨 postMessage / WS"].append({
+            "sev": wf["severity"], "title": wf["type"],
+            "value": wf.get("value", ""),
+            "context": wf["context"], "note": wf["note"]
+        })
+
+    # 8. CORS
+    for ci in JavaScriptAnalyzer.detect_cors_issues(js):
+        cats["🔗 CORS Issues"].append({
+            "sev": ci["severity"], "title": ci["type"],
+            "value": ci["context"], "context": ci["context"],
+            "note": ci["note"]
+        })
+
+    # 9. GraphQL
+    for gf in JavaScriptAnalyzer.detect_graphql(js):
+        cats["🧬 GraphQL"].append({
+            "sev": gf["severity"], "title": gf["type"],
+            "value": gf.get("value", ""),
+            "context": gf["context"],
+            "note": gf.get("note", "")
+        })
+
+    # 10. Token Storage
+    for tf in JavaScriptAnalyzer.detect_token_storage(js):
+        cats["🗄️ Token Storage"].append({
+            "sev": tf["severity"], "title": tf["type"],
+            "value": tf.get("key", tf.get("value", ""))[:80],
+            "context": tf["context"], "note": tf["note"]
+        })
+
+    # 11. Source Maps — passive detection
+    for sm in JavaScriptAnalyzer.detect_source_maps(js, url):
+        cats["🗃️ Source Maps"].append({
+            "sev": sm["severity"], "title": sm["type"],
+            "value": sm["value"], "context": sm["context"],
+            "note": sm["note"]
+        })
+
+    # 11b. Active .map file fetching
+    map_candidates = _candidate_map_urls(url, js)
+    for map_url in map_candidates:
+        map_content = _fetch_map_file(map_url)
+        if not map_content:
+            continue
+        try:
+            sm_data = json.loads(map_content)
+            sources = sm_data.get("sources", [])
+            sources_count = len(sources)
+            interesting = [s for s in sources if any(
+                kw in s.lower() for kw in
+                ("secret", "config", "auth", "token", "api", "key", "admin", "internal",
+                 "password", "credential", "private", "env")
+            )]
+            note_parts = [f"{sources_count} source files recovered"]
+            if interesting:
+                note_parts.append(f"⚠️ Sensitive paths: {', '.join(interesting[:5])}")
+            cats["🗺️ Source Map Files"].append({
+                "sev": "CRITICAL" if interesting else "HIGH",
+                "title": "SOURCE_MAP_FETCHED",
+                "value": map_url,
+                "context": f"Sources: {', '.join(sources[:10])}{'…' if sources_count > 10 else ''}",
+                "note": " | ".join(note_parts)
+            })
+        except (json.JSONDecodeError, KeyError):
+            cats["🗺️ Source Map Files"].append({
+                "sev": "HIGH",
+                "title": "SOURCE_MAP_ACCESSIBLE",
+                "value": map_url,
+                "context": map_content[:200],
+                "note": "Map file is accessible (non-standard format)"
+            })
+        break
+
+    # 12. Prototype Pollution
+    proto = re.findall(r'(__proto__|constructor\[.*?\]|\.prototype\.\w+)', js)
+    for p in set(proto):
+        cats["🧩 Prototype Pollution"].append({
+            "sev": "HIGH", "title": "PROTOTYPE_POLLUTION",
+            "value": p[:100], "context": p[:200],
+            "note": "Test for prototype pollution via controllable keys"
+        })
+
+    # 13. Frameworks
+    if FrameworkDetector:
+        try:
+            fws = FrameworkDetector.detect_javascript_frameworks("", js)
+            for fw_name, evidence in fws.items():
+                cats["📦 Frameworks & Libraries"].append({
+                    "sev": "INFO", "title": fw_name,
+                    "value": fw_name,
+                    "context": " | ".join(evidence[:4]),
+                    "note": "Check for framework-specific vulnerabilities"
+                })
+        except Exception:
+            pass
+
+    # 14. Dependency Confusion — npm checks run in parallel (was serial, up to 40×5s)
+    packages = _extract_npm_packages(js)
+    pkg_list = packages[:40]
+
+    def _check_one(pkg):
+        return pkg, _check_npm_exists(pkg)
+
+    from concurrent.futures import ThreadPoolExecutor as _TPool
+    with _TPool(max_workers=10) as _pool:
+        pkg_results = list(_pool.map(_check_one, pkg_list))
+
+    for pkg, exists in pkg_results:
+        is_scoped = pkg.startswith("@")
+        if exists is False:
+            cats["📦 Dependency Confusion"].append({
+                "sev": "CRITICAL",
+                "title": "DEP_CONFUSION_MISSING",
+                "value": pkg,
+                "context": f"Package '{pkg}' not found on NPM registry",
+                "note": f"{'Scoped org' if is_scoped else 'Package'} '{pkg}' is not on NPM — "
+                        f"register it before an attacker does (supply chain risk)"
+            })
+        else:
+            cats["📦 Dependency Confusion"].append({
+                "sev": "INFO",
+                "title": "DEP_FOUND",
+                "value": pkg,
+                "context": f"Package '{pkg}' found on NPM registry",
+                "note": "Verify this is the intended package version"
+            })
+
+    # Compute summary
+    for cat_items in cats.values():
+        for item in cat_items:
+            sev = item.get("sev", "INFO").upper()
+            results["summary"][sev.lower()] = results["summary"].get(sev.lower(), 0) + 1
+            results["summary"]["total"] += 1
+
+    return results
+
+
 class JSAnalysisWorker(QThread):
-    """Background worker: loads JS content from response_file then runs all engines."""
+    """
+    Background worker: loads JS content (fast I/O on the QThread) then runs
+    all detection engines in a *separate process* via ProcessPoolExecutor so
+    that CPU/regex work never shares the main thread's GIL and the UI stays
+    fully responsive even on large minified JS files.
+    """
     finished  = pyqtSignal(str, dict)   # url, results_dict
     progress  = pyqtSignal(str, str)    # url, status_message
     error     = pyqtSignal(str, str)    # url, error_message
@@ -370,6 +650,7 @@ class JSAnalysisWorker(QThread):
         self._js_content   = js_content
 
     def run(self):
+        from concurrent.futures import ProcessPoolExecutor
         try:
             self.progress.emit(self.url, "⏳ Loading content…")
             js = self._load_content()
@@ -377,8 +658,10 @@ class JSAnalysisWorker(QThread):
                 self.error.emit(self.url, "Empty or unreadable JS content")
                 return
 
-            self.progress.emit(self.url, "🔬 Analysing…")
-            results = self._run_all_engines(js)
+            self.progress.emit(self.url, "🔬 Analysing in subprocess…")
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_mp_run_js_engines, self.url, js)
+                results = future.result(timeout=300)
             self.finished.emit(self.url, results)
 
         except Exception as exc:
