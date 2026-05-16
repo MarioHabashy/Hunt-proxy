@@ -51,6 +51,7 @@ from scans import (
     OpenRedirectScanMixin,
     SstiScanMixin,
 )
+from payloads_dialog import PayloadsDialog
 
 
 
@@ -1503,28 +1504,41 @@ class ScanWorker(
             elif self.scan_type == "Both":
                 if self.boost_mode:
                     self.scan_progress.emit("⚡ BOOST MODE: Running XSS and SQLi scans in parallel")
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                        xss_future  = executor.submit(self.scan_xss)
-                        sqli_future = executor.submit(self.scan_sqli)
-                        xss_results  = xss_future.result()
-                        sqli_results = sqli_future.result()
+                    self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+                    try:
+                        xss_future  = self.executor.submit(self.scan_xss)
+                        sqli_future = self.executor.submit(self.scan_sqli)
+                        # Poll so stop() can interrupt without blocking forever
+                        for fut in (xss_future, sqli_future):
+                            while not fut.done():
+                                if not self.running:
+                                    break
+                                try:
+                                    fut.result(timeout=0.25)
+                                except concurrent.futures.TimeoutError:
+                                    pass
+                        xss_results  = xss_future.result() if xss_future.done() else []
+                        sqli_results = sqli_future.result() if sqli_future.done() else []
+                    finally:
+                        self.executor.shutdown(wait=False)
+                        self.executor = None
                 else:
                     xss_results  = self.scan_xss()
                     sqli_results = self.scan_sqli()
                 results = {"xss": xss_results, "sqli": sqli_results}
             elif self.scan_type == "All":
-                xss_results    = self.scan_xss()
-                sqli_results   = self.scan_sqli()
-                lfi_results    = self.scan_lfi()
-                cmdi_results   = self.scan_cmdi()
-                idor_results   = self.scan_idor()
-                upload_results = self.scan_upload()
-                ssrf_results   = self.scan_ssrf()
-                xxe_results    = self.scan_xxe()
-                nosqli_results  = self.scan_nosqli()
-                cors_results   = self.scan_cors()
-                open_redirect_results = self.scan_open_redirect()
-                ssti_results          = self.scan_ssti()
+                xss_results    = self.scan_xss()    if self.running else []
+                sqli_results   = self.scan_sqli()   if self.running else []
+                lfi_results    = self.scan_lfi()    if self.running else []
+                cmdi_results   = self.scan_cmdi()   if self.running else []
+                idor_results   = self.scan_idor()   if self.running else []
+                upload_results = self.scan_upload() if self.running else []
+                ssrf_results   = self.scan_ssrf()   if self.running else []
+                xxe_results    = self.scan_xxe()    if self.running else []
+                nosqli_results  = self.scan_nosqli()        if self.running else []
+                cors_results   = self.scan_cors()           if self.running else []
+                open_redirect_results = self.scan_open_redirect() if self.running else []
+                ssti_results          = self.scan_ssti()          if self.running else []
                 results = {
                     "xss":    xss_results,
                     "sqli":   sqli_results,
@@ -1542,6 +1556,8 @@ class ScanWorker(
             elif "," in self.scan_type:
                 results = {}
                 for stype in self.scan_type.split(","):
+                    if not self.running:
+                        break
                     stype = stype.strip()
                     if   stype == "XSS":    results["xss"]    = self.scan_xss()
                     elif stype == "SQLi":   results["sqli"]   = self.scan_sqli()
@@ -2104,8 +2120,13 @@ class ScanWorker(
     def stop(self):
         """Stop the scan"""
         self.running = False
-        if self.executor:
+        # Unblock any thread waiting on a step gate or CSRF ready event
+        self._step_event.set()
+        self._csrf_option_c_ready.set()
+        # Shut down thread-pool executor used by Boost Mode (if active)
+        if self.executor is not None:
             self.executor.shutdown(wait=False)
+            self.executor = None
 
 
 # =============================================================================
@@ -2941,6 +2962,29 @@ class ScannerTab(QWidget):
         clear_all_action.triggered.connect(self.clear_all)
         clear_menu_btn.setMenu(clear_menu)
         row1.addWidget(clear_menu_btn)
+
+        # Payloads browser button
+        payloads_btn = QPushButton("📚 Payloads")
+        payloads_btn.setToolTip(
+            "Browse all payloads used by each scan type.\n\n"
+            "Shows probe payloads, fingerprint payloads, error patterns\n"
+            "and technique notes for: SSTI · SQLi · XSS · CMDi · LFI\n"
+            "SSRF · XXE · NoSQLi · CORS · Open Redirect"
+        )
+        payloads_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #2d3748;
+                color: #a0aec0;
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 4px;
+                padding: 5px 12px;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{ background-color: #3a4a5c; color: {COLOR_TEXT_BRIGHT}; }}
+            QPushButton:pressed {{ background-color: #1a2332; }}
+        """)
+        payloads_btn.clicked.connect(self._open_payloads_browser)
+        row1.addWidget(payloads_btn)
 
         outer.addLayout(row1)
 
@@ -3996,6 +4040,14 @@ class ScannerTab(QWidget):
         QTimer.singleShot(2000, lambda: self.scan_status_label.setText("Ready"))
         n = len(self.scan_queue)
         self._queue_count_label.setText(f"{n} item{'s' if n != 1 else ''}")
+
+    def _open_payloads_browser(self):
+        """Open the Payloads Browser as a standalone window."""
+        if not hasattr(self, "_payloads_window") or self._payloads_window is None:
+            self._payloads_window = PayloadsDialog()
+        self._payloads_window.show()
+        self._payloads_window.raise_()
+        self._payloads_window.activateWindow()
 
     def show_scan_config_dialog(self):
         """Show the Scan Configuration dialog (⚙ button)."""
@@ -6276,11 +6328,11 @@ class ScannerTab(QWidget):
     def stop_scan(self):
         """Stop the current scan"""
         if self.current_scan_worker and self.current_scan_worker.isRunning():
-            # Unblock the step gate so the thread can notice running=False and exit
-            if getattr(self.current_scan_worker, 'step_mode', False):
-                self.current_scan_worker._step_event.set()
-            self.current_scan_worker.stop()
-            self.current_scan_worker.wait()
+            self.current_scan_worker.stop()   # sets running=False, unblocks events/executor
+            # Give the thread up to 5 s to exit gracefully before forcing it
+            if not self.current_scan_worker.wait(5000):
+                self.current_scan_worker.terminate()
+                self.current_scan_worker.wait(2000)
             self.scan_status_label.setText("⏹ Scan stopped")
             self.start_scan_btn.setEnabled(True)
             self.stop_scan_btn.setEnabled(False)

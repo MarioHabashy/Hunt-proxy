@@ -383,6 +383,7 @@ class NoSqliScanMixin:
 
         candidates = self._nosqli_get_candidates(params, body_params, prefix="url")
         candidates += self._nosqli_get_candidates(body_params, {}, prefix="body")
+        candidates += self._nosqli_get_header_and_cookie_candidates(headers)
 
         for cname, ctype, cval in candidates:
             if not self.running:
@@ -602,6 +603,7 @@ class NoSqliScanMixin:
 
         candidates = self._nosqli_get_candidates(params, body_params, prefix="url")
         candidates += self._nosqli_get_candidates(body_params, {}, prefix="body")
+        candidates += self._nosqli_get_header_and_cookie_candidates(headers)
 
         for cname, ctype, cval in candidates:
             if not self.running:
@@ -677,6 +679,7 @@ class NoSqliScanMixin:
 
         candidates = self._nosqli_get_candidates(params, body_params, prefix="url")
         candidates += self._nosqli_get_candidates(body_params, {}, prefix="body")
+        candidates += self._nosqli_get_header_and_cookie_candidates(headers)
 
         for cname, ctype, cval in candidates:
             if not self.running:
@@ -841,6 +844,7 @@ class NoSqliScanMixin:
 
         candidates = self._nosqli_get_candidates(params, body_params, prefix="url")
         candidates += self._nosqli_get_candidates(body_params, {}, prefix="body")
+        candidates += self._nosqli_get_header_and_cookie_candidates(headers)
 
         for cname, ctype, cval in candidates:
             if not self.running:
@@ -970,14 +974,48 @@ class NoSqliScanMixin:
         candidates = []
         source = primary_params if prefix == "url" else secondary_params
 
+        _TYPE_MAP = {
+            "url":    "param_url",
+            "body":   "param_body",
+            "cookie": "param_cookie",
+            "header": "param_header",
+        }
+        param_type = _TYPE_MAP.get(prefix, "param_url")
+
         for pname, pvals in source.items():
             val = pvals[0] if isinstance(pvals, list) and pvals else str(pvals)
 
             if not self._is_forced_point(prefix, pname):
                 continue
 
-            param_type = "param_url" if prefix == "url" else "param_body"
             candidates.append((pname, param_type, val))
+
+        return candidates
+
+    def _nosqli_get_header_and_cookie_candidates(self, headers: Dict[str, str]):
+        """
+        Return (name, type, value) tuples for header and cookie injection points,
+        derived from the already-parsed headers dict.
+        Only returns points the user has force-selected via the injection point UI.
+        """
+        candidates = []
+        SKIP = {"host", "content-length", "transfer-encoding",
+                "connection", "accept-encoding"}
+
+        for hname, hval in headers.items():
+            hl = hname.lower()
+            if hl == "cookie":
+                # Expand into individual cookie candidates
+                for pair in hval.split(";"):
+                    pair = pair.strip()
+                    if "=" in pair:
+                        cn, cv = pair.split("=", 1)
+                        cn = cn.strip()
+                        if self._is_forced_point("cookie", cn):
+                            candidates.append((cn, "param_cookie", cv.strip()))
+            elif hl not in SKIP:
+                if self._is_forced_point("header", hname):
+                    candidates.append((hname, "param_header", hval))
 
         return candidates
 
@@ -999,6 +1037,37 @@ class NoSqliScanMixin:
                 new_url = urllib.parse.urlunparse(parsed._replace(query=new_query))
                 resp = self.send_request_with_traffic(
                     new_url, clean_headers, method=method,
+                    body=body_content,
+                    payload=payload[:80], payload_type=label or "NoSQLi"
+                )
+            elif param_type == "param_header":
+                # Inject into an HTTP header value
+                injected = dict(clean_headers)
+                injected[param_name] = payload
+                resp = self.send_request_with_traffic(
+                    full_url, injected, method=method,
+                    body=body_content,
+                    payload=payload[:80], payload_type=label or "NoSQLi"
+                )
+            elif param_type == "param_cookie":
+                # Inject into a specific cookie value inside the Cookie header
+                injected = dict(clean_headers)
+                cookie_hdr = injected.get("Cookie", "")
+                # Find the original header name casing
+                for k in headers:
+                    if k.lower() == "cookie":
+                        cookie_hdr = headers[k]
+                        break
+                cookies_dict = {}
+                for pair in cookie_hdr.split(";"):
+                    pair = pair.strip()
+                    if "=" in pair:
+                        cn, cv = pair.split("=", 1)
+                        cookies_dict[cn.strip()] = cv.strip()
+                cookies_dict[param_name] = payload
+                injected["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies_dict.items())
+                resp = self.send_request_with_traffic(
+                    full_url, injected, method=method,
                     body=body_content,
                     payload=payload[:80], payload_type=label or "NoSQLi"
                 )

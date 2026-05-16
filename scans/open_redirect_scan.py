@@ -333,6 +333,17 @@ class OpenRedirectScanMixin:
                 if self._is_forced_point("body", pname):
                     candidates.append({"type": "body", "name": pname, "value": val})
 
+        # Always collect forced header / cookie injection points
+        _SKIP_HDR = {"host", "content-length", "transfer-encoding",
+                     "connection", "accept-encoding", "cookie"}
+        for hname, hval in headers.items():
+            if hname.lower() not in _SKIP_HDR and self._is_forced_point("header", hname):
+                candidates.append({"type": "header", "name": hname, "value": hval})
+
+        for cname, cval in cookies.items():
+            if self._is_forced_point("cookie", cname):
+                candidates.append({"type": "cookie", "name": cname, "value": cval})
+
         if not candidates:
             results["summary"] = "No redirect parameters found to test."
             return
@@ -342,6 +353,9 @@ class OpenRedirectScanMixin:
         # Build base request headers (copy original, drop infra headers)
         req_headers = {k: v for k, v in headers.items()
                        if k.lower() not in ("host", "content-length", "transfer-encoding")}
+        # Reconstruct Cookie header so every probe carries the original session cookies
+        if cookies:
+            req_headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
 
         # Baseline: one request to get baseline status/location
         baseline_status, baseline_location = self._redirect_baseline(
@@ -417,6 +431,15 @@ class OpenRedirectScanMixin:
                 payload_val=payload_val,
             )
 
+            # Build per-probe headers — inject into header/cookie if selected
+            probe_headers = dict(req_headers)
+            if candidate["type"] == "header":
+                probe_headers[candidate["name"]] = payload_val
+            elif candidate["type"] == "cookie":
+                cookie_copy = dict(cookies)
+                cookie_copy[candidate["name"]] = payload_val
+                probe_headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookie_copy.items())
+
             stats["payloads_sent"] += 1
 
             if self.scan_req_delay:
@@ -425,7 +448,7 @@ class OpenRedirectScanMixin:
             try:
                 resp = self.send_request_with_traffic(
                     url=probe_url,
-                    headers=req_headers,
+                    headers=probe_headers,
                     method=method,
                     body=probe_body,
                     payload=payload_val,
@@ -497,6 +520,10 @@ class OpenRedirectScanMixin:
                 parsed_url._replace(query=new_qs)
             )
             return probe_url, body_content
+
+        elif candidate["type"] in ("header", "cookie"):
+            # Injection is handled via probe_headers in _probe_param; URL/body unchanged
+            return base_url, body_content
 
         else:  # body param
             probe_url = base_url

