@@ -920,6 +920,10 @@ class TaskWorker(QThread):
         self._processes: List[subprocess.Popen] = []
         self._process_lock = threading.Lock()
 
+        # Fork subprocess IPC: set in run(), consumed by _emit()/_status()/_done()
+        self._ipc_queue = None      # multiprocessing.Queue (child writes, parent reads)
+        self._fork_process = None   # multiprocessing.Process handle
+
         # Create task output directory FIRST (before setting output_file)
         self.task_dir = os.path.join(project_dir, "tasks", self.task_id)
         os.makedirs(self.task_dir, exist_ok=True)
@@ -927,6 +931,72 @@ class TaskWorker(QThread):
         self.raw_output_file = os.path.join(self.task_dir, "output.raw.log")  # Store raw output
 
     def run(self):
+        """Fork a child process to execute the tool, then relay its output as Qt signals."""
+        import multiprocessing as _mp
+        import queue as _stdlib_queue
+
+        ctx = _mp.get_context('fork')
+        q = ctx.Queue()
+        # Set queue BEFORE start() so the forked child inherits it via os.fork()
+        self._ipc_queue = q
+        self._fork_process = ctx.Process(target=self._execute_task, daemon=True)
+        self._fork_process.start()
+        # Parent must NOT use _ipc_queue — clear it so signals go through Qt normally
+        self._ipc_queue = None
+
+        _got_done = False
+        while True:
+            try:
+                msg = q.get(timeout=0.1)
+                if msg is None:  # sentinel from _done()
+                    break
+                kind = msg[0]
+                if kind == 'output':
+                    self._emit(msg[1])
+                elif kind == 'status':
+                    self._status(msg[1], msg[2])
+                elif kind == 'done':
+                    self._done_complete(msg[1], msg[2])
+                    _got_done = True
+                    # Drain the sentinel that _done() puts after 'done'
+                    try:
+                        q.get(timeout=0.5)
+                    except _stdlib_queue.Empty:
+                        pass
+                    break
+            except _stdlib_queue.Empty:
+                if not self._fork_process.is_alive():
+                    # Child exited without a clean _done() — drain leftovers
+                    while True:
+                        try:
+                            msg = q.get_nowait()
+                            if msg is None:
+                                break
+                            kind = msg[0]
+                            if kind == 'output':
+                                self._emit(msg[1])
+                            elif kind == 'status':
+                                self._status(msg[1], msg[2])
+                            elif kind == 'done':
+                                self._done_complete(msg[1], msg[2])
+                                _got_done = True
+                        except _stdlib_queue.Empty:
+                            break
+                    break
+
+        if not _got_done:
+            self._done_complete(False, "")
+
+        if self._fork_process.is_alive():
+            self._fork_process.terminate()
+            self._fork_process.join(timeout=5)
+
+    def _execute_task(self):
+        """Runs inside the forked child process — no Qt signal calls allowed here."""
+        try:
+            os.setsid()  # New session so stop() can kill the whole process group
+        except OSError:
+            pass
         try:
             tool = self.task_data["tool"]
             dispatch = {
@@ -967,16 +1037,24 @@ class TaskWorker(QThread):
             if fn:
                 fn(self.output_file)
             else:
-                self.status_changed.emit(self.task_id, "error", f"Unknown tool: {tool}")
-                self.task_completed.emit(self.task_id, False, "")
+                self._done(False, "", f"Unknown tool: {tool}")
         except Exception as e:
             logger.error(f"Task execution error: {e}", exc_info=True)
-            self.status_changed.emit(self.task_id, "error", str(e))
-            self.task_completed.emit(self.task_id, False, "")
+            self._done(False, "", str(e))
 
     def stop(self):
         self._is_running = False
-        # FIX 1: Terminate every tracked process, not just the last one.
+        # Kill the forked process and its entire process group (tool subprocesses)
+        if self._fork_process is not None and self._fork_process.is_alive():
+            try:
+                import signal as _signal
+                os.killpg(os.getpgid(self._fork_process.pid), _signal.SIGTERM)
+            except Exception:
+                try:
+                    self._fork_process.terminate()
+                except Exception:
+                    pass
+        # Safety net: also terminate any directly registered subprocesses
         with self._process_lock:
             procs = list(self._processes)
         for proc in procs:
@@ -1022,7 +1100,7 @@ class TaskWorker(QThread):
           8. httpx        — live URL validation / dedup (optional)
           9. paramspider  — parameter discovery from final URL list
         """
-        self.status_changed.emit(self.task_id, "running", "Starting spider…")
+        self._status("running", "Starting spider…")
         domain   = self.task_data["domain"]
         cookie   = validate_cookie(self.task_data.get("cookie", ""))
         proxy    = self.task_data.get("proxy", "")
@@ -1043,70 +1121,63 @@ class TaskWorker(QThread):
 
         # ── Step 1: sitemap.xml (pure Python) ──────────────────────────────
         if self._is_running:
-            self.status_changed.emit(self.task_id, "running", "Fetching sitemap.xml…")
+            self._status("running", "Fetching sitemap.xml…")
             sitemap_urls = self._fetch_sitemap_urls(domain)
             if sitemap_urls:
                 raw_urls.update(sitemap_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] sitemap.xml: {len(sitemap_urls)} URLs"
+                self._emit(f"[✓] sitemap.xml: {len(sitemap_urls)} URLs"
                 )
 
         # ── Step 2: gospider ───────────────────────────────────────────────
         if self._is_running:
-            self.status_changed.emit(self.task_id, "running", "Running gospider…")
+            self._status("running", "Running gospider…")
             gs_urls = self._run_gospider_tool(domain, temp_gospider_dir, cookie, proxy)
             if gs_urls:
                 raw_urls.update(gs_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] gospider: {len(gs_urls)} URLs"
+                self._emit(f"[✓] gospider: {len(gs_urls)} URLs"
                 )
 
         # ── Step 3: katana (optional) ──────────────────────────────────────
         if self._is_running and check_tool_available("katana"):
-            self.status_changed.emit(self.task_id, "running", "Running katana…")
+            self._status("running", "Running katana…")
             ok = self._run_katana_tool(domain, cookie, proxy, temp_katana)
             if ok and os.path.exists(temp_katana):
                 with open(temp_katana) as f:
                     kt_urls = {l.strip() for l in f if l.strip()}
                 raw_urls.update(kt_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] katana: {len(kt_urls)} URLs"
+                self._emit(f"[✓] katana: {len(kt_urls)} URLs"
                 )
 
         # ── Step 4: hakrawler (optional) ───────────────────────────────────
         if self._is_running and check_tool_available("hakrawler"):
-            self.status_changed.emit(self.task_id, "running", "Running hakrawler…")
+            self._status("running", "Running hakrawler…")
             hak_urls = self._run_hakrawler_tool(domain, cookie, proxy)
             if hak_urls:
                 with open(temp_hakrawler, "w") as f:
                     f.write("\n".join(hak_urls))
                 raw_urls.update(hak_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] hakrawler: {len(hak_urls)} URLs"
+                self._emit(f"[✓] hakrawler: {len(hak_urls)} URLs"
                 )
 
         # ── Step 5: cariddi (headless SPA) ────────────────────────────────
         if self._is_running:
-            self.status_changed.emit(self.task_id, "running", "Running cariddi (SPA crawl)…")
+            self._status("running", "Running cariddi (SPA crawl)…")
             ca_urls = self._run_cariddi_tool(domain, temp_cariddi, cookie, proxy)
             if ca_urls:
                 raw_urls.update(ca_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] cariddi: {len(ca_urls)} URLs"
+                self._emit(f"[✓] cariddi: {len(ca_urls)} URLs"
                 )
 
         # ── Step 6: roboxtractor (optional fallback) ───────────────────────
         if self._is_running and check_tool_available("roboxtractor"):
-            self.status_changed.emit(self.task_id, "running", "Checking robots.txt…")
+            self._status("running", "Checking robots.txt…")
             robots_urls = self._run_roboxtractor(domain, temp_robots)
             if robots_urls:
                 raw_urls.update(robots_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] roboxtractor: {len(robots_urls)} URLs"
+                self._emit(f"[✓] roboxtractor: {len(robots_urls)} URLs"
                 )
 
-        self.output_received.emit(
-            self.task_id, f"[*] Raw collected: {len(raw_urls)} unique URLs"
+        self._emit(f"[*] Raw collected: {len(raw_urls)} unique URLs"
         )
 
         # ── Step 7: linkfinder on .js files ───────────────────────────────
@@ -1115,22 +1186,19 @@ class TaskWorker(QThread):
             if js_urls:
                 with open(temp_js_list, "w") as f:
                     f.write("\n".join(js_urls))
-                self.status_changed.emit(
-                    self.task_id, "running",
+                self._status("running",
                     f"Running linkfinder on {len(js_urls)} JS files…"
                 )
                 lf_endpoints = self._run_linkfinder_tool(js_urls, tools_dir, domain)
                 if lf_endpoints:
                     raw_urls.update(lf_endpoints)
-                    self.output_received.emit(
-                        self.task_id,
-                        f"[✓] linkfinder: {len(lf_endpoints)} endpoints from JS files"
+                    self._emit(f"[✓] linkfinder: {len(lf_endpoints)} endpoints from JS files"
                     )
 
         # ── Step 8: httpx validation ───────────────────────────────────────
         if self._is_running and raw_urls:
             if check_tool_available("httpx"):
-                self.status_changed.emit(self.task_id, "running", "Validating with httpx…")
+                self._status("running", "Validating with httpx…")
                 self._run_httpx_validation_from_list(
                     list(raw_urls), temp_validated, cookie, proxy
                 )
@@ -1140,31 +1208,25 @@ class TaskWorker(QThread):
                             u = line.strip()
                             if u:
                                 final_urls.add(u)
-                    self.output_received.emit(
-                        self.task_id, f"[✓] httpx validated: {len(final_urls)} live URLs"
+                    self._emit(f"[✓] httpx validated: {len(final_urls)} live URLs"
                     )
                 else:
                     final_urls = raw_urls
             else:
                 # httpx not installed — use raw results
-                self.output_received.emit(
-                    self.task_id,
-                    "[!] httpx not found — skipping validation, using raw URLs"
+                self._emit("[!] httpx not found — skipping validation, using raw URLs"
                 )
-                self.output_received.emit(
-                    self.task_id,
-                    f"    Install: {TOOL_INSTALL_GUIDES.get('httpx', '')}"
+                self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('httpx', '')}"
                 )
                 final_urls = raw_urls
 
         # ── Step 9: paramspider ────────────────────────────────────────────
         if self._is_running and check_tool_available("paramspider"):
-            self.status_changed.emit(self.task_id, "running", "Running paramspider…")
+            self._status("running", "Running paramspider…")
             param_urls = self._run_paramspider_tool(domain, temp_params)
             if param_urls:
                 final_urls.update(param_urls)
-                self.output_received.emit(
-                    self.task_id, f"[✓] paramspider: {len(param_urls)} parameterised URLs"
+                self._emit(f"[✓] paramspider: {len(param_urls)} parameterised URLs"
                 )
 
         # ── Final: write output ────────────────────────────────────────────
@@ -1172,25 +1234,22 @@ class TaskWorker(QThread):
             with open(output_file, "w") as f:
                 for u in sorted(final_urls):
                     f.write(f"{u}\n")
-            self.output_received.emit(
-                self.task_id, f"[✓] {len(final_urls)} unique URLs total"
+            self._emit(f"[✓] {len(final_urls)} unique URLs total"
             )
             for u in sorted(final_urls)[:10]:
-                self.output_received.emit(self.task_id, u)
+                self._emit(u)
             if len(final_urls) > 10:
-                self.output_received.emit(
-                    self.task_id, f"… and {len(final_urls) - 10} more"
+                self._emit(f"… and {len(final_urls) - 10} more"
                 )
             if self._is_running:
-                self.status_changed.emit(
-                    self.task_id, "completed", f"Found {len(final_urls)} URLs"
+                self._status("completed", f"Found {len(final_urls)} URLs"
                 )
-            self.task_completed.emit(self.task_id, True, output_file)
+            self._done_complete(True, output_file)
         else:
-            self.output_received.emit(self.task_id, "[!] No URLs found")
+            self._emit("[!] No URLs found")
             if self._is_running:
-                self.status_changed.emit(self.task_id, "completed", "No URLs found")
-            self.task_completed.emit(self.task_id, True, "")
+                self._status("completed", "No URLs found")
+            self._done_complete(True, "")
 
     def _run_katana_tool(self, domain: str, cookie: str, proxy: str, output_file: str) -> bool:
         cookie = validate_cookie(cookie)  # FIX 6
@@ -1214,7 +1273,7 @@ class TaskWorker(QThread):
                 try:
                     for line in proc.stderr:
                         if line.strip():
-                            self.output_received.emit(self.task_id, f"[katana] {line.strip()}")
+                            self._emit(f"[katana] {line.strip()}")
                         if not self._is_running:
                             proc.terminate()
                             return False
@@ -1223,11 +1282,11 @@ class TaskWorker(QThread):
                 finally:
                     self._unregister_process(proc)  # FIX 1
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, f"[!] katana not found in PATH")
-            self.output_received.emit(self.task_id, f"    Install: {TOOL_INSTALL_GUIDES.get('katana', 'go install')}")
+            self._emit(f"[!] katana not found in PATH")
+            self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('katana', 'go install')}")
             return False
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] Katana error: {e}")
+            self._emit(f"[!] Katana error: {e}")
             return False
 
     def _run_hakrawler_tool(self, domain: str, cookie: str, proxy: str) -> List[str]:
@@ -1252,20 +1311,20 @@ class TaskWorker(QThread):
                 self._unregister_process(proc)  # FIX 1
             if proc.returncode == 0 and stdout:
                 urls = [l.strip() for l in stdout.split("\n") if l.strip() and domain in l]
-                self.output_received.emit(self.task_id, f"[✓] Hakrawler found {len(urls)} URLs")
+                self._emit(f"[✓] Hakrawler found {len(urls)} URLs")
                 return urls
             if stderr:
-                self.output_received.emit(self.task_id, f"[hakrawler] {stderr.strip()}")
+                self._emit(f"[hakrawler] {stderr.strip()}")
             return []
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, f"[!] hakrawler not found in PATH")
-            self.output_received.emit(self.task_id, f"    Install: {TOOL_INSTALL_GUIDES.get('hakrawler', 'go install')}")
+            self._emit(f"[!] hakrawler not found in PATH")
+            self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('hakrawler', 'go install')}")
             return []
         except subprocess.TimeoutExpired:
-            self.output_received.emit(self.task_id, "[!] hakrawler timeout")
+            self._emit("[!] hakrawler timeout")
             return []
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] Hakrawler error: {e}")
+            self._emit(f"[!] Hakrawler error: {e}")
             return []
 
     def _fetch_sitemap_urls(self, domain: str) -> List[str]:
@@ -1338,14 +1397,14 @@ class TaskWorker(QThread):
                         pass
             return list(urls)
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, "[!] gospider not found in PATH")
-            self.output_received.emit(self.task_id, f"    Install: {TOOL_INSTALL_GUIDES.get('gospider', '')}")
+            self._emit("[!] gospider not found in PATH")
+            self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('gospider', '')}")
             return []
         except subprocess.TimeoutExpired:
-            self.output_received.emit(self.task_id, "[!] gospider timeout")
+            self._emit("[!] gospider timeout")
             return []
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] gospider error: {e}")
+            self._emit(f"[!] gospider error: {e}")
             return []
 
     def _run_cariddi_tool(self, domain: str, output_file: str,
@@ -1379,14 +1438,14 @@ class TaskWorker(QThread):
                             urls.add(line)
             return list(urls)
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, "[!] cariddi not found in PATH")
-            self.output_received.emit(self.task_id, f"    Install: {TOOL_INSTALL_GUIDES.get('cariddi', '')}")
+            self._emit("[!] cariddi not found in PATH")
+            self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('cariddi', '')}")
             return []
         except subprocess.TimeoutExpired:
-            self.output_received.emit(self.task_id, "[!] cariddi timeout")
+            self._emit("[!] cariddi timeout")
             return []
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] cariddi error: {e}")
+            self._emit(f"[!] cariddi error: {e}")
             return []
 
     def _run_linkfinder_tool(self, js_urls: List[str], tools_dir: str,
@@ -1451,14 +1510,14 @@ class TaskWorker(QThread):
                     urls.add(line)
             return list(urls)
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, "[!] paramspider not found in PATH")
-            self.output_received.emit(self.task_id, f"    Install: {TOOL_INSTALL_GUIDES.get('paramspider', '')}")
+            self._emit("[!] paramspider not found in PATH")
+            self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('paramspider', '')}")
             return []
         except subprocess.TimeoutExpired:
-            self.output_received.emit(self.task_id, "[!] paramspider timeout")
+            self._emit("[!] paramspider timeout")
             return []
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] paramspider error: {e}")
+            self._emit(f"[!] paramspider error: {e}")
             return []
 
     def _run_httpx_validation(self, input_file: str, output_file: str, cookie: str, proxy: str):
@@ -1480,7 +1539,7 @@ class TaskWorker(QThread):
                 try:
                     for line in proc.stderr:
                         if line.strip():
-                            self.output_received.emit(self.task_id, f"[httpx] {line.strip()}")
+                            self._emit(f"[httpx] {line.strip()}")
                         if not self._is_running:
                             proc.terminate()
                             return
@@ -1488,10 +1547,10 @@ class TaskWorker(QThread):
                 finally:
                     self._unregister_process(proc)  # FIX 1
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, f"[!] httpx not found in PATH")
-            self.output_received.emit(self.task_id, f"    Install: {TOOL_INSTALL_GUIDES.get('httpx', 'go install')}")
+            self._emit(f"[!] httpx not found in PATH")
+            self._emit(f"    Install: {TOOL_INSTALL_GUIDES.get('httpx', 'go install')}")
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] httpx error: {e}")
+            self._emit(f"[!] httpx error: {e}")
 
     def _run_httpx_validation_from_list(self, urls: List[str], output_file: str, cookie: str, proxy: str):
         cookie = validate_cookie(cookie)  # FIX 6
@@ -1519,14 +1578,14 @@ class TaskWorker(QThread):
             if stderr:
                 for line in stderr.split("\n"):
                     if line.strip():
-                        self.output_received.emit(self.task_id, f"[httpx] {line.strip()}")
+                        self._emit(f"[httpx] {line.strip()}")
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] httpx error: {e}")
+            self._emit(f"[!] httpx error: {e}")
 
     def _run_roboxtractor(self, domain: str, temp_file: str) -> List[str]:
         """Run roboxtractor to extract URLs from robots.txt. Returns list of raw URLs."""
         try:
-            self.output_received.emit(self.task_id, f"[*] Extracting URLs from robots.txt for {domain}…")
+            self._emit(f"[*] Extracting URLs from robots.txt for {domain}…")
             cmd = ["roboxtractor", "-u", domain, "-s", "-m", "0"]
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
@@ -1542,16 +1601,16 @@ class TaskWorker(QThread):
                     f.write("\n".join(urls))
                 return urls
             if stderr and "not found" not in stderr.lower():
-                self.output_received.emit(self.task_id, f"[!] roboxtractor: {stderr.strip()[:200]}")
+                self._emit(f"[!] roboxtractor: {stderr.strip()[:200]}")
             return []
         except FileNotFoundError:
-            self.output_received.emit(self.task_id, "[!] roboxtractor not found in PATH — skipping robots.txt")
+            self._emit("[!] roboxtractor not found in PATH — skipping robots.txt")
             return []
         except subprocess.TimeoutExpired:
-            self.output_received.emit(self.task_id, "[!] roboxtractor timeout")
+            self._emit("[!] roboxtractor timeout")
             return []
         except Exception as e:
-            self.output_received.emit(self.task_id, f"[!] roboxtractor error: {e}")
+            self._emit(f"[!] roboxtractor error: {e}")
             return []
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1559,7 +1618,26 @@ class TaskWorker(QThread):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _emit(self, line: str):
-        self.output_received.emit(self.task_id, line)
+        """Emit an output line — uses IPC queue in forked child, Qt signal in parent."""
+        if self._ipc_queue is not None:
+            self._ipc_queue.put(('output', line))
+        else:
+            self.output_received.emit(self.task_id, line)
+
+    def _status(self, status: str, msg: str):
+        """Emit a status update — uses IPC queue in forked child, Qt signal in parent."""
+        if self._ipc_queue is not None:
+            self._ipc_queue.put(('status', status, msg))
+        else:
+            self.status_changed.emit(self.task_id, status, msg)
+
+    def _done_complete(self, success: bool, file_path: str = ""):
+        """Emit task_completed — works in both forked child and parent QThread."""
+        if self._ipc_queue is not None:
+            self._ipc_queue.put(('done', success, file_path))
+            self._ipc_queue.put(None)  # sentinel
+        else:
+            self.task_completed.emit(self.task_id, success, file_path)
 
     @staticmethod
     def _read_file_static(path: str) -> str:
@@ -1571,8 +1649,15 @@ class TaskWorker(QThread):
 
     def _done(self, success: bool, file_path: str = "", msg: str = ""):
         status = "completed" if success else "error"
-        self.status_changed.emit(self.task_id, status, msg or ("Done" if success else "Failed"))
-        self.task_completed.emit(self.task_id, success, file_path)
+        msg_final = msg or ("Done" if success else "Failed")
+        if self._ipc_queue is not None:
+            # Running inside the forked child — send via IPC queue; None is sentinel
+            self._ipc_queue.put(('status', status, msg_final))
+            self._ipc_queue.put(('done', success, file_path))
+            self._ipc_queue.put(None)
+        else:
+            self.status_changed.emit(self.task_id, status, msg_final)
+            self.task_completed.emit(self.task_id, success, file_path)
 
     def _run_cmd_to_file(self, cmd: List[str], output_file: str,
                          strip_ansi: bool = True, timeout: int = 600) -> bool:
@@ -1912,7 +1997,7 @@ class TaskWorker(QThread):
 
     def _run_ipinfo(self, output_file: str):
         domain = self.task_data["domain"]
-        self.status_changed.emit(self.task_id, "running", "Querying ipinfo…")
+        self._status("running", "Querying ipinfo…")
         runner = IpinfoRunner()
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -1925,7 +2010,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         proxy  = self.task_data.get("proxy", "")
-        self.status_changed.emit(self.task_id, "running", "Fetching HTTP headers…")
+        self._status("running", "Fetching HTTP headers…")
         runner = HeadersRunner()
         cmd = runner.build_command(domain, cookie, proxy)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -1935,7 +2020,7 @@ class TaskWorker(QThread):
 
     def _run_tech(self, output_file: str):
         domain = self.task_data["domain"]
-        self.status_changed.emit(self.task_id, "running", "Detecting technologies…")
+        self._status("running", "Detecting technologies…")
         runner = TechRunner()
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -1945,7 +2030,7 @@ class TaskWorker(QThread):
 
     def _run_waf(self, output_file: str):
         domain = self.task_data["domain"]
-        self.status_changed.emit(self.task_id, "running", "Detecting WAF…")
+        self._status("running", "Detecting WAF…")
         runner = WafRunner()
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -1955,7 +2040,7 @@ class TaskWorker(QThread):
 
     def _run_cms(self, output_file: str):
         domain = self.task_data["domain"]
-        self.status_changed.emit(self.task_id, "running", "Detecting CMS…")
+        self._status("running", "Detecting CMS…")
         runner = CmsRunner()
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -1965,7 +2050,7 @@ class TaskWorker(QThread):
 
     def _run_ports(self, output_file: str):
         domain = self.task_data["domain"]
-        self.status_changed.emit(self.task_id, "running", "Port scanning…")
+        self._status("running", "Port scanning…")
         runner = NmapRunner()
         cmd = runner.build_command(domain, output_file)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -2142,7 +2227,7 @@ class TaskWorker(QThread):
             self._emit(f"[*] Proxy filter enabled — tools will run without proxy")
             self._emit(f"[*] Only interesting status codes will be replayed through {proxy}")
 
-        self.status_changed.emit(self.task_id, "running", "Collecting archive URLs…")
+        self._status("running", "Collecting archive URLs…")
 
         d          = self.task_dir
         wayback_f  = os.path.join(d, ".wayback.txt")
@@ -2241,7 +2326,7 @@ class TaskWorker(QThread):
         if domain_urls:
             if proxy_replay and proxy:
                 # ── Idea 1: probe without proxy → filter → replay through proxy ──
-                self.status_changed.emit(self.task_id, "running",
+                self._status("running",
                                          "Filtering status codes + proxy replay…")
                 live_lines = self._proxy_replay(domain_urls, proxy, cookie,
                                                 label="archive proxy-replay")
@@ -2249,7 +2334,7 @@ class TaskWorker(QThread):
                     fout.write("\n".join(live_lines))
             else:
                 # ── Normal path: all URLs through httpx with proxy ───────────────
-                self.status_changed.emit(self.task_id, "running",
+                self._status("running",
                                          "Validating live URLs with httpx…")
                 self._emit("[*] Running httpx to filter live URLs…")
                 try:
@@ -2284,7 +2369,7 @@ class TaskWorker(QThread):
         wordlist_extra = self.task_data.get("wordlist", "")
         runner         = BruteforceRunner()
 
-        self.status_changed.emit(self.task_id, "running", "Building wordlist…")
+        self._status("running", "Building wordlist…")
         self._emit(f"[*] Content bruteforce starting for https://{domain}")
 
         # Use configured Seclists path if available, otherwise auto-detect
@@ -2353,7 +2438,7 @@ class TaskWorker(QThread):
             self._emit(f"[*] Proxy filter enabled — feroxbuster runs without proxy")
             self._emit(f"[*] Interesting status codes will be replayed through {proxy}")
 
-        self.status_changed.emit(self.task_id, "running", "Running feroxbuster…")
+        self._status("running", "Running feroxbuster…")
         cmd = runner.build_command(domain, custom_wl, ferox_out, cookie, ferox_proxy)
         self._emit(f"[*] Running: feroxbuster -u https://{domain} ...")
         self._run_cmd_to_file(cmd, output_file, timeout=7200)
@@ -2370,7 +2455,7 @@ class TaskWorker(QThread):
 
         # ── Proxy-replay step (only when opted in and proxy is set) ──────────
         if proxy_replay and proxy and self._has_output(output_file):
-            self.status_changed.emit(self.task_id, "running",
+            self._status("running",
                                      "Filtering status codes + proxy replay…")
             # Parse URLs out of the formatted feroxbuster output
             raw_urls: list = []
@@ -2398,7 +2483,7 @@ class TaskWorker(QThread):
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         proxy  = self.task_data.get("proxy", "")
         runner = NucleiRunner()
-        self.status_changed.emit(self.task_id, "running", "Running nuclei…")
+        self._status("running", "Running nuclei…")
 
         # nuclei -o writes raw findings to raw_file.
         # _run_cmd_to_file streams stdout (progress/errors) to a separate .live file
@@ -2428,7 +2513,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         proxy  = self.task_data.get("proxy", "")
         runner = NiktoRunner()
-        self.status_changed.emit(self.task_id, "running", "Running nikto…")
+        self._status("running", "Running nikto…")
 
         # build_command no longer takes output_file — stdout is captured directly
         # by _run_cmd_to_file so nikto never sees a .log extension it would reject
@@ -2444,7 +2529,7 @@ class TaskWorker(QThread):
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         proxy  = self.task_data.get("proxy", "")
         runner = WpscanRunner()
-        self.status_changed.emit(self.task_id, "running", "Running wpscan…")
+        self._status("running", "Running wpscan…")
 
         cmd = runner.build_command(domain, output_file, cookie, proxy)
         self._emit(f"[*] Running: wpscan --url {domain} ...")
@@ -2467,7 +2552,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         runner = JoomscanRunner()
-        self.status_changed.emit(self.task_id, "running", "Running joomscan…")
+        self._status("running", "Running joomscan…")
 
         cmd = runner.build_command(domain, cookie)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -2479,7 +2564,7 @@ class TaskWorker(QThread):
     def _run_droopescan(self, output_file: str):
         domain = self.task_data["domain"]
         runner = DroopescanRunner()
-        self.status_changed.emit(self.task_id, "running", "Running droopescan…")
+        self._status("running", "Running droopescan…")
 
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: {' '.join(cmd)}")
@@ -2493,7 +2578,7 @@ class TaskWorker(QThread):
         domain       = self.task_data["domain"]
         github_token = self.task_data.get("github_token", "")
         runner       = SubdomainRunner()
-        self.status_changed.emit(self.task_id, "running", "Enumerating 4th-level subdomains…")
+        self._status("running", "Enumerating 4th-level subdomains…")
 
         d           = self.task_dir
         amass_f     = os.path.join(d, ".amass4.txt")
@@ -2612,7 +2697,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import WhoisRunner
         runner = WhoisRunner()
-        self.status_changed.emit(self.task_id, "running", "Running whois…")
+        self._status("running", "Running whois…")
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: whois {domain}")
         ok = self._run_cmd_to_file(cmd, output_file)
@@ -2629,7 +2714,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import GoogleDorksRunner
         runner = GoogleDorksRunner()
-        self.status_changed.emit(self.task_id, "running", "Running Google dorks…")
+        self._status("running", "Running Google dorks…")
         # dorks_hunter writes directly to output_file
         tools_dir = self.task_data.get("tools_dir", os.path.expanduser("~/tools"))
         cmd = runner.build_command(domain, tools_dir, output_file)
@@ -2650,7 +2735,7 @@ class TaskWorker(QThread):
         github_token = self.task_data.get("github_token", "")
         from tool_runners import GithubDorksRunner
         runner = GithubDorksRunner()
-        self.status_changed.emit(self.task_id, "running", "Running GitHub dorks…")
+        self._status("running", "Running GitHub dorks…")
         if not github_token:
             self._emit("[!] No GitHub token provided — skipping github dorks")
             with open(output_file, "w") as f:
@@ -2679,7 +2764,7 @@ class TaskWorker(QThread):
         github_token = self.task_data.get("github_token", "")
         from tool_runners import TrufflehogRunner
         runner = TrufflehogRunner()
-        self.status_changed.emit(self.task_id, "running", "Scanning GitHub secrets (trufflehog)…")
+        self._status("running", "Scanning GitHub secrets (trufflehog)…")
         if not github_token:
             self._emit("[!] No GitHub token — skipping trufflehog")
             with open(output_file, "w") as f:
@@ -2702,7 +2787,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import EmailfinderRunner
         runner = EmailfinderRunner()
-        self.status_changed.emit(self.task_id, "running", "Discovering emails…")
+        self._status("running", "Discovering emails…")
         cmd = runner.build_command(domain)
         self._emit(f"[*] Running: emailfinder -d {domain}")
         ok = self._run_cmd_to_file(cmd, output_file + ".raw", timeout=300)
@@ -2720,7 +2805,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import MetafinderRunner
         runner = MetafinderRunner()
-        self.status_changed.emit(self.task_id, "running", "Extracting metadata…")
+        self._status("running", "Extracting metadata…")
         meta_dir = os.path.join(self.task_dir, "metadata")
         os.makedirs(meta_dir, exist_ok=True)
         cmd = runner.build_command(domain, meta_dir)
@@ -2738,7 +2823,7 @@ class TaskWorker(QThread):
         censys_secret = self.task_data.get("censys_secret", "")
         from tool_runners import PassiveSubdomainsRunner
         runner = PassiveSubdomainsRunner()
-        self.status_changed.emit(self.task_id, "running", "Passive subdomain enumeration…")
+        self._status("running", "Passive subdomain enumeration…")
 
         d = self.task_dir
         amass_f     = os.path.join(d, ".amass_passive.txt")
@@ -2843,7 +2928,7 @@ class TaskWorker(QThread):
 
         from tool_runners import ActiveSubdomainsRunner
         runner = ActiveSubdomainsRunner()
-        self.status_changed.emit(self.task_id, "running", "Brute-forcing subdomains (gobuster dns)…")
+        self._status("running", "Brute-forcing subdomains (gobuster dns)…")
 
         # ── Resolve seclists dir ──────────────────────────────────────────────
         seclists = self.task_data.get("seclists_dir", "")
@@ -2925,7 +3010,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import AltdnsRunner
         runner = AltdnsRunner()
-        self.status_changed.emit(self.task_id, "running", "Guessing subdomains (altdns)…")
+        self._status("running", "Guessing subdomains (altdns)…")
         # Need a base subdomain list from a previous passive/active task
         passive_out = self._find_best_subdomain_list(domain)
         if not passive_out:
@@ -2953,7 +3038,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import HttpxLiveRunner
         runner = HttpxLiveRunner()
-        self.status_changed.emit(self.task_id, "running", "Checking live subdomains (httpx)…")
+        self._status("running", "Checking live subdomains (httpx)…")
         # Find best available subdomain list
         input_file = self._find_best_subdomain_list(domain)
         if not input_file:
@@ -2985,7 +3070,7 @@ class TaskWorker(QThread):
 
         from tool_runners import VhostRunner
         runner = VhostRunner()
-        self.status_changed.emit(self.task_id, "running", "VHost discovery (ffuf)…")
+        self._status("running", "VHost discovery (ffuf)…")
         # Resolve IP first
         try:
             import socket
@@ -3007,7 +3092,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import Byp4xxRunner
         runner = Byp4xxRunner()
-        self.status_changed.emit(self.task_id, "running", "Running 40x bypass (byp4xx)…")
+        self._status("running", "Running 40x bypass (byp4xx)…")
         live_out = self._find_best_subdomain_list(domain)
         if not live_out:
             self._emit("[!] No live subdomains found — run a subdomain enumeration task first")
@@ -3043,7 +3128,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import SubjackRunner
         runner = SubjackRunner()
-        self.status_changed.emit(self.task_id, "running", "Scanning for subdomain takeovers (subjack)…")
+        self._status("running", "Scanning for subdomain takeovers (subjack)…")
         live_out = self._find_final_subdomain_list(domain)
         if not live_out:
             self._emit("[!] No subdomain list found to check for takeovers")
@@ -3066,7 +3151,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import SmapRunner
         runner = SmapRunner()
-        self.status_changed.emit(self.task_id, "running", "Port scanning all subdomains (smap)…")
+        self._status("running", "Port scanning all subdomains (smap)…")
         live_out = self._find_final_subdomain_list(domain)
         if not live_out:
             self._emit("[!] No subdomain list found to scan")
@@ -3092,7 +3177,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import CloudEnumRunner
         runner = CloudEnumRunner()
-        self.status_changed.emit(self.task_id, "running", "Enumerating cloud assets (cloud_enum)…")
+        self._status("running", "Enumerating cloud assets (cloud_enum)…")
         cmd = runner.build_command(domain, output_file + ".raw")
         self._emit(f"[*] Running: cloud_enum -k {domain.split('.')[0]}")
         ok = self._run_cmd_to_file(cmd, output_file + ".live", timeout=600)
@@ -3108,7 +3193,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         from tool_runners import EyewitnessRunner
         runner = EyewitnessRunner()
-        self.status_changed.emit(self.task_id, "running", "Taking screenshots (eyewitness)…")
+        self._status("running", "Taking screenshots (eyewitness)…")
         live_out = self._find_final_subdomain_list(domain)
         if not live_out:
             self._emit("[!] No subdomain list found to screenshot")
