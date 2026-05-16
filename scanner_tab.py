@@ -1145,7 +1145,7 @@ class InjectionPointSelectorDialog(QDialog):
         qrow = QHBoxLayout()
         qrow.setSpacing(6)
 
-        for label, state in [("✅ All", True), ("☐ None", False)]:
+        for label, state in [("✅ All", True), ("❌ None", False)]:
             btn = QPushButton(label)
             btn.setMaximumWidth(80)
             btn.clicked.connect(lambda _, s=state: self._set_all(s))

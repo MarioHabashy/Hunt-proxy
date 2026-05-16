@@ -11,11 +11,24 @@ scanner tab :
 jwt tab:
     change matched logic to be Status code not length
 
-    continue algo confusion in analyzer
-    add algo confusion using brute force
+JS miner:
+    fix 
 
-    key manager when add new key any type i can paste the needed key like what done in RSA key
-    ability to edit any key after creating
+JSAnalysisWorker error for http://localhost:5173/MedRepPlanner.jsx
+Traceback (most recent call last):
+  File "/home/mario/Desktop/hunt/hunt_gui/js_miner_tab.py", line 664, in run
+    "summary":    summary,
+                      ^^^^^
+  File "/usr/lib/python3.12/concurrent/futures/_base.py", line 458, in result
+    raise TimeoutError()
+TimeoutError
 
 
-    ngrok warning msg make it not useful
+
+
+
+SSTI scan:
+    continue
+
+
+
