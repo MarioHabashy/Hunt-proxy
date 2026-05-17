@@ -1087,24 +1087,25 @@ class TaskWorker(QThread):
         """
         Spider = gospider + cariddi + katana (opt) + hakrawler (opt)
                 + sitemap.xml (pure-Python) + linkfinder (JS endpoints)
-                + paramspider (parameters) + httpx validation (opt).
+                + paramspider (parameters) + httpx liveness check.
 
-        Pipeline mirrors what ZAP/Burp do:
-          1. sitemap.xml  — pure-Python, no tool needed
-          2. gospider     — links + forms + JS + built-in sitemap/robots
-          3. katana       — deeper JS crawl (optional)
-          4. hakrawler    — additional HTML link extraction (optional)
-          5. cariddi      — headless SPA crawl (ZAP AJAX spider equivalent)
-          6. roboxtractor — robots.txt paths (optional fallback)
-          7. linkfinder   — extract hidden endpoints from collected .js files
-          8. httpx        — live URL validation / dedup (optional)
-          9. paramspider  — parameter discovery from final URL list
+        Proxy handling:
+          • ALL crawl tools run WITHOUT proxy (zero proxy noise during discovery).
+          • httpx liveness check also runs WITHOUT proxy (pure dedup/validation).
+          • If proxy is configured AND proxy_replay=True, a single selective
+            replay step is run at the very end — only URLs matching the user-
+            chosen status codes are sent through the proxy.  This prevents the
+            tool from freezing and avoids double-proxying.
         """
         self._status("running", "Starting spider…")
-        domain   = self.task_data["domain"]
-        cookie   = validate_cookie(self.task_data.get("cookie", ""))
-        proxy    = self.task_data.get("proxy", "")
-        tools_dir = self.task_data.get("tools_dir", os.path.expanduser("~/tools"))
+        domain       = self.task_data["domain"]
+        cookie       = validate_cookie(self.task_data.get("cookie", ""))
+        proxy        = self.task_data.get("proxy", "")
+        tools_dir    = self.task_data.get("tools_dir", os.path.expanduser("~/tools"))
+        proxy_replay = self.task_data.get("proxy_replay", False)
+        # Custom SC codes from dialog; None → use class default PROXY_REPLAY_CODES
+        replay_codes_raw = self.task_data.get("proxy_replay_codes", None)
+        replay_codes = frozenset(replay_codes_raw) if replay_codes_raw else None
 
         raw_urls:   set = set()   # all discovered URLs before httpx
         final_urls: set = set()   # httpx-validated or raw when httpx absent
@@ -1128,19 +1129,19 @@ class TaskWorker(QThread):
                 self._emit(f"[✓] sitemap.xml: {len(sitemap_urls)} URLs"
                 )
 
-        # ── Step 2: gospider ───────────────────────────────────────────────
+        # ── Step 2: gospider (no proxy — discovery only) ───────────────────
         if self._is_running:
             self._status("running", "Running gospider…")
-            gs_urls = self._run_gospider_tool(domain, temp_gospider_dir, cookie, proxy)
+            gs_urls = self._run_gospider_tool(domain, temp_gospider_dir, cookie, "")
             if gs_urls:
                 raw_urls.update(gs_urls)
                 self._emit(f"[✓] gospider: {len(gs_urls)} URLs"
                 )
 
-        # ── Step 3: katana (optional) ──────────────────────────────────────
+        # ── Step 3: katana (no proxy — optional) ──────────────────────────
         if self._is_running and check_tool_available("katana"):
             self._status("running", "Running katana…")
-            ok = self._run_katana_tool(domain, cookie, proxy, temp_katana)
+            ok = self._run_katana_tool(domain, cookie, "", temp_katana)
             if ok and os.path.exists(temp_katana):
                 with open(temp_katana) as f:
                     kt_urls = {l.strip() for l in f if l.strip()}
@@ -1148,10 +1149,10 @@ class TaskWorker(QThread):
                 self._emit(f"[✓] katana: {len(kt_urls)} URLs"
                 )
 
-        # ── Step 4: hakrawler (optional) ───────────────────────────────────
+        # ── Step 4: hakrawler (no proxy — optional) ────────────────────────
         if self._is_running and check_tool_available("hakrawler"):
             self._status("running", "Running hakrawler…")
-            hak_urls = self._run_hakrawler_tool(domain, cookie, proxy)
+            hak_urls = self._run_hakrawler_tool(domain, cookie, "")
             if hak_urls:
                 with open(temp_hakrawler, "w") as f:
                     f.write("\n".join(hak_urls))
@@ -1159,10 +1160,10 @@ class TaskWorker(QThread):
                 self._emit(f"[✓] hakrawler: {len(hak_urls)} URLs"
                 )
 
-        # ── Step 5: cariddi (headless SPA) ────────────────────────────────
+        # ── Step 5: cariddi (no proxy — headless SPA) ─────────────────────
         if self._is_running:
             self._status("running", "Running cariddi (SPA crawl)…")
-            ca_urls = self._run_cariddi_tool(domain, temp_cariddi, cookie, proxy)
+            ca_urls = self._run_cariddi_tool(domain, temp_cariddi, cookie, "")
             if ca_urls:
                 raw_urls.update(ca_urls)
                 self._emit(f"[✓] cariddi: {len(ca_urls)} URLs"
@@ -1195,12 +1196,12 @@ class TaskWorker(QThread):
                     self._emit(f"[✓] linkfinder: {len(lf_endpoints)} endpoints from JS files"
                     )
 
-        # ── Step 8: httpx validation ───────────────────────────────────────
+        # ── Step 8: httpx liveness check (NO proxy — pure dedup) ─────────
         if self._is_running and raw_urls:
             if check_tool_available("httpx"):
-                self._status("running", "Validating with httpx…")
+                self._status("running", "Validating with httpx (no proxy)…")
                 self._run_httpx_validation_from_list(
-                    list(raw_urls), temp_validated, cookie, proxy
+                    list(raw_urls), temp_validated, cookie, ""   # no proxy here
                 )
                 if os.path.exists(temp_validated) and os.path.getsize(temp_validated) > 0:
                     with open(temp_validated) as f:
@@ -1241,9 +1242,30 @@ class TaskWorker(QThread):
             if len(final_urls) > 10:
                 self._emit(f"… and {len(final_urls) - 10} more"
                 )
+
+        # ── Step 10 (optional): single proxy replay with SC filter ─────────
+        #  • Crawl tools already ran WITHOUT proxy — no double-proxying.
+        #  • This is the ONE and ONLY pass through the proxy.
+        #  • Only done when user explicitly enabled proxy_replay in the dialog.
+        if self._is_running and proxy and proxy_replay and final_urls:
+            self._status("running", "Proxy replay — filtering discovered URLs…")
+            replayed = self._proxy_replay(
+                list(final_urls), proxy, cookie,
+                label="spider proxy-replay",
+                codes=replay_codes,
+            )
+            self._emit(f"[✓] Proxy replay complete — {len(replayed)} URLs sent through proxy")
+            # Save replayed list alongside main output for reference
+            replay_out = os.path.join(self.task_dir, "proxy_replayed.txt")
+            with open(replay_out, "w") as f:
+                f.write("\n".join(replayed))
+        elif proxy and not proxy_replay:
+            self._emit("[i] Proxy configured but proxy replay is disabled — URLs NOT sent through proxy")
+            self._emit("[i] Enable 'Proxy Replay' in task config to selectively send URLs to proxy")
+
+        if self._is_running and final_urls:
             if self._is_running:
-                self._status("completed", f"Found {len(final_urls)} URLs"
-                )
+                self._status("completed", f"Found {len(final_urls)} URLs")
             self._done_complete(True, output_file)
         else:
             self._emit("[!] No URLs found")
@@ -2098,14 +2120,17 @@ class TaskWorker(QThread):
     })
 
     def _proxy_replay(self, urls: list, proxy: str, cookie: str,
-                      label: str = "proxy-replay") -> list:
+                      label: str = "proxy-replay",
+                      codes: Optional[frozenset] = None) -> list:
         """
         Probe *urls* without proxy to collect status codes, drop noise,
         then replay only interesting URLs through *proxy* using httpx.
 
+        *codes* — frozenset of integer SC to keep; defaults to PROXY_REPLAY_CODES.
         Returns the list of "url [SC]" lines that came back from the proxy run,
         or the filtered URL list if no proxy is set.
         """
+        active_codes = codes if codes is not None else self.PROXY_REPLAY_CODES
         if not urls:
             return []
 
@@ -2153,7 +2178,7 @@ class TaskWorker(QThread):
         # ── Step 3: filter to interesting status codes ────────────────────
         interesting = [
             url for url, sc in sc_map.items()
-            if sc in self.PROXY_REPLAY_CODES or sc == 0
+            if sc in active_codes or sc == 0
         ]
         dropped = len(sc_map) - len(interesting)
         self._emit(
@@ -2170,7 +2195,7 @@ class TaskWorker(QThread):
 
         # ── Step 4: replay interesting URLs through the proxy ─────────────
         self._emit(f"[*] {label}: replaying {len(interesting)} URLs through proxy {proxy}…")
-        mc_arg = ",".join(str(c) for c in sorted(self.PROXY_REPLAY_CODES))
+        mc_arg = ",".join(str(c) for c in sorted(active_codes))
         replay_cmd = [
             "httpx", "-silent", "-sc", "-no-color",
             "-http-proxy", proxy,
@@ -3955,6 +3980,7 @@ class TaskInputDialog(QDialog):
         self.domain = domain
         self.tool_name = tool_name
         self.main_window = main_window
+        self._sc_checkboxes: Dict[int, QCheckBox] = {}   # populated in _setup_ui for spider/archive/bruteforce
         self.setWindowTitle(f"Configure {tool_name} — {domain}")
         self.setMinimumWidth(520)
         self._setup_ui(prefill_cookie)
@@ -4132,26 +4158,76 @@ class TaskInputDialog(QDialog):
             wl_layout.addWidget(browse_btn)
             layout.addWidget(wl_group)
 
-        # ── Proxy SC filter option (bruteforce + archive) ────────────────────
+        # ── Proxy SC filter option (spider + bruteforce + archive) ──────────
         self.proxy_replay_checkbox = None
-        if tool_lc in {"bruteforce", "archive"}:
+        self._sc_checkboxes: Dict[int, QCheckBox] = {}   # sc → checkbox
+        if tool_lc in {"spider", "bruteforce", "archive"}:
             replay_group = QGroupBox("Proxy Traffic Filter (optional)")
             replay_group.setStyleSheet(f"QGroupBox {{ color:{COLOR_ACCENT}; }}")
             replay_layout = QVBoxLayout(replay_group)
-            self.proxy_replay_checkbox = QCheckBox(
-                "Filter proxy traffic — run tools without proxy, then replay only\n"
-                "interesting status codes (200, 301, 302, 401, 403, 405, 500…) through proxy"
-            )
-            self.proxy_replay_checkbox.setToolTip(
-                "When enabled:\n"
-                "  • Discovery tools run at full speed without proxy (no noise)\n"
-                "  • Results are probed with httpx to collect status codes\n"
-                "  • Only interesting codes are replayed through the proxy\n"
-                "  • 404, 400, 429 etc. are silently dropped\n\n"
-                "When disabled:\n"
-                "  • All requests pass through the proxy as normal"
-            )
+
+            if tool_lc == "spider":
+                replay_desc = (
+                    "Send discovered URLs through proxy — crawl tools run WITHOUT proxy\n"
+                    "(no freezing, no double-proxying), then replay selected status codes."
+                )
+                replay_tip = (
+                    "Spider mode:\n"
+                    "  • ALL crawl tools (gospider/katana/hakrawler/cariddi) run WITHOUT proxy\n"
+                    "  • httpx liveness check also runs WITHOUT proxy\n"
+                    "  • At the end, discovered live URLs are probed for status codes\n"
+                    "  • Only URLs matching selected codes are sent through the proxy\n"
+                    "  • This prevents UI freezing and double-proxying"
+                )
+            else:
+                replay_desc = (
+                    "Filter proxy traffic — run tools without proxy, then replay only\n"
+                    "interesting status codes through proxy"
+                )
+                replay_tip = (
+                    "When enabled:\n"
+                    "  • Discovery tools run at full speed without proxy (no noise)\n"
+                    "  • Results are probed with httpx to collect status codes\n"
+                    "  • Only interesting codes are replayed through the proxy\n"
+                    "  • 404, 400, 429 etc. are silently dropped\n\n"
+                    "When disabled:\n"
+                    "  • All requests pass through the proxy as normal"
+                )
+            self.proxy_replay_checkbox = QCheckBox(replay_desc)
+            self.proxy_replay_checkbox.setToolTip(replay_tip)
             replay_layout.addWidget(self.proxy_replay_checkbox)
+
+            # ── Status Code selector (shown when replay is enabled) ───────────
+            sc_group_widget = QWidget()
+            sc_group_widget.setEnabled(False)
+            sc_layout = QVBoxLayout(sc_group_widget)
+            sc_layout.setContentsMargins(16, 4, 4, 4)
+            sc_layout.setSpacing(4)
+            sc_label = QLabel("Status codes to replay through proxy:")
+            sc_label.setStyleSheet(f"color:{COLOR_TEXT_MUTED}; font-size:9pt;")
+            sc_layout.addWidget(sc_label)
+            sc_grid = QGridLayout()
+            sc_grid.setSpacing(4)
+            # Default codes from PROXY_REPLAY_CODES
+            _SC_LABELS = [
+                (200, "200 OK"),       (201, "201 Created"),
+                (301, "301 Moved"),    (302, "302 Found"),
+                (307, "307 Temp"),     (308, "308 Perm"),
+                (401, "401 Auth"),     (403, "403 Forbidden"),
+                (405, "405 Method"),   (500, "500 Internal"),
+                (502, "502 Gateway"),  (503, "503 Unavailable"),
+            ]
+            _ALL_DEFAULT = {sc for sc, _ in _SC_LABELS}
+            for i, (sc, lbl) in enumerate(_SC_LABELS):
+                cb = QCheckBox(lbl)
+                cb.setChecked(True)
+                cb.setStyleSheet(f"color:{COLOR_TEXT}; font-size:9pt;")
+                self._sc_checkboxes[sc] = cb
+                sc_grid.addWidget(cb, i // 4, i % 4)
+            sc_layout.addLayout(sc_grid)
+            replay_layout.addWidget(sc_group_widget)
+
+            self.proxy_replay_checkbox.toggled.connect(sc_group_widget.setEnabled)
             layout.addWidget(replay_group)
 
         # ── Buttons ──────────────────────────────────────────────────────────
@@ -4359,6 +4435,11 @@ class TaskInputDialog(QDialog):
                 config["wordlist"] = val
         if self.proxy_replay_checkbox is not None:
             config["proxy_replay"] = self.proxy_replay_checkbox.isChecked()
+            if self.proxy_replay_checkbox.isChecked() and self._sc_checkboxes:
+                # Collect which SC codes are selected
+                selected_codes = [sc for sc, cb in self._sc_checkboxes.items() if cb.isChecked()]
+                if selected_codes:
+                    config["proxy_replay_codes"] = selected_codes
         return config
 
 
