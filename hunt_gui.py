@@ -3807,7 +3807,9 @@ class HuntBurpGUI(
         )
 
         self.monitor_thread = FileMonitorThread(jsonl_path=jsonl_path)
-        self.monitor_thread.new_finding.connect(self.on_new_finding)
+        # Connect the batched live signal — main thread wakes once per poll cycle
+        self.monitor_thread.new_findings.connect(self.on_new_findings_batch)
+        # Keep legacy single-finding signal connected as fallback (no-op via shim)
         self.monitor_thread.stats_update.connect(self.on_stats_update)
         self.monitor_thread.load_progress.connect(self.on_load_progress)
         self.monitor_thread.load_complete.connect(self.on_load_complete)
@@ -5358,25 +5360,56 @@ class HuntBurpGUI(
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
     def on_new_finding(self, finding: Dict[str, Any]):
-        """Handle new finding from monitor thread - optimized"""
-        self.findings.append(finding)
-        self.add_history_row(finding)
-        
-        if hasattr(self, 'mapping_tab'):
-            self.mapping_tab.map_new_url(finding)
+        """Single-finding shim — routes to batch handler."""
+        self.on_new_findings_batch([finding])
 
-        if hasattr(self, 'js_miner_tab'):
-            self.js_miner_tab.feed_finding(finding)
-        
+    def on_new_findings_batch(self, findings: List[Dict[str, Any]]):
+        """Handle a live batch of new findings from the monitor thread.
+
+        All work that can be deferred is deferred; only the table rows are
+        inserted immediately so the user sees new requests arrive promptly.
+        Heavy views (sitemap, issue filter, mapping, js-miner) are updated
+        via a coalescing timer so bursts of traffic don't block the UI.
+        """
+        if not findings:
+            return
+
+        # Insert rows with updates suppressed — vastly faster for bursts
+        self.history_table.setUpdatesEnabled(False)
+        self._bulk_loading = True
+        try:
+            for finding in findings:
+                self.findings.append(finding)
+                self.add_history_row(finding)
+        finally:
+            self._bulk_loading = False
+            self.history_table.setUpdatesEnabled(True)
+
+        # Queue findings for deferred heavy-view processing
+        if not hasattr(self, '_pending_live_findings'):
+            self._pending_live_findings: List[Dict[str, Any]] = []
+        self._pending_live_findings.extend(findings)
+
+        # Coalescing timer: deferred heavy work fires at most every 2 s
         if not hasattr(self, '_batch_update_timer'):
             self._batch_update_timer = QTimer()
             self._batch_update_timer.setSingleShot(True)
             self._batch_update_timer.timeout.connect(self._update_heavy_views)
-        
-        self._batch_update_timer.start(3000)
+        self._batch_update_timer.start(2000)
 
     def _update_heavy_views(self):
-        """Update heavy views in batch"""
+        """Flush deferred heavy view updates after a quiet period."""
+        pending = getattr(self, '_pending_live_findings', [])
+        self._pending_live_findings = []
+
+        if hasattr(self, 'mapping_tab') and pending:
+            for f in pending:
+                self.mapping_tab.map_new_url(f)
+
+        if hasattr(self, 'js_miner_tab') and pending:
+            for f in pending:
+                self.js_miner_tab.feed_finding(f)
+
         self.update_issue_filter_dropdown()
     
     def on_stats_update(self, stats: Dict[str, int]):

@@ -10180,45 +10180,85 @@ class AnalysisTabMixin:
         layout.addWidget(self.param_filter_container)
         
         # ==================== MAXIMIZED PARAMETER TABLE ====================
+        _accent = COLORS.get('accent_green', '#6A8759')
         self.param_table = QTableWidget()
         self.param_table.setColumnCount(6)
         self.param_table.setHorizontalHeaderLabels([
             "Location", "Parameter", "Value", "Risk", "Vulnerabilities", "Metadata"
         ])
-        self.param_table.horizontalHeader().setStretchLastSection(True)
+        _phdr = self.param_table.horizontalHeader()
+        _phdr.setStretchLastSection(False)
+        _phdr.setMinimumSectionSize(38)
+        _phdr.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        _phdr.setHighlightSections(False)
+        # Column resize modes:
+        #   0 Location    — ResizeToContents (short badge: URL / BODY / JSON …)
+        #   1 Parameter   — Interactive, capped after populate so long names don't dominate
+        #   2 Value       — Interactive, reasonable default
+        #   3 Risk        — ResizeToContents (HIGH / MEDIUM / LOW / INFO)
+        #   4 Vulnerabilities — Interactive
+        #   5 Metadata    — Stretch (fills remaining space)
+        _phdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        _phdr.setSectionResizeMode(1, QHeaderView.Interactive)
+        _phdr.setSectionResizeMode(2, QHeaderView.Interactive)
+        _phdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        _phdr.setSectionResizeMode(4, QHeaderView.Interactive)
+        _phdr.setSectionResizeMode(5, QHeaderView.Stretch)
+        self.param_table.setColumnWidth(1, 160)
+        self.param_table.setColumnWidth(2, 130)
+        self.param_table.setColumnWidth(4, 185)
         self.param_table.setAlternatingRowColors(True)
         self.param_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.param_table.setSelectionMode(QTableWidget.SingleSelection)
+        self.param_table.setWordWrap(False)
+        self.param_table.setShowGrid(True)
+        bg     = COLORS.get('bg_dark',    '#2B2B2B')
+        bg_alt = COLORS.get('bg_lighter', '#323232')
+        bg_hdr = COLORS.get('bg_darker',  '#1E1E1E')
+        fg     = COLORS.get('text_normal','#BBBBBB')
+        fg_hdr = COLORS.get('text_bright','#FFFFFF')
         self.param_table.setStyleSheet(f"""
             QTableWidget {{
-                background-color: {COLORS['bg_dark']};
-                color: {COLORS.get('text_normal', '#BBBBBB')};
-                gridline-color: #444;
+                background-color: {bg};
+                color: {fg};
+                gridline-color: #333333;
                 border: none;
-                selection-background-color: {COLORS.get('accent_green', '#6A8759')};
+                selection-background-color: {_accent};
                 selection-color: #ffffff;
                 outline: none;
             }}
             QTableWidget::item {{
-                padding: 1px 4px;
+                padding: 3px 7px;
+                border: none;
+            }}
+            QTableWidget::item:alternate {{
+                background-color: {bg_alt};
             }}
             QTableWidget::item:selected,
             QTableWidget::item:selected:active,
             QTableWidget::item:selected:!active {{
-                background-color: {COLORS.get('accent_green', '#6A8759')};
+                background-color: {_accent};
                 color: #ffffff;
             }}
             QHeaderView::section {{
-                background-color: {COLORS['bg_darker']};
-                color: {COLORS.get('text_bright', '#FFFFFF')};
-                padding: 2px 4px;
+                background-color: {bg_hdr};
+                color: {fg_hdr};
+                padding: 3px 8px;
                 border: none;
+                border-bottom: 2px solid {_accent};
+                border-right: 1px solid #3d3d3d;
                 font-weight: bold;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }}
+            QHeaderView::section:last {{
+                border-right: none;
             }}
         """)
 
         self.param_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.param_table.customContextMenuRequested.connect(self.show_param_table_context_menu)
-        self.param_table.verticalHeader().setDefaultSectionSize(22)
+        self.param_table.verticalHeader().setDefaultSectionSize(24)
         self.param_table.verticalHeader().hide()
 
         layout.addWidget(self.param_table)
@@ -10239,24 +10279,41 @@ class AnalysisTabMixin:
         tbl = QTableWidget()
         tbl.setColumnCount(len(headers))
         tbl.setHorizontalHeaderLabels(headers)
-        tbl.horizontalHeader().setStretchLastSection(True)
+        # Each panel sets its own per-column resize modes — no global stretch here
+        hdr = tbl.horizontalHeader()
+        hdr.setStretchLastSection(False)
+        hdr.setMinimumSectionSize(38)          # badge columns never collapse below 38 px
+        hdr.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        hdr.setHighlightSections(False)        # no bold-on-click for header
         tbl.setAlternatingRowColors(True)
         tbl.setSelectionBehavior(QTableWidget.SelectRows)
-        tbl.verticalHeader().setDefaultSectionSize(22)
+        tbl.setSelectionMode(QTableWidget.SingleSelection)
+        tbl.verticalHeader().setDefaultSectionSize(24)
         tbl.verticalHeader().hide()
         tbl.setEditTriggers(QTableWidget.NoEditTriggers)
+        tbl.setShowGrid(True)
+        tbl.setWordWrap(False)
+        bg      = COLORS.get('bg_dark',    '#2B2B2B')
+        bg_alt  = COLORS.get('bg_lighter', '#323232')
+        bg_hdr  = COLORS.get('bg_darker',  '#1E1E1E')
+        fg      = COLORS.get('text_normal','#BBBBBB')
+        fg_hdr  = COLORS.get('text_bright','#FFFFFF')
         tbl.setStyleSheet(f"""
             QTableWidget {{
-                background-color: {COLORS.get('bg_dark', '#2B2B2B')};
-                color: {COLORS.get('text_normal', '#BBBBBB')};
-                gridline-color: #3a3a3a;
+                background-color: {bg};
+                color: {fg};
+                gridline-color: #333333;
                 border: none;
                 selection-background-color: {accent_color};
                 selection-color: #ffffff;
                 outline: none;
             }}
             QTableWidget::item {{
-                padding: 1px 4px;
+                padding: 3px 7px;
+                border: none;
+            }}
+            QTableWidget::item:alternate {{
+                background-color: {bg_alt};
             }}
             QTableWidget::item:selected,
             QTableWidget::item:selected:active,
@@ -10265,16 +10322,22 @@ class AnalysisTabMixin:
                 color: #ffffff;
             }}
             QHeaderView::section {{
-                background-color: {COLORS.get('bg_darker', '#1E1E1E')};
-                color: {COLORS.get('text_bright', '#FFFFFF')};
-                padding: 2px 6px;
+                background-color: {bg_hdr};
+                color: {fg_hdr};
+                padding: 3px 8px;
                 border: none;
-                border-right: 1px solid #3a3a3a;
+                border-bottom: 2px solid {accent_color};
+                border-right: 1px solid #3d3d3d;
                 font-weight: bold;
                 font-size: 11px;
+                letter-spacing: 0.3px;
             }}
-            QTableWidget::item:alternate {{
-                background-color: {COLORS.get('bg_lighter', '#323232')};
+            QHeaderView::section:last {{
+                border-right: none;
+            }}
+            QTableCornerButton::section {{
+                background-color: {bg_hdr};
+                border: none;
             }}
         """)
         layout.addWidget(tbl)
@@ -10287,10 +10350,12 @@ class AnalysisTabMixin:
             accent_color='#5a7d5a'
         )
         self.sec_headers_table = tbl
-        tbl.setColumnWidth(0, 185)   # Header name (max ~26 chars)
-        tbl.setColumnWidth(1, 200)   # Value — wider to show partial CSP/HSTS values
-        tbl.setColumnWidth(2, 82)    # Status (✓ Present / ✗ Missing)
-        tbl.setColumnWidth(3, 62)    # Risk (HIGH/MEDIUM)
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.Interactive);  tbl.setColumnWidth(0, 185)  # Header
+        hdr.setSectionResizeMode(1, QHeaderView.Interactive);  tbl.setColumnWidth(1, 195)  # Value
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)                           # Status
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # Risk
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Description
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10305,12 +10370,14 @@ class AnalysisTabMixin:
             accent_color='#7a5c3a'
         )
         self.cookie_table = tbl
-        tbl.setColumnWidth(0, 150)   # Cookie Name
-        tbl.setColumnWidth(1, 90)    # Value (truncated; tooltip shows full)
-        tbl.setColumnWidth(2, 52)    # Secure (✓/✗)
-        tbl.setColumnWidth(3, 62)    # HttpOnly (✓/✗)
-        tbl.setColumnWidth(4, 68)    # SameSite
-        tbl.setColumnWidth(5, 82)    # Type (○ Session / · Persistent)
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.Interactive);  tbl.setColumnWidth(0, 148)  # Cookie Name
+        hdr.setSectionResizeMode(1, QHeaderView.Interactive);  tbl.setColumnWidth(1, 100)  # Value
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)                           # Secure
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # HttpOnly
+        hdr.setSectionResizeMode(4, QHeaderView.ResizeToContents)                           # SameSite
+        hdr.setSectionResizeMode(5, QHeaderView.ResizeToContents)                           # Type
+        hdr.setSectionResizeMode(6, QHeaderView.Stretch)                                    # Issues
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10323,10 +10390,12 @@ class AnalysisTabMixin:
             accent_color='#6b4a8a'
         )
         self.cors_table = tbl
-        tbl.setColumnWidth(0, 65)    # Severity (HIGH/MEDIUM)
-        tbl.setColumnWidth(1, 105)   # Indicator (◎ Header / ⊙ Analysis)
-        tbl.setColumnWidth(2, 200)   # Header name (Access-Control-Allow-Origin etc.)
-        tbl.setColumnWidth(3, 160)   # Value
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)                           # Severity
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Indicator
+        hdr.setSectionResizeMode(2, QHeaderView.Interactive);  tbl.setColumnWidth(2, 220)  # Header
+        hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 165)  # Value
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Risk Description
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10339,8 +10408,10 @@ class AnalysisTabMixin:
             accent_color='#3a6a8a'
         )
         self.tech_table = tbl
-        tbl.setColumnWidth(0, 160)   # Technology name
-        tbl.setColumnWidth(1, 118)   # Category
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.Interactive);  tbl.setColumnWidth(0, 160)  # Technology
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Category
+        hdr.setSectionResizeMode(2, QHeaderView.Stretch)                                    # Evidence
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10353,10 +10424,12 @@ class AnalysisTabMixin:
             accent_color='#4a6fa5'
         )
         self.jwt_table = tbl
-        tbl.setColumnWidth(0, 148)   # Token prefix (35 chars of base64)
-        tbl.setColumnWidth(1, 68)    # Algorithm (HS256/RS256/none)
-        tbl.setColumnWidth(2, 80)    # Signature (✓ Signed / ✗ Unsigned)
-        tbl.setColumnWidth(3, 168)   # Expiry (✓ Valid — Xm left)
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.Interactive);  tbl.setColumnWidth(0, 155)  # Token (prefix)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Algorithm
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)                           # Signature
+        hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 170)  # Expiry
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Findings / Claims
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10369,10 +10442,12 @@ class AnalysisTabMixin:
             accent_color='#8a5a2a'
         )
         self.cache_table = tbl
-        tbl.setColumnWidth(0, 62)    # Severity
-        tbl.setColumnWidth(1, 190)   # Indicator (emoji + label)
-        tbl.setColumnWidth(2, 175)   # Header / Input
-        tbl.setColumnWidth(3, 130)   # Value
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)                           # Severity
+        hdr.setSectionResizeMode(1, QHeaderView.Interactive);  tbl.setColumnWidth(1, 180)  # Indicator
+        hdr.setSectionResizeMode(2, QHeaderView.Interactive);  tbl.setColumnWidth(2, 165)  # Header / Input
+        hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 125)  # Value
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Description
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10385,12 +10460,11 @@ class AnalysisTabMixin:
             accent_color='#2a6a4a'
         )
         self.endpoints_table = tbl
-        # Stretch col 2 (Original URL) instead of the last col (Risk)
-        tbl.horizontalHeader().setStretchLastSection(False)
-        tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        tbl.setColumnWidth(0, 235)   # Path
-        tbl.setColumnWidth(1, 142)   # Type (emoji label)
-        tbl.setColumnWidth(3, 58)    # Risk (HIGH/MEDIUM/LOW/INFO)
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.Interactive);  tbl.setColumnWidth(0, 225)  # Path
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Type
+        hdr.setSectionResizeMode(2, QHeaderView.Stretch)                                    # Original URL
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # Risk
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10403,11 +10477,12 @@ class AnalysisTabMixin:
             accent_color='#7a4a7a'
         )
         self.weird_table = tbl
-        tbl.setColumnWidth(0, 72)    # Severity badge
-        tbl.setColumnWidth(1, 115)   # Category
-        tbl.setColumnWidth(2, 230)   # Title — descriptive
-        tbl.setColumnWidth(3, 280)   # Detail (abbreviated)
-        # col 4 (Evidence) stretches
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)                           # Severity
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Category
+        hdr.setSectionResizeMode(2, QHeaderView.Interactive);  tbl.setColumnWidth(2, 215)  # Title
+        hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 245)  # Detail
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Evidence
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10420,11 +10495,12 @@ class AnalysisTabMixin:
             accent_color='#4a7aab'
         )
         self.js_dom_table = tbl
-        tbl.setColumnWidth(0, 72)    # Severity badge
-        tbl.setColumnWidth(1, 130)   # Vuln type (XSS, SSRF, RCE, etc.)
-        tbl.setColumnWidth(2, 100)   # JS type (JavaScript / jQuery / inline)
-        tbl.setColumnWidth(3, 200)   # Sink name
-        # col 4 (Context) stretches
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)                           # Severity
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Vuln Type
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)                           # JS Type
+        hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 205)  # Sink / Name
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Context / Code
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -11273,6 +11349,15 @@ class AnalysisTabMixin:
                     if not it.toolTip():
                         it.setToolTip(it.text())
 
+    def _snap_resize_to_contents_cols(self, tbl: QTableWidget):
+        """For every column that is in ResizeToContents mode, call resizeColumnToContents()
+        so the width reflects the populated data rather than just the header label.
+        Interactive/Stretch columns are left untouched."""
+        hdr = tbl.horizontalHeader()
+        for c in range(tbl.columnCount()):
+            if hdr.sectionResizeMode(c) == QHeaderView.ResizeToContents:
+                tbl.resizeColumnToContents(c)
+
     def _display_security_panels(self, results: dict):
         """Populate all security panels and show/hide tabs based on whether each has results."""
         _tab_tables = [
@@ -11292,6 +11377,9 @@ class AnalysisTabMixin:
                 tbl = getattr(self, tbl_attr, None)
                 if tbl:
                     self._apply_tooltips(tbl)
+                    # Flush ResizeToContents columns so badge/status widths snap
+                    # to actual content rather than the placeholder header width.
+                    self._snap_resize_to_contents_cols(tbl)
             except Exception as e:
                 logger.error(f"_display_security_panels [{label}]: {e}", exc_info=True)
 
@@ -12358,8 +12446,21 @@ class AnalysisTabMixin:
             self.param_table.setItem(row, 4, QTableWidgetItem(vuln_display))  # Vulnerabilities
             self.param_table.setItem(row, 5, QTableWidgetItem(meta_display))   # Metadata
             
-        # Resize columns
-        self.param_table.resizeColumnsToContents()
+        # Snap badge/fixed columns to content; cap Parameter to avoid over-wide column
+        self.param_table.resizeColumnToContents(0)   # Location badge
+        self.param_table.resizeColumnToContents(3)   # Risk badge
+        # Cap Parameter (col 1): use content width but never exceed 200 px
+        self.param_table.resizeColumnToContents(1)
+        if self.param_table.columnWidth(1) > 200:
+            self.param_table.setColumnWidth(1, 200)
+        # Clamp Value (col 2) similarly
+        self.param_table.resizeColumnToContents(2)
+        if self.param_table.columnWidth(2) > 180:
+            self.param_table.setColumnWidth(2, 180)
+        # Clamp Vulnerabilities (col 4)
+        self.param_table.resizeColumnToContents(4)
+        if self.param_table.columnWidth(4) > 220:
+            self.param_table.setColumnWidth(4, 220)
         # Sort rows: URL first, then ENDPOINT, then others, then HEADER last
         _loc_order = {"URL": 0, "BODY": 1, "JSON": 2,
                       "COOKIE": 3, "COOK": 3, "HTML": 4, "JS": 5, "RESP": 6,

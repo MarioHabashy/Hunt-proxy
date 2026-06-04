@@ -40,7 +40,10 @@ from constants import (
 logger = logging.getLogger(__name__)
 
 class FileMonitorThread(QThread):
-    new_finding = pyqtSignal(dict)
+    # Use new_findings (plural) for live batches so the main thread is only
+    # woken once per poll cycle regardless of how many requests arrived.
+    new_findings = pyqtSignal(list)   # list[dict] – live batch
+    new_finding  = pyqtSignal(dict)   # kept for backward-compat; not used internally
     stats_update = pyqtSignal(dict)
     load_progress = pyqtSignal(int, int, str)
     load_complete = pyqtSignal(int)
@@ -55,6 +58,8 @@ class FileMonitorThread(QThread):
         self.batch_size = 500
         self.all_findings = []
         self._jsonl_path = jsonl_path if jsonl_path else HUNT_JSONL
+        # Maximum findings emitted in one live-batch signal; limits main-thread work
+        self._live_batch_cap = 50
 
     def run(self):
         if os.path.exists(self._jsonl_path):
@@ -68,9 +73,18 @@ class FileMonitorThread(QThread):
                         new_lines = f.readlines()
 
                         if new_lines:
+                            live_batch = []
                             for line in new_lines:
                                 if line.strip():
-                                    self._process_line(line)
+                                    finding = self._parse_line(line)
+                                    if finding is not None:
+                                        live_batch.append(finding)
+
+                            if live_batch:
+                                # Emit in capped sub-batches so the main thread
+                                # is never handed thousands of rows at once.
+                                for i in range(0, len(live_batch), self._live_batch_cap):
+                                    self.new_findings.emit(live_batch[i:i + self._live_batch_cap])
 
                             self.last_position = f.tell()
 
@@ -158,16 +172,23 @@ class FileMonitorThread(QThread):
             logger.error(f"Unexpected error loading initial data: {e}")
             self.load_complete.emit(0)
 
-    def _process_line(self, line: str):
+    def _parse_line(self, line: str):
+        """Parse a JSONL line, update stats, and return the finding dict or None."""
         try:
             finding = json.loads(line.strip())
             self.all_findings.append(finding)
             self._update_stats(finding)
-            self.new_finding.emit(finding)
+            return finding
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse JSON: {e} - Line: {line[:100]}")
+            return None
         except Exception as e:
             logger.error(f"Unexpected error processing finding: {e}")
+            return None
+
+    # Keep old name for any external callers
+    def _process_line(self, line: str):
+        self._parse_line(line)
 
     def _update_stats(self, finding: Dict[str, Any]):
         with self._lock:
@@ -1635,15 +1656,16 @@ class HTTPHistoryTab(AnalysisTabMixin):
         url = finding.get("url", "")
         method = finding.get("method", "GET").upper()
 
-        # URL params
+        # URL params — fast, no I/O
         url_params = 0
         if "?" in url:
             query = url.split("?", 1)[1]
             url_params = len(query.split("&")) if "&" in query else (1 if query else 0)
 
-        # Body params — read request file for POST/PUT/PATCH
+        # Body params — file I/O: skip during bulk/live ingestion to avoid
+        # stalling the main thread; the column can be lazily refreshed later.
         body_params = 0
-        if method in ("POST", "PUT", "PATCH", "DELETE"):
+        if method in ("POST", "PUT", "PATCH", "DELETE") and not getattr(self, "_bulk_loading", False):
             request_file = finding.get("request_file")
             if request_file and os.path.exists(request_file):
                 try:
@@ -2875,27 +2897,31 @@ class HTTPHistoryTab(AnalysisTabMixin):
             logger.info(f"Issue filter updated: {total_issues} unique issue types found")
 
     def detect_mime_type(self, finding: Dict[str, Any]) -> str:
-        response_file = finding.get("response_file")
-        if response_file and os.path.exists(response_file):
-            try:
-                with open(response_file, "rb") as f:
-                    content = f.read(1024)
+        # During bulk/live ingestion skip the file read; derive type from URL only.
+        # The column shows a best-guess and the file-based check is cheap enough
+        # for the single-row case (selection) but too expensive per-row in bursts.
+        if not getattr(self, "_bulk_loading", False):
+            response_file = finding.get("response_file")
+            if response_file and os.path.exists(response_file):
+                try:
+                    with open(response_file, "rb") as f:
+                        content = f.read(512)  # 512 B is plenty for magic bytes
 
-                if content.startswith(b"{") or content.startswith(b"["):
-                    return "application/json"
-                elif b"<html" in content.lower():
-                    return "text/html"
-                elif b"<!doctype" in content.lower():
-                    return "text/html"
-                elif content.startswith(b"<?xml"):
-                    return "application/xml"
-                elif b"content-type:" in content.lower():
-                    lines = content.decode("utf-8", errors="ignore").split("\n")
-                    for line in lines:
-                        if line.lower().startswith("content-type:"):
-                            return line.split(":", 1)[1].strip().split(";")[0]
-            except:
-                pass
+                    if content.startswith(b"{") or content.startswith(b"["):
+                        return "application/json"
+                    elif b"<html" in content.lower():
+                        return "text/html"
+                    elif b"<!doctype" in content.lower():
+                        return "text/html"
+                    elif content.startswith(b"<?xml"):
+                        return "application/xml"
+                    elif b"content-type:" in content.lower():
+                        lines = content.decode("utf-8", errors="ignore").split("\n")
+                        for line in lines:
+                            if line.lower().startswith("content-type:"):
+                                return line.split(":", 1)[1].strip().split(";")[0]
+                except Exception:
+                    pass
 
         url = finding.get("url", "").lower()
         if url.endswith(".js"):

@@ -4203,10 +4203,18 @@ class MappingTabPro(QWidget):
             self.recorded_tab.set_project_dir(project_dir)
 
     def map_new_url(self, finding: Dict[str, Any]):
-        """Map new URL in real-time"""
-        if self.mapping_active:
-            self.process_url(finding)
-            self.update_display()
+        """Map new URL in real-time — display updates are throttled."""
+        if not self.mapping_active:
+            return
+        self.process_url(finding)
+        # Throttle display rebuilds: start/restart a 2-second coalescing timer
+        # so rapid bursts of traffic don't call update_display() per-request.
+        if not hasattr(self, '_map_display_timer'):
+            from PyQt5.QtCore import QTimer
+            self._map_display_timer = QTimer()
+            self._map_display_timer.setSingleShot(True)
+            self._map_display_timer.timeout.connect(self.update_display)
+        self._map_display_timer.start(2000)
     
     def update_display(self):
         """Update all display elements"""
