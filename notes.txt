@@ -1,7 +1,11 @@
 fixes:
 when send websocket in repeater it dont appear in browser 
-freez with large responses
 repeater group send parallel
+
+
+
+
+
 
 scanner tab :
     need to make interact.sh cli and auto used to detect blind one
@@ -22,8 +26,6 @@ Traceback (most recent call last):
   File "/usr/lib/python3.12/concurrent/futures/_base.py", line 458, in result
     raise TimeoutError()
 TimeoutError
-
-
 
 
 

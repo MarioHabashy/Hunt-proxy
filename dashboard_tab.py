@@ -487,10 +487,13 @@ class IpinfoRunner:
 
 
 class HeadersRunner:
-    def build_command(self, domain: str, cookie: str = "", proxy: str = "") -> List[str]:
+    def build_command(self, domain: str, cookie: str = "", proxy: str = "",
+                       extra_headers: list = None) -> List[str]:
         cmd = ["curl", "-I", f"https://{domain}", "-s", "-k", "--max-time", "30"]
         if cookie:
             cmd.extend(["--cookie", cookie])
+        if extra_headers:
+            cmd.extend(extra_headers)
         if proxy:
             cmd.extend(["--proxy", proxy])
         return cmd
@@ -565,10 +568,13 @@ class ArchiveRunner:
     def build_github_endpoints_cmd(self, domain: str, token: str) -> List[str]:
         return ["github-endpoints", "-q", "-k", "-d", domain, "-t", token]
 
-    def build_httpx_cmd(self, cookie: str = "", proxy: str = "") -> List[str]:
+    def build_httpx_cmd(self, cookie: str = "", proxy: str = "",
+                        extra_headers: list = None) -> List[str]:
         cmd = ["httpx", "-silent", "-fc", "404", "-mc", "200", "-td"]
         if cookie:
             cmd.extend(["-H", f"Cookie: {cookie}"])
+        if extra_headers:
+            cmd.extend(extra_headers)
         if proxy:
             cmd.extend(["-http-proxy", proxy])
         return cmd
@@ -695,7 +701,8 @@ class BruteforceRunner:
         return [p for p in selected if os.path.exists(p)]
 
     def build_command(self, domain: str, wordlist: str,
-                      output_file: str, cookie: str = "", proxy: str = "") -> List[str]:
+                      output_file: str, cookie: str = "", proxy: str = "",
+                      extra_headers: list = None) -> List[str]:
         cmd = [
             "feroxbuster", "-u", f"https://{domain}",
             "-n", "-C", "400", "-C", "404", "-C", "429",
@@ -704,6 +711,8 @@ class BruteforceRunner:
         ]
         if cookie:
             cmd.extend(["-H", f"Cookie: {cookie}"])
+        if extra_headers:
+            cmd.extend(extra_headers)
         if proxy:
             cmd.extend(["--proxy", proxy])
         return cmd
@@ -739,10 +748,13 @@ class BruteforceRunner:
 
 class NucleiRunner:
     def build_command(self, domain: str, output_file: str,
-                      cookie: str = "", proxy: str = "") -> List[str]:
+                      cookie: str = "", proxy: str = "",
+                      extra_headers: list = None) -> List[str]:
         cmd = ["nuclei", "-u", domain, "-nh", "-o", output_file]
         if cookie:
             cmd.extend(["-H", f"Cookie: {cookie}"])
+        if extra_headers:
+            cmd.extend(extra_headers)
         if proxy:
             cmd.extend(["-proxy", proxy])
         return cmd
@@ -790,10 +802,15 @@ class NiktoRunner:
 
 class WpscanRunner:
     def build_command(self, domain: str, output_file: str,
-                      cookie: str = "", proxy: str = "") -> List[str]:
+                      cookie: str = "", proxy: str = "",
+                      extra_headers: list = None) -> List[str]:
         cmd = ["wpscan", "--url", domain, "-o", output_file]
         if cookie:
             cmd.extend(["--cookie", cookie])
+        if extra_headers:
+            # wpscan supports --additional-headers for extra HTTP headers
+            for i in range(0, len(extra_headers), 2):
+                cmd.extend(["--additional-headers", extra_headers[i + 1]])
         if proxy:
             cmd.extend(["--proxy", proxy])
         return cmd
@@ -820,10 +837,12 @@ class WpscanRunner:
 
 
 class JoomscanRunner:
-    def build_command(self, domain: str, cookie: str = "") -> List[str]:
+    def build_command(self, domain: str, cookie: str = "",
+                      extra_headers: list = None) -> List[str]:
         cmd = ["joomscan", "-u", domain]
         if cookie:
             cmd.extend(["--cookie", cookie])
+        # joomscan doesn't support arbitrary headers natively; log a note if extra headers are used
         return cmd
 
     def parse_output(self, content: str) -> str:
@@ -1100,6 +1119,7 @@ class TaskWorker(QThread):
         self._status("running", "Starting spider…")
         domain       = self.task_data["domain"]
         cookie       = validate_cookie(self.task_data.get("cookie", ""))
+        extra_h      = self._extra_h_args(skip_names={"cookie"})
         proxy        = self.task_data.get("proxy", "")
         tools_dir    = self.task_data.get("tools_dir", os.path.expanduser("~/tools"))
         proxy_replay = self.task_data.get("proxy_replay", False)
@@ -1273,14 +1293,17 @@ class TaskWorker(QThread):
                 self._status("completed", "No URLs found")
             self._done_complete(True, "")
 
-    def _run_katana_tool(self, domain: str, cookie: str, proxy: str, output_file: str) -> bool:
+    def _run_katana_tool(self, domain: str, cookie: str, proxy: str, output_file: str,
+                         extra_headers: list = None) -> bool:
         cookie = validate_cookie(cookie)  # FIX 6
         try:
             # Fixed: Removed invalid -kf all flag
             cmd = ["katana", "-u", domain, "-jc"]
-            if cookie: 
+            if cookie:
                 cmd.extend(["-H", f"Cookie: {cookie}"])
-            if proxy:  
+            if extra_headers:
+                cmd.extend(extra_headers)
+            if proxy:
                 cmd.extend(["-proxy", proxy])
             
             with open(output_file, "w") as outfile:
@@ -1311,12 +1334,17 @@ class TaskWorker(QThread):
             self._emit(f"[!] Katana error: {e}")
             return False
 
-    def _run_hakrawler_tool(self, domain: str, cookie: str, proxy: str) -> List[str]:
+    def _run_hakrawler_tool(self, domain: str, cookie: str, proxy: str,
+                            extra_headers: list = None) -> List[str]:
         cookie = validate_cookie(cookie)  # FIX 6
         try:
             cmd = ["hakrawler"]
-            if cookie: 
+            if cookie:
                 cmd.extend(["-h", f"Cookie: {cookie}"])
+            if extra_headers:
+                # hakrawler uses -h for headers (can be repeated)
+                for i in range(0, len(extra_headers), 2):
+                    cmd.extend(["-h", extra_headers[i + 1]])
             if proxy:  
                 cmd.extend(["-proxy", proxy])
             
@@ -1384,13 +1412,16 @@ class TaskWorker(QThread):
         return list(urls)
 
     def _run_gospider_tool(self, domain: str, output_dir: str,
-                           cookie: str, proxy: str) -> List[str]:
+                           cookie: str, proxy: str,
+                           extra_headers: list = None) -> List[str]:
         """Run gospider and return list of discovered URLs."""
         cookie = validate_cookie(cookie)
         try:
             from tool_runners import GospiderRunner
             runner = GospiderRunner()
             cmd = runner.build_command(domain, output_dir, cookie, proxy)
+            if extra_headers:
+                cmd.extend(extra_headers)
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
@@ -1430,13 +1461,16 @@ class TaskWorker(QThread):
             return []
 
     def _run_cariddi_tool(self, domain: str, output_file: str,
-                          cookie: str, proxy: str) -> List[str]:
+                          cookie: str, proxy: str,
+                          extra_headers: list = None) -> List[str]:
         """Run cariddi (headless SPA crawl) and return discovered URLs."""
         cookie = validate_cookie(cookie)
         try:
             from tool_runners import CariddiRunner
             runner = CariddiRunner()
             cmd = runner.build_command(domain, output_file, cookie, proxy)
+            if extra_headers:
+                cmd.extend(extra_headers)
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
@@ -1638,6 +1672,29 @@ class TaskWorker(QThread):
     # ─────────────────────────────────────────────────────────────────────────
     # Generic helpers shared by all runners
     # ─────────────────────────────────────────────────────────────────────────
+
+    def _extra_h_args(self, skip_names: set = None) -> list:
+        """Return ['-H', 'Name: Value', ...] for all enabled auth_headers.
+
+        Args:
+            skip_names: lowercase header names to skip (e.g. {'cookie'} when the
+                        tool already handles cookies via its own --cookie flag).
+        Returns a flat list ready to extend() onto a command.
+        """
+        auth_headers = self.task_data.get("auth_headers", [])
+        if not auth_headers:
+            return []
+        skip = {n.lower() for n in (skip_names or set())}
+        args = []
+        for h in auth_headers:
+            name  = h.get("name", "").strip()
+            value = h.get("value", "").strip()
+            if name and value and name.lower() not in skip:
+                # Guard against header injection (no newlines)
+                safe_name  = name.replace("\r", "").replace("\n", "")
+                safe_value = value.replace("\r", "").replace("\n", "")
+                args.extend(["-H", f"{safe_name}: {safe_value}"])
+        return args
 
     def _emit(self, line: str):
         """Emit an output line — uses IPC queue in forked child, Qt signal in parent."""
@@ -2032,9 +2089,10 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         proxy  = self.task_data.get("proxy", "")
+        extra  = self._extra_h_args(skip_names={"cookie"})
         self._status("running", "Fetching HTTP headers…")
         runner = HeadersRunner()
-        cmd = runner.build_command(domain, cookie, proxy)
+        cmd = runner.build_command(domain, cookie, proxy, extra_headers=extra)
         self._emit(f"[*] Running: {' '.join(cmd)}")
         ok = self._run_cmd_to_file(cmd, output_file)
         self._done(ok, output_file if self._has_output(output_file) else "",
@@ -2131,6 +2189,7 @@ class TaskWorker(QThread):
         or the filtered URL list if no proxy is set.
         """
         active_codes = codes if codes is not None else self.PROXY_REPLAY_CODES
+        extra_h = self._extra_h_args(skip_names={"cookie"})
         if not urls:
             return []
 
@@ -2141,6 +2200,8 @@ class TaskWorker(QThread):
             probe_cmd = ["httpx", "-silent", "-sc", "-no-color"]
             if cookie:
                 probe_cmd.extend(["-H", f"Cookie: {cookie}"])
+            if extra_h:
+                probe_cmd.extend(extra_h)
 
             proc = subprocess.Popen(
                 probe_cmd,
@@ -2203,6 +2264,8 @@ class TaskWorker(QThread):
         ]
         if cookie:
             replay_cmd.extend(["-H", f"Cookie: {cookie}"])
+        if extra_h:
+            replay_cmd.extend(extra_h)
 
         replayed: list = []
         try:
@@ -2240,6 +2303,7 @@ class TaskWorker(QThread):
         """
         domain        = self.task_data["domain"]
         cookie        = validate_cookie(self.task_data.get("cookie", ""))
+        extra_h       = self._extra_h_args(skip_names={"cookie"})
         proxy         = self.task_data.get("proxy", "")
         github_token  = self.task_data.get("github_token", "")
         proxy_replay  = self.task_data.get("proxy_replay", False)
@@ -2365,7 +2429,7 @@ class TaskWorker(QThread):
                 try:
                     with open(output_file, "w") as fout:
                         proc = subprocess.Popen(
-                            runner.build_httpx_cmd(cookie, tool_proxy),
+                            runner.build_httpx_cmd(cookie, tool_proxy, extra_headers=extra_h),
                             stdin=subprocess.PIPE, stdout=fout,
                             stderr=subprocess.PIPE, text=True)
                         self._register_process(proc)
@@ -2390,6 +2454,7 @@ class TaskWorker(QThread):
     def _run_bruteforce(self, output_file: str):
         domain         = self.task_data["domain"]
         cookie         = validate_cookie(self.task_data.get("cookie", ""))
+        extra_h        = self._extra_h_args(skip_names={"cookie"})
         proxy          = self.task_data.get("proxy", "")
         wordlist_extra = self.task_data.get("wordlist", "")
         runner         = BruteforceRunner()
@@ -2464,7 +2529,8 @@ class TaskWorker(QThread):
             self._emit(f"[*] Interesting status codes will be replayed through {proxy}")
 
         self._status("running", "Running feroxbuster…")
-        cmd = runner.build_command(domain, custom_wl, ferox_out, cookie, ferox_proxy)
+        cmd = runner.build_command(domain, custom_wl, ferox_out, cookie, ferox_proxy,
+                                  extra_headers=extra_h)
         self._emit(f"[*] Running: feroxbuster -u https://{domain} ...")
         self._run_cmd_to_file(cmd, output_file, timeout=7200)
 
@@ -2507,6 +2573,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         proxy  = self.task_data.get("proxy", "")
+        extra  = self._extra_h_args(skip_names={"cookie"})
         runner = NucleiRunner()
         self._status("running", "Running nuclei…")
 
@@ -2514,7 +2581,7 @@ class TaskWorker(QThread):
         # _run_cmd_to_file streams stdout (progress/errors) to a separate .live file
         # so the two outputs never mix.
         raw_file = output_file + ".raw"
-        cmd = runner.build_command(domain, raw_file, cookie, proxy)
+        cmd = runner.build_command(domain, raw_file, cookie, proxy, extra_headers=extra)
         self._emit(f"[*] Running: nuclei -u {domain} ...")
         ok = self._run_cmd_to_file(cmd, output_file + ".live", timeout=1800)
 
@@ -2553,10 +2620,11 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         cookie = validate_cookie(self.task_data.get("cookie", ""))
         proxy  = self.task_data.get("proxy", "")
+        extra  = self._extra_h_args(skip_names={"cookie"})
         runner = WpscanRunner()
         self._status("running", "Running wpscan…")
 
-        cmd = runner.build_command(domain, output_file, cookie, proxy)
+        cmd = runner.build_command(domain, output_file, cookie, proxy, extra_headers=extra)
         self._emit(f"[*] Running: wpscan --url {domain} ...")
         self._run_cmd_to_file(cmd, output_file + ".live", strip_ansi=True, timeout=600)
 
@@ -2576,10 +2644,13 @@ class TaskWorker(QThread):
     def _run_joomscan(self, output_file: str):
         domain = self.task_data["domain"]
         cookie = validate_cookie(self.task_data.get("cookie", ""))
+        extra  = self._extra_h_args(skip_names={"cookie"})
         runner = JoomscanRunner()
         self._status("running", "Running joomscan…")
+        if extra:
+            self._emit("[!] Note: joomscan does not support arbitrary custom headers natively — only Cookie is passed.")
 
-        cmd = runner.build_command(domain, cookie)
+        cmd = runner.build_command(domain, cookie, extra_headers=extra)
         self._emit(f"[*] Running: {' '.join(cmd)}")
         ok = self._run_cmd_to_file(cmd, output_file, strip_ansi=True, timeout=600)
         n = self._count_lines(output_file)
@@ -4036,41 +4107,141 @@ class TaskInputDialog(QDialog):
         banner.setWordWrap(True)
         layout.addWidget(banner)
 
-        # ── Cookie ───────────────────────────────────────────────────────────
+        # ── Authentication Headers ────────────────────────────────────────────
         NEEDS_COOKIE = {"spider","archive","headers","bruteforce","nuclei","wpscan","joomscan"}
         NEEDS_GITHUB_TOKEN = {"github_dorks","github_secrets","passive_subdomains"}
+
+        # Presets: (label, header_name, header_value_template)
+        _AUTH_PRESETS = [
+            ("Cookie",                        "Cookie",          ""),
+            ("Authorization: Bearer <token>", "Authorization",   "Bearer "),
+            ("Authorization: Basic <base64>", "Authorization",   "Basic "),
+            ("X-API-Key",                     "X-Api-Key",       ""),
+            ("X-Auth-Token",                  "X-Auth-Token",    ""),
+            ("X-Access-Token",                "X-Access-Token",  ""),
+            ("X-Forwarded-For: 127.0.0.1",   "X-Forwarded-For", "127.0.0.1"),
+            ("X-Real-IP: 127.0.0.1",         "X-Real-IP",       "127.0.0.1"),
+            ("Referer",                       "Referer",         f"https://{self.domain}/"),
+            ("Origin",                        "Origin",          f"https://{self.domain}"),
+            ("Custom header…",               "",                ""),
+        ]
+
         if tool_lc in NEEDS_COOKIE:
-            cookie_group = QGroupBox("Cookie (optional)")
-            cookie_group.setStyleSheet(f"QGroupBox {{ color:{COLOR_ACCENT}; }}")
-            cookie_layout = QVBoxLayout(cookie_group)
+            auth_group = QGroupBox("Authentication Headers (optional)")
+            auth_group.setStyleSheet(f"QGroupBox {{ color:{COLOR_ACCENT}; }}")
+            auth_layout = QVBoxLayout(auth_group)
 
-            self.cookie_checkbox = QCheckBox("Use Cookie")
-            cookie_layout.addWidget(self.cookie_checkbox)
+            # Info label
+            info_lbl = QLabel(
+                "Add any HTTP headers sent with each request — Cookie, Authorization, "
+                "X-API-Key, or any custom header your target requires."
+            )
+            info_lbl.setWordWrap(True)
+            info_lbl.setStyleSheet(f"color:{COLOR_TEXT_MUTED}; font-size:9pt;")
+            auth_layout.addWidget(info_lbl)
 
-            self.cookie_input = QTextEdit()
-            self.cookie_input.setPlaceholderText("session=abc123; user=admin")
-            self.cookie_input.setMaximumHeight(60)
-            self.cookie_input.setEnabled(False)
-            cookie_layout.addWidget(self.cookie_input)
+            # ── Header table ──────────────────────────────────────────────
+            self._auth_table = QTableWidget(0, 3)
+            self._auth_table.setHorizontalHeaderLabels(["✓", "Header Name", "Value"])
+            self._auth_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+            self._auth_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+            self._auth_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+            self._auth_table.setColumnWidth(0, 28)
+            self._auth_table.setAlternatingRowColors(False)
+            self._auth_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+            self._auth_table.setMinimumHeight(90)
+            self._auth_table.setMaximumHeight(160)
+            self._auth_table.verticalHeader().hide()
+            self._auth_table.setStyleSheet(
+                f"QTableWidget{{background:{COLOR_DARK_BG};color:{COLOR_TEXT_BRIGHT};"
+                f"gridline-color:{COLOR_BORDER};border:1px solid {COLOR_BORDER};}}"
+                f"QHeaderView::section{{background:{COLOR_ELEVATED_BG};color:{COLOR_TEXT_MUTED};"
+                f"border:none;padding:3px;}}"
+            )
+            auth_layout.addWidget(self._auth_table)
 
+            def _add_auth_row(enabled=True, name="", value=""):
+                row = self._auth_table.rowCount()
+                self._auth_table.insertRow(row)
+                cb = QCheckBox()
+                cb.setChecked(enabled)
+                cb_widget = QWidget()
+                cb_layout = QHBoxLayout(cb_widget)
+                cb_layout.setContentsMargins(4, 0, 0, 0)
+                cb_layout.addWidget(cb)
+                self._auth_table.setCellWidget(row, 0, cb_widget)
+                name_item = QTableWidgetItem(name)
+                name_item.setFlags(name_item.flags() | Qt.ItemIsEditable)
+                self._auth_table.setItem(row, 1, name_item)
+                val_item = QTableWidgetItem(value)
+                val_item.setFlags(val_item.flags() | Qt.ItemIsEditable)
+                self._auth_table.setItem(row, 2, val_item)
+                self._auth_table.scrollToBottom()
+                return row
+
+            self._add_auth_row = _add_auth_row
+
+            # Pre-populate with cookie if supplied, otherwise empty Cookie row
             if prefill_cookie:
-                self.cookie_input.setPlainText(prefill_cookie)
-                self.cookie_checkbox.setChecked(True)
-                self.cookie_input.setEnabled(True)
+                _add_auth_row(True, "Cookie", prefill_cookie)
+            else:
+                _add_auth_row(False, "Cookie", "")
 
-            cookie_btn_row = QHBoxLayout()
-            get_cookie_btn = QPushButton("📜 From HTTP History")
+            # ── Buttons row ───────────────────────────────────────────────
+            btn_row_auth = QHBoxLayout()
+
+            preset_combo = QComboBox()
+            preset_combo.setMinimumWidth(180)
+            preset_combo.addItem("＋ Add preset…")
+            for lbl, _, _ in _AUTH_PRESETS:
+                preset_combo.addItem(lbl)
+
+            def _on_preset(idx):
+                if idx < 1:
+                    return
+                _, hname, hval = _AUTH_PRESETS[idx - 1]
+                _add_auth_row(True, hname, hval)
+                preset_combo.setCurrentIndex(0)
+
+            preset_combo.currentIndexChanged.connect(_on_preset)
+            btn_row_auth.addWidget(preset_combo)
+
+            add_row_btn = QPushButton("+ Row")
+            add_row_btn.setFixedWidth(60)
+            add_row_btn.clicked.connect(lambda: _add_auth_row(True, "", ""))
+            btn_row_auth.addWidget(add_row_btn)
+
+            del_row_btn = QPushButton("✕ Del")
+            del_row_btn.setFixedWidth(60)
+            def _del_selected():
+                rows = sorted(set(i.row() for i in self._auth_table.selectedItems()), reverse=True)
+                for r in rows:
+                    self._auth_table.removeRow(r)
+            del_row_btn.clicked.connect(_del_selected)
+            btn_row_auth.addWidget(del_row_btn)
+
+            btn_row_auth.addSpacing(12)
+
+            get_cookie_btn = QPushButton("📜 Cookie from History")
+            get_cookie_btn.setToolTip("Grab the latest session cookie from HTTP history")
             get_cookie_btn.clicked.connect(self._get_cookie_from_history)
-            cookie_btn_row.addWidget(get_cookie_btn)
-            detect_btn = QPushButton("🔍 Auto-detect")
-            detect_btn.clicked.connect(self._auto_detect_cookie)
+            btn_row_auth.addWidget(get_cookie_btn)
+
+            detect_btn = QPushButton("🔍 Auto-detect Cookie")
+            detect_btn.setToolTip("Scan HTTP history for a login session cookie")
             detect_btn.setStyleSheet(f"color:{COLOR_ACCENT_SECONDARY};")
-            cookie_btn_row.addWidget(detect_btn)
-            cookie_btn_row.addStretch()
-            cookie_layout.addLayout(cookie_btn_row)
-            self.cookie_checkbox.toggled.connect(self.cookie_input.setEnabled)
-            layout.addWidget(cookie_group)
+            detect_btn.clicked.connect(self._auto_detect_cookie)
+            btn_row_auth.addWidget(detect_btn)
+
+            btn_row_auth.addStretch()
+            auth_layout.addLayout(btn_row_auth)
+            layout.addWidget(auth_group)
+
+            # Legacy compat refs (used by _get_cookie_from_history / _auto_detect_cookie)
+            self.cookie_checkbox = None
+            self.cookie_input = None
         else:
+            self._auth_table = None
             self.cookie_checkbox = None
             self.cookie_input = None
 
@@ -4363,12 +4534,30 @@ class TaskInputDialog(QDialog):
                     break
 
         if cookie:
-            self.cookie_input.setPlainText(cookie)
-            self.cookie_checkbox.setChecked(True)
+            self._set_cookie_in_table(cookie)
         else:
             QMessageBox.information(self, "Not Found",
                                     "No session cookie found in HTTP history.\n"
                                     "Try logging in through the proxy first.")
+
+    def _set_cookie_in_table(self, cookie: str):
+        """Find or create a Cookie row in the auth table and populate it."""
+        if not hasattr(self, "_auth_table") or self._auth_table is None:
+            return
+        for row in range(self._auth_table.rowCount()):
+            name_item = self._auth_table.item(row, 1)
+            if name_item and name_item.text().strip().lower() == "cookie":
+                val_item = self._auth_table.item(row, 2)
+                if val_item:
+                    val_item.setText(cookie)
+                cb_widget = self._auth_table.cellWidget(row, 0)
+                if cb_widget:
+                    cb = cb_widget.findChild(QCheckBox)
+                    if cb:
+                        cb.setChecked(True)
+                return
+        # No Cookie row yet — add one
+        self._add_auth_row(True, "Cookie", cookie)
 
     def _auto_detect_cookie(self):
         """Run smart login cookie detection with user confirmation dialog."""
@@ -4391,8 +4580,7 @@ class TaskInputDialog(QDialog):
         dlg = CookiePromptDialog(cookie_val, url, self)
         if dlg.exec_() == QDialog.Accepted:
             if dlg.choice in (CookiePromptDialog.USE_COOKIE, CookiePromptDialog.CHANGE):
-                self.cookie_input.setPlainText(dlg.final_cookie)
-                self.cookie_checkbox.setChecked(True)
+                self._set_cookie_in_table(dlg.final_cookie)
         # If no match found the signal simply won't fire
 
     def _on_auto_detect_done(self):
@@ -4408,7 +4596,31 @@ class TaskInputDialog(QDialog):
 
     def get_config(self) -> Dict[str, Any]:
         config = {"domain": self.domain, "tool": self.tool_name.lower()}
-        if self.cookie_checkbox and self.cookie_checkbox.isChecked() and self.cookie_input:
+
+        # ── Collect auth headers from the table ──────────────────────────
+        if hasattr(self, "_auth_table") and self._auth_table is not None:
+            auth_headers = []
+            for row in range(self._auth_table.rowCount()):
+                cb_widget = self._auth_table.cellWidget(row, 0)
+                enabled = True
+                if cb_widget:
+                    cb = cb_widget.findChild(QCheckBox)
+                    enabled = cb.isChecked() if cb else True
+                name_item  = self._auth_table.item(row, 1)
+                value_item = self._auth_table.item(row, 2)
+                name  = name_item.text().strip()  if name_item  else ""
+                value = value_item.text().strip() if value_item else ""
+                if enabled and name and value:
+                    auth_headers.append({"name": name, "value": value})
+            if auth_headers:
+                config["auth_headers"] = auth_headers
+                # Backward-compat: extract Cookie header value
+                for h in auth_headers:
+                    if h["name"].lower() == "cookie":
+                        config["cookie"] = validate_cookie(h["value"])
+                        break
+        elif self.cookie_checkbox and self.cookie_checkbox.isChecked() and self.cookie_input:
+            # Fallback for tools without the auth table (shouldn't happen but safe)
             config["cookie"] = self.cookie_input.toPlainText().strip()
         if self.proxy_checkbox is not None:
             # Always write the key so add_task knows the user's explicit intent.
@@ -4673,7 +4885,20 @@ class TaskWidget(QWidget):
             "border-radius:6px;font-size:11px;font-weight:bold;padding:0;}"
             "QPushButton:hover{background:transparent;color:#ff9090;border-color:#ff9090;}"
         )
-        rm_btn.clicked.connect(lambda: self.remove_requested.emit(self.task_id))
+        def _confirm_remove():
+            tool = self.task_data.get("tool", "task")
+            domain = self.task_data.get("domain", "")
+            reply = QMessageBox.question(
+                self,
+                "Remove Task",
+                f"Remove the <b>{tool}</b> task for <b>{domain}</b>?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if reply == QMessageBox.Yes:
+                self.remove_requested.emit(self.task_id)
+
+        rm_btn.clicked.connect(_confirm_remove)
         btn_row.addWidget(rm_btn)
 
         rl.addLayout(btn_row)
@@ -5162,8 +5387,31 @@ class SubdomainWidget(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+    def _get_tool_statuses(self) -> dict:
+        """Return {tool_key: latest_status} for tasks matching this widget's target."""
+        statuses = {}
+        if not self.parent_tab:
+            return statuses
+        for td in getattr(self.parent_tab, "tasks", {}).values():
+            if td.get("domain", "").lower() == self.subdomain.lower():
+                tool = td.get("tool", "")
+                if tool:
+                    statuses[tool] = td.get("status", "")
+        return statuses
+
+    def _task_pfx(self, statuses: dict, tool_key: str) -> str:
+        """Return a 2-char prefix icon indicating the task's last known status."""
+        s = statuses.get(tool_key, "")
+        if s == "completed": return "✓ "
+        if s == "running":   return "▶ "
+        if s == "error":     return "✗ "
+        return "  "
+
     def _show_domain_task_menu(self):
         """Domain-level recon task menu."""
+        st = self._get_tool_statuses()
+        p  = lambda k: self._task_pfx(st, k)
+
         menu = QMenu(self)
         menu.setStyleSheet(
             f"QMenu{{background-color:{COLOR_DARK_BG};color:{COLOR_TEXT};"
@@ -5176,36 +5424,36 @@ class SubdomainWidget(QWidget):
         # ── 📋 Whois ──────────────────────────────────────────────────────
         whois_title = menu.addAction("──  Domain Info ──")
         whois_title.setEnabled(False)
-        whois_a = menu.addAction("  Whois Lookup")
+        whois_a = menu.addAction(p("whois") + "Whois Lookup")
         menu.addSeparator()
 
         # ── 🔎 Dorks ──────────────────────────────────────────────────────
         dorks_title = menu.addAction("──  Dorks & OSINT ──")
         dorks_title.setEnabled(False)
-        google_dorks_a  = menu.addAction("  Google Dorks (dorks_hunter)")
-        github_dorks_a  = menu.addAction("  GitHub Dorks (gitdorks_go)")
-        github_secrets_a = menu.addAction("  GitHub Secrets (trufflehog)")
-        emails_a        = menu.addAction("  Email Discovery (emailfinder)")
-        metadata_a      = menu.addAction("  Metadata Finder (metafinder)")
+        google_dorks_a   = menu.addAction(p("google_dorks")   + "Google Dorks (dorks_hunter)")
+        github_dorks_a   = menu.addAction(p("github_dorks")   + "GitHub Dorks (gitdorks_go)")
+        github_secrets_a = menu.addAction(p("github_secrets") + "GitHub Secrets (trufflehog)")
+        emails_a         = menu.addAction(p("emails")         + "Email Discovery (emailfinder)")
+        metadata_a       = menu.addAction(p("metadata")       + "Metadata Finder (metafinder)")
         menu.addSeparator()
 
         # ── 🌐 Subdomains ─────────────────────────────────────────────────
         subs_title = menu.addAction("── 🌐 Subdomain Enumeration ──")
         subs_title.setEnabled(False)
-        passive_subs_a  = menu.addAction("  Passive Subdomains (amass+subfinder+crt.sh+findomain)")
-        active_subs_a   = menu.addAction("  Active Brute-Force (gobuster dns)")
-        guess_subs_a    = menu.addAction("  Guess Subdomains (altdns)")
-        vhost_a         = menu.addAction("  VHost Discovery (ffuf)")
+        passive_subs_a = menu.addAction(p("passive_subdomains") + "Passive Subdomains (amass+subfinder+crt.sh+findomain)")
+        active_subs_a  = menu.addAction(p("active_subdomains")  + "Active Brute-Force (gobuster dns)")
+        guess_subs_a   = menu.addAction(p("guess_subdomains")   + "Guess Subdomains (altdns)")
+        vhost_a        = menu.addAction(p("vhost")              + "VHost Discovery (ffuf)")
         menu.addSeparator()
 
         # ── 🎯 Analysis ───────────────────────────────────────────────────
         analysis_title = menu.addAction("──  Subdomains Analysis ──")
         analysis_title.setEnabled(False)
-        bypass_a    = menu.addAction("  40x Bypass (byp4xx)")
-        takeover_a  = menu.addAction("  Subdomain Takeover (subjack)")
-        svc_scan_a  = menu.addAction("  Service Scan (smap)")
-        cloud_a     = menu.addAction("  Cloud Enum (cloud_enum)")
-        screenshot_a = menu.addAction("  Screenshots (eyewitness)")
+        bypass_a     = menu.addAction(p("bypass_40x")   + "40x Bypass (byp4xx)")
+        takeover_a   = menu.addAction(p("takeover")     + "Subdomain Takeover (subjack)")
+        svc_scan_a   = menu.addAction(p("service_scan") + "Service Scan (smap)")
+        cloud_a      = menu.addAction(p("cloud_enum")   + "Cloud Enum (cloud_enum)")
+        screenshot_a = menu.addAction(p("screenshot")   + "Screenshots (eyewitness)")
         menu.addSeparator()
 
         # ── 📊 Report ─────────────────────────────────────────────────────
@@ -5261,6 +5509,9 @@ class SubdomainWidget(QWidget):
                 "No report yet.\nRun at least one domain task to generate it.")
 
     def _show_task_menu(self):
+        st = self._get_tool_statuses()
+        p  = lambda k: self._task_pfx(st, k)
+
         menu = QMenu(self)
         menu.setStyleSheet(
             f"QMenu{{background-color:{COLOR_DARK_BG};color:{COLOR_TEXT};"
@@ -5273,46 +5524,46 @@ class SubdomainWidget(QWidget):
         # ── 🕸️ Crawling ──────────────────────────────────────────────────────
         crawl_title = menu.addAction("──  Crawling ──")
         crawl_title.setEnabled(False)
-        spider_a  = menu.addAction("  Spider (gospider + cariddi + katana + linkfinder + paramspider)")
-        archive_a = menu.addAction("  Web Archive (wayback + gau + waymore + gauplus)")
+        spider_a  = menu.addAction(p("spider")  + "Spider (gospider + cariddi + katana + linkfinder + paramspider)")
+        archive_a = menu.addAction(p("archive") + "Web Archive (wayback + gau + waymore + gauplus)")
         menu.addSeparator()
 
         # ── 🔍 Recon ─────────────────────────────────────────────────────────
         recon_title = menu.addAction("──  Recon ──")
         recon_title.setEnabled(False)
-        ipinfo_a  = menu.addAction("  IP Info")
-        headers_a = menu.addAction("  HTTP Headers")
-        tech_a    = menu.addAction("  Tech Detection (wad)")
-        waf_a     = menu.addAction("  WAF Detection (wafw00f)")
-        cms_a     = menu.addAction("  CMS Detection (cmseek)")
-        ports_a   = menu.addAction("  Port Scan (nmap top-1000 + scripts)")
+        ipinfo_a  = menu.addAction(p("ipinfo")  + "IP Info")
+        headers_a = menu.addAction(p("headers") + "HTTP Headers")
+        tech_a    = menu.addAction(p("tech")    + "Tech Detection (wad)")
+        waf_a     = menu.addAction(p("waf")     + "WAF Detection (wafw00f)")
+        cms_a     = menu.addAction(p("cms")     + "CMS Detection (cmseek)")
+        ports_a   = menu.addAction(p("ports")   + "Port Scan (nmap top-1000 + scripts)")
         menu.addSeparator()
 
         # ── ⚡ Fuzzing ────────────────────────────────────────────────────────
         fuzz_title = menu.addAction("──  Fuzzing ──")
         fuzz_title.setEnabled(False)
-        bruteforce_a = menu.addAction("  Content Bruteforce (feroxbuster + tech wordlists)")
+        bruteforce_a = menu.addAction(p("bruteforce") + "Content Bruteforce (feroxbuster + tech wordlists)")
         menu.addSeparator()
 
         # ── ☢️ Scanning ───────────────────────────────────────────────────────
         scan_title = menu.addAction("──  Vulnerability Scanning ──")
         scan_title.setEnabled(False)
-        nuclei_a    = menu.addAction("  Nuclei (all templates)")
-        nikto_a     = menu.addAction("  Nikto")
+        nuclei_a = menu.addAction(p("nuclei") + "Nuclei (all templates)")
+        nikto_a  = menu.addAction(p("nikto")  + "Nikto")
         menu.addSeparator()
 
         # ── 📰 CMS Scanners ───────────────────────────────────────────────────
         cms_scan_title = menu.addAction("──  CMS Scanners ──")
         cms_scan_title.setEnabled(False)
-        wpscan_a    = menu.addAction("  WPScan (WordPress)")
-        joomscan_a  = menu.addAction("  JoomScan (Joomla)")
-        droope_a    = menu.addAction("  Droopescan (Drupal)")
+        wpscan_a   = menu.addAction(p("wpscan")     + "WPScan (WordPress)")
+        joomscan_a = menu.addAction(p("joomscan")   + "JoomScan (Joomla)")
+        droope_a   = menu.addAction(p("droopescan") + "Droopescan (Drupal)")
         menu.addSeparator()
 
         # ── 🌿 Enumeration ────────────────────────────────────────────────────
         enum_title = menu.addAction("──  Enumeration ──")
         enum_title.setEnabled(False)
-        subs4_a = menu.addAction("  4th-Level Subdomains (amass + subfinder + crt.sh)")
+        subs4_a = menu.addAction(p("subdomains4") + "4th-Level Subdomains (amass + subfinder + crt.sh)")
 
         # Position below the Tasks button
         btn_bottom_left = self.menu_btn.mapToGlobal(QPoint(0, self.menu_btn.height()))
@@ -6099,9 +6350,11 @@ class DashboardTab(QWidget):
             "output_file":  output_file,
             "output_content": "",
             # Scope context so we can reload per-target
-            "scope_slug":      self._current_slug,
-            "scope_domain":    self._current_domain,
-            "scope_subdomain": self._current_subdomain,
+            # Config may override scope to associate the task with a specific host
+            # (e.g. when launched from HTTP history for a particular subdomain).
+            "scope_slug":      config.get("scope_slug",      self._current_slug),
+            "scope_domain":    config.get("scope_domain",    self._current_domain),
+            "scope_subdomain": config.get("scope_subdomain", self._current_subdomain),
             # Optional per-task fields forwarded from the task config dialog
             "wordlist":        config.get("wordlist", ""),
             "github_token":    config.get("github_token", ""),
@@ -6120,12 +6373,27 @@ class DashboardTab(QWidget):
         self._tasks_layout.insertWidget(self._tasks_layout.count() - 1, widget)
         self.task_widgets[task_id] = widget
 
-        # Update subdomain badge
+        # Update subdomain badge.
+        # domain may be "host/path/" for path-specific tasks (e.g. content
+        # bruteforce launched from HTTP history). In that case fall back to
+        # the hostname portion so the correct widget badge is updated.
         self.target_task_counts[domain] = self.target_task_counts.get(domain, 0) + 1
-        if domain in self.subdomain_widgets:
-            self.subdomain_widgets[domain].update_task_count(self.target_task_counts[domain])
-        elif domain in self.domain_widgets:
-            self.domain_widgets[domain].update_task_count(self.target_task_counts[domain])
+        badge_domain = domain
+        if domain not in self.subdomain_widgets and domain not in self.domain_widgets:
+            host_only = domain.split("/")[0]
+            if host_only and host_only != domain:
+                badge_domain = host_only
+                self.target_task_counts[badge_domain] = (
+                    self.target_task_counts.get(badge_domain, 0) + 1
+                )
+        if badge_domain in self.subdomain_widgets:
+            self.subdomain_widgets[badge_domain].update_task_count(
+                self.target_task_counts[badge_domain]
+            )
+        elif badge_domain in self.domain_widgets:
+            self.domain_widgets[badge_domain].update_task_count(
+                self.target_task_counts[badge_domain]
+            )
 
         self.save_tasks()
         self._execute_task(task_id)
@@ -6603,8 +6871,12 @@ class DashboardTab(QWidget):
                         or task_domain.endswith("." + sel)
                     )
                 else:
-                    # Subdomain selected: exact match only
-                    match = task_domain == self._selected_target
+                    # Subdomain selected: exact match, or path-scoped tasks under this host
+                    # (e.g. bruteforce task for "www.ex.com/dir/" belongs to "www.ex.com")
+                    match = (
+                        task_domain == self._selected_target
+                        or task_domain.startswith(self._selected_target + "/")
+                    )
                 if not match:
                     widget.hide()
                     continue

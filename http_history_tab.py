@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QTextEdit, QLineEdit, QComboBox, QPushButton,
     QLabel, QFrame, QSplitter, QTabWidget, QStyle, QMessageBox, QMenu,
     QHeaderView, QStyledItemDelegate, QApplication, QAction, QCheckBox, QShortcut,
-    QTreeWidgetItemIterator, QScrollArea, QStackedWidget, QSizePolicy
+    QTreeWidgetItemIterator, QScrollArea, QStackedWidget, QSizePolicy, QDialog
 )
 from PyQt5.QtCore import (
     QThread, Qt, pyqtSignal, QTimer, QRect, QEvent
@@ -3062,6 +3062,8 @@ class HTTPHistoryTab(AnalysisTabMixin):
         send_to_poc_action.setToolTip("Generate a proof-of-concept exploit for this request")
         send_to_jwt_action = menu.addAction(" Send to JWT Analyzer")
         send_to_jwt_action.setToolTip("Test JWT tokens in this request for alg:none, confusion attacks, weak secrets and more")
+        send_to_bruteforce_action = menu.addAction(" Content Bruteforce")
+        send_to_bruteforce_action.setToolTip("Run feroxbuster content discovery on this URL's host (Dashboard task)")
 
         menu.addSeparator()
         send_to_endpoints_action = menu.addAction(" Send to Attack Surface")
@@ -3075,7 +3077,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         analyze_action = menu.addAction(" Analyze Request")
         ai_analyze_action = menu.addAction("✨ AI Analyze")
         ai_analyze_action.setToolTip("Open AI security chat to analyze this request/response  (Ctrl+Shift+C)")
-        send_to_ai_action = menu.addAction("📎 Send to AI")
+        send_to_ai_action = menu.addAction("✨ Send to AI")
         send_to_ai_action.setToolTip("Pin this request/response in AI chat — ask anything about it")
 
         menu.addSeparator()
@@ -3126,6 +3128,8 @@ class HTTPHistoryTab(AnalysisTabMixin):
             self._send_to_poc(finding_index)
         elif action == send_to_jwt_action:
             self._send_to_jwt(finding_index)
+        elif action == send_to_bruteforce_action:
+            self._send_to_content_bruteforce(finding_index)
         elif action == send_to_endpoints_action:
             self._send_to_endpoints(finding_index)
         elif action == send_to_report_action:
@@ -3387,6 +3391,106 @@ class HTTPHistoryTab(AnalysisTabMixin):
             f"🔐 Sent to JWT Analyzer → {url[:60]}{'...' if len(url) > 60 else ''}"
         )
         QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
+
+    # =========================================================================
+    # 📂 _send_to_content_bruteforce
+    # =========================================================================
+    def _send_to_content_bruteforce(self, finding_index: int = None):
+        """
+        Launch a feroxbuster content-bruteforce Dashboard task for this URL's host.
+        Opens TaskInputDialog pre-configured for "bruteforce", then adds the task
+        to the Dashboard and switches to it.
+        """
+        if finding_index is None:
+            finding_index = self._get_selected_finding_index()
+        if finding_index is None or finding_index >= len(self.findings):
+            return
+
+        url = self.findings[finding_index].get("url", "").strip()
+        if not url:
+            QMessageBox.warning(self, "Content Bruteforce", "No URL found for this request.")
+            return
+
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        hostname = parsed.netloc
+        if not hostname:
+            QMessageBox.warning(self, "Content Bruteforce",
+                                "Could not extract host from URL.")
+            return
+
+        # Build the bruteforce target as host+path (no scheme) so feroxbuster
+        # scans under the exact path selected, not just the root of the host.
+        # Normalize: strip query/fragment, ensure trailing slash.
+        path = parsed.path or "/"
+        if not path.endswith("/"):
+            path = path + "/"
+        # bruteforce_target is what feroxbuster will receive as https://<target>
+        bruteforce_target = hostname + path  # e.g. "www.ex.com/dir/"
+
+        parent_gui = getattr(self, "parent_gui", self)
+        dashboard = getattr(parent_gui, "dashboard_tab", None)
+        if dashboard is None:
+            QMessageBox.warning(self, "Content Bruteforce",
+                                "Dashboard tab not available.")
+            return
+
+        try:
+            from dashboard_tab import TaskInputDialog
+        except ImportError:
+            QMessageBox.warning(self, "Content Bruteforce",
+                                "Could not load task configuration dialog.")
+            return
+
+        # Pre-fill cookie from dashboard auto-detect or from the request itself
+        prefill = getattr(dashboard, "_last_detected_cookie", "")
+        if not prefill:
+            finding = self.findings[finding_index]
+            req_file = finding.get("request_file", "") or finding.get("request_path", "")
+            if req_file and os.path.isfile(req_file):
+                try:
+                    with open(req_file, "r", encoding="utf-8", errors="replace") as rf:
+                        for line in rf:
+                            if line.strip().lower().startswith("cookie:"):
+                                prefill = line.strip()[7:].strip()
+                                break
+                except Exception:
+                    pass
+            if not prefill:
+                raw = (finding.get("request_text", "") or finding.get("request", ""))
+                for line in raw.splitlines():
+                    if line.strip().lower().startswith("cookie:"):
+                        prefill = line.strip()[7:].strip()
+                        break
+
+        # Dialog title shows the full target path; domain field drives the task ID
+        dlg = TaskInputDialog(bruteforce_target, "bruteforce", parent_gui,
+                              main_window=parent_gui, prefill_cookie=prefill)
+        if dlg.exec_() == QDialog.Accepted:
+            config = dlg.get_config()
+            # domain = host+path so the task ID is unique per path and feroxbuster
+            # receives https://www.ex.com/dir/ as its -u target
+            config["domain"] = bruteforce_target
+            # Scope tags point at the hostname so the task appears under the
+            # correct subdomain row in the Dashboard
+            config["scope_subdomain"] = hostname
+            config["scope_slug"]      = getattr(dashboard, "_current_slug", "")
+            config["scope_domain"]    = getattr(dashboard, "_current_domain", "")
+            # Ensure a subdomain widget exists for this host so the badge updates
+            if hasattr(dashboard, "_add_subdomain_widget"):
+                dashboard._add_subdomain_widget(hostname)
+            dashboard.add_task(config)
+            # Switch to the Dashboard tab
+            tab_widget = getattr(parent_gui, "tab_widget", None)
+            if tab_widget:
+                for i in range(tab_widget.count()):
+                    if "Dashboard" in tab_widget.tabText(i):
+                        tab_widget.setCurrentIndex(i)
+                        break
+            self.toolbar_status.setText(
+                f"📂 Content Bruteforce queued → https://{bruteforce_target}"
+            )
+            QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
     # 📍 _send_to_attack_surface
     # =========================================================================

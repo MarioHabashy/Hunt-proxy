@@ -78,6 +78,30 @@ class DecoderTab:
         )
         header_layout.addWidget(smart_decode_btn)
 
+        # Quick action: Encode All (dencode-style)
+        encode_all_btn = QPushButton("⚡ Encode All")
+        encode_all_btn.setToolTip("Show every encoding, hash and format for this input — dencode.com style")
+        encode_all_btn.clicked.connect(self.encode_all_formats)
+        encode_all_btn.setMaximumHeight(36)
+        encode_all_btn.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #b8600a, stop:1 #e07b1a);
+                padding: 6px 16px;
+                font-weight: 600;
+                font-size: {FONT_SIZE_SMALL};
+                color: white;
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #e07b1a, stop:1 #b8600a);
+            }}
+        """
+        )
+        header_layout.addWidget(encode_all_btn)
+
         # Quick action: Analyze - COMPACT
         analyze_btn = QPushButton("📊 Analyze")
         analyze_btn.setToolTip("Deep analysis: entropy, patterns, signatures")
@@ -1799,6 +1823,324 @@ class DecoderTab:
             result += "\n" + "=" * 70 + "\n"
 
         self.set_decoder_output(result, f"✅ Smart decode complete - {layer} layers")
+
+    # =========================================================================
+    # ⚡ ENCODE ALL — dencode.com style
+    # =========================================================================
+    def encode_all_formats(self):
+        """Encode/hash/transform input in every format at once (dencode.com style)."""
+        text = self.get_decoder_input()
+        if not text:
+            self.set_decoder_output("No input provided", "⚠️ Empty input")
+            return
+
+        raw = text
+        raw_bytes = raw.encode("utf-8")
+        stripped = raw.strip()
+
+        SEP  = "─" * 72
+        SEP2 = "═" * 72
+
+        def section(title: str, color_char="") -> str:
+            return f"\n{SEP2}\n  {color_char}{title}\n{SEP2}\n"
+
+        def row(label: str, value: str) -> str:
+            return f"  {label:<32}  {value}\n"
+
+        out = ""
+        out += SEP2 + "\n"
+        out += "  ⚡ ENCODE ALL — every format at a glance\n"
+        out += f"  Input: {len(raw)} chars · {len(raw_bytes)} bytes\n"
+        out += SEP2 + "\n"
+
+        # ── BASE ENCODINGS ────────────────────────────────────────────────────
+        out += section("BASE ENCODINGS", "📤  ")
+        try:
+            out += row("Base64",    base64.b64encode(raw_bytes).decode())
+        except Exception as e:
+            out += row("Base64",    f"[error: {e}]")
+        try:
+            out += row("Base64 URL-safe", base64.urlsafe_b64encode(raw_bytes).decode())
+        except Exception as e:
+            out += row("Base64 URL-safe", f"[error: {e}]")
+        try:
+            out += row("Base32",    base64.b32encode(raw_bytes).decode())
+        except Exception as e:
+            out += row("Base32",    f"[error: {e}]")
+        try:
+            out += row("Base32 Hex", base64.b32hexencode(raw_bytes).decode())
+        except Exception:
+            try:
+                import base64 as _b64
+                alphabet = b"0123456789ABCDEFGHIJKLMNOPQRSTUV"
+                b32 = base64.b32encode(raw_bytes).decode()
+                mapping = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", "0123456789ABCDEFGHIJKLMNOPQRSTUV")
+                out += row("Base32 Hex", b32.translate(mapping))
+            except Exception as e:
+                out += row("Base32 Hex", f"[error: {e}]")
+        try:
+            out += row("Base85 (ASCII85)", base64.b85encode(raw_bytes).decode())
+        except Exception as e:
+            out += row("Base85 (ASCII85)", f"[error: {e}]")
+        try:
+            import base64 as _b
+            out += row("Base16 (Hex)", raw_bytes.hex().upper())
+        except Exception as e:
+            out += row("Base16 (Hex)", f"[error: {e}]")
+
+        # ── URL / PERCENT ENCODING ────────────────────────────────────────────
+        out += section("URL / PERCENT ENCODING", "🔗  ")
+        try:
+            out += row("URL Encode (RFC 3986)",    urllib.parse.quote(raw, safe=""))
+        except Exception as e:
+            out += row("URL Encode (RFC 3986)",    f"[error: {e}]")
+        try:
+            out += row("URL Encode (keep /)",      urllib.parse.quote(raw, safe="/"))
+        except Exception as e:
+            out += row("URL Encode (keep /)",      f"[error: {e}]")
+        try:
+            out += row("URL Encode ALL chars",     "".join(f"%{b:02X}" for b in raw_bytes))
+        except Exception as e:
+            out += row("URL Encode ALL chars",     f"[error: {e}]")
+        try:
+            out += row("Double URL Encode",        urllib.parse.quote(urllib.parse.quote(raw, safe=""), safe=""))
+        except Exception as e:
+            out += row("Double URL Encode",        f"[error: {e}]")
+        try:
+            out += row("Form Encoded (+spaces)",   urllib.parse.quote_plus(raw))
+        except Exception as e:
+            out += row("Form Encoded (+spaces)",   f"[error: {e}]")
+
+        # ── HTML ENCODING ─────────────────────────────────────────────────────
+        out += section("HTML ENCODING", "🌐  ")
+        try:
+            out += row("HTML Entities",            html.escape(raw))
+        except Exception as e:
+            out += row("HTML Entities",            f"[error: {e}]")
+        try:
+            out += row("HTML Entities (quotes)",   html.escape(raw, quote=True))
+        except Exception as e:
+            out += row("HTML Entities (quotes)",   f"[error: {e}]")
+        try:
+            out += row("HTML Decimal (&#XX;)",     "".join(f"&#{ord(c)};" for c in raw))
+        except Exception as e:
+            out += row("HTML Decimal (&#XX;)",     f"[error: {e}]")
+        try:
+            out += row("HTML Hex (&#xXX;)",        "".join(f"&#x{ord(c):x};" for c in raw))
+        except Exception as e:
+            out += row("HTML Hex (&#xXX;)",        f"[error: {e}]")
+
+        # ── UNICODE / ESCAPE SEQUENCES ────────────────────────────────────────
+        out += section("UNICODE & ESCAPE SEQUENCES", "🔡  ")
+        try:
+            out += row("Unicode Escape (\\uXXXX)",  "".join(f"\\u{ord(c):04x}" for c in raw))
+        except Exception as e:
+            out += row("Unicode Escape (\\uXXXX)",  f"[error: {e}]")
+        try:
+            out += row("Unicode Escape (\\UXXXXXXXX)", "".join(f"\\U{ord(c):08x}" for c in raw))
+        except Exception as e:
+            out += row("Unicode Escape (\\UXXXXXXXX)", f"[error: {e}]")
+        try:
+            out += row("Unicode Named (\\N{name})",
+                       raw.encode("unicode_escape").decode("utf-8"))
+        except Exception as e:
+            out += row("Unicode Named (\\N{name})",  f"[error: {e}]")
+        try:
+            out += row("Hex Bytes (\\xHH)",         "".join(f"\\x{b:02x}" for b in raw_bytes))
+        except Exception as e:
+            out += row("Hex Bytes (\\xHH)",         f"[error: {e}]")
+        try:
+            out += row("Octal Bytes (\\OOO)",       "".join(f"\\{b:03o}" for b in raw_bytes))
+        except Exception as e:
+            out += row("Octal Bytes (\\OOO)",       f"[error: {e}]")
+        try:
+            out += row("Python repr()",             repr(raw))
+        except Exception as e:
+            out += row("Python repr()",             f"[error: {e}]")
+
+        # ── HEX / BINARY ──────────────────────────────────────────────────────
+        out += section("HEX & BINARY", "🔢  ")
+        try:
+            out += row("Hex (lowercase)",          raw_bytes.hex())
+        except Exception as e:
+            out += row("Hex (lowercase)",          f"[error: {e}]")
+        try:
+            out += row("Hex (uppercase)",          raw_bytes.hex().upper())
+        except Exception as e:
+            out += row("Hex (uppercase)",          f"[error: {e}]")
+        try:
+            out += row("Hex (0x prefix)",          " ".join(f"0x{b:02x}" for b in raw_bytes))
+        except Exception as e:
+            out += row("Hex (0x prefix)",          f"[error: {e}]")
+        try:
+            out += row("Hex (spaced)",             " ".join(f"{b:02x}" for b in raw_bytes))
+        except Exception as e:
+            out += row("Hex (spaced)",             f"[error: {e}]")
+        try:
+            out += row("Binary (8-bit bytes)",     " ".join(f"{b:08b}" for b in raw_bytes))
+        except Exception as e:
+            out += row("Binary (8-bit bytes)",     f"[error: {e}]")
+        try:
+            out += row("Octal",                    " ".join(f"{b:03o}" for b in raw_bytes))
+        except Exception as e:
+            out += row("Octal",                    f"[error: {e}]")
+        try:
+            out += row("Decimal (bytes)",          " ".join(str(b) for b in raw_bytes))
+        except Exception as e:
+            out += row("Decimal (bytes)",          f"[error: {e}]")
+
+        # ── CHARACTER CASING ──────────────────────────────────────────────────
+        out += section("CHARACTER CASING", "🔠  ")
+        out += row("Uppercase",                 raw.upper())
+        out += row("Lowercase",                 raw.lower())
+        out += row("Title Case",                raw.title())
+        out += row("Swap Case",                 raw.swapcase())
+        out += row("Capitalize",               raw.capitalize())
+        try:
+            out += row("Camel Case",
+                       "".join(w.capitalize() for w in re.split(r"[\s_\-]+", raw)))
+        except Exception as e:
+            out += row("Camel Case",            f"[error: {e}]")
+        try:
+            out += row("Snake Case",
+                       re.sub(r"[\s\-]+", "_", stripped).lower())
+        except Exception as e:
+            out += row("Snake Case",            f"[error: {e}]")
+        try:
+            out += row("Kebab Case",
+                       re.sub(r"[\s_]+", "-", stripped).lower())
+        except Exception as e:
+            out += row("Kebab Case",            f"[error: {e}]")
+
+        # ── CLASSIC CIPHERS ───────────────────────────────────────────────────
+        out += section("CLASSIC CIPHERS", "🔐  ")
+        try:
+            out += row("ROT13",                 codecs.encode(raw, "rot_13"))
+        except Exception as e:
+            out += row("ROT13",                 f"[error: {e}]")
+        try:
+            rot47 = "".join(
+                chr(33 + (ord(c) - 33 + 47) % 94) if 33 <= ord(c) <= 126 else c
+                for c in raw
+            )
+            out += row("ROT47",                 rot47)
+        except Exception as e:
+            out += row("ROT47",                 f"[error: {e}]")
+        try:
+            out += row("Reverse",               raw[::-1])
+        except Exception as e:
+            out += row("Reverse",               f"[error: {e}]")
+        try:
+            morse = {
+                "A":".-","B":"-...","C":"-.-.","D":"-..","E":".",
+                "F":"..-.","G":"--.","H":"....","I":"..","J":".---",
+                "K":"-.-","L":".-..","M":"--","N":"-.","O":"---",
+                "P":".--.","Q":"--.-","R":".-.","S":"...","T":"-",
+                "U":"..-","V":"...-","W":".--","X":"-..-","Y":"-.--",
+                "Z":"--..",
+                "0":"-----","1":".----","2":"..---","3":"...--",
+                "4":"....-","5":".....","6":"-....","7":"--...",
+                "8":"---..","9":"----.",
+                " ":"/"
+            }
+            morse_out = " ".join(morse.get(c.upper(), "?") for c in raw)
+            out += row("Morse Code",            morse_out)
+        except Exception as e:
+            out += row("Morse Code",            f"[error: {e}]")
+
+        # ── HASHES ────────────────────────────────────────────────────────────
+        out += section("CRYPTOGRAPHIC HASHES", "🔒  ")
+        hash_algos = [
+            ("MD5",        hashlib.md5),
+            ("SHA-1",      hashlib.sha1),
+            ("SHA-224",    hashlib.sha224),
+            ("SHA-256",    hashlib.sha256),
+            ("SHA-384",    hashlib.sha384),
+            ("SHA-512",    hashlib.sha512),
+        ]
+        for name, fn in hash_algos:
+            try:
+                out += row(name, fn(raw_bytes).hexdigest())
+            except Exception as e:
+                out += row(name, f"[error: {e}]")
+        try:
+            out += row("SHA3-256",  hashlib.sha3_256(raw_bytes).hexdigest())
+            out += row("SHA3-512",  hashlib.sha3_512(raw_bytes).hexdigest())
+        except Exception as e:
+            out += row("SHA3-256/512", f"[error: {e}]")
+        try:
+            out += row("BLAKE2b",   hashlib.blake2b(raw_bytes).hexdigest())
+            out += row("BLAKE2s",   hashlib.blake2s(raw_bytes).hexdigest())
+        except Exception as e:
+            out += row("BLAKE2b/s", f"[error: {e}]")
+        try:
+            ntlm = hashlib.new("md4", raw.encode("utf-16-le")).hexdigest()
+            out += row("NTLM (MD4/UTF-16LE)", ntlm)
+        except Exception:
+            try:
+                import struct
+                # Pure-Python MD4 approximation for NTLM
+                out += row("NTLM", "[MD4 not available on this platform]")
+            except Exception as e:
+                out += row("NTLM", f"[error: {e}]")
+
+        # ── COMPRESSION ───────────────────────────────────────────────────────
+        out += section("COMPRESSION (base64-wrapped)", "🗜  ")
+        try:
+            gz = gzip.compress(raw_bytes, compresslevel=9)
+            out += row("Gzip", base64.b64encode(gz).decode())
+            out += row("Gzip size", f"{len(gz)} bytes ({100*len(gz)//max(1,len(raw_bytes))}% of original)")
+        except Exception as e:
+            out += row("Gzip", f"[error: {e}]")
+        try:
+            import zlib
+            zl = zlib.compress(raw_bytes, level=9)
+            out += row("Zlib", base64.b64encode(zl).decode())
+        except Exception as e:
+            out += row("Zlib", f"[error: {e}]")
+
+        # ── NUMBER BASES ──────────────────────────────────────────────────────
+        out += section("NUMBER BASE CONVERSIONS  (first code-point)", "🔢  ")
+        try:
+            cp = ord(stripped[0]) if stripped else 0
+            out += row("Code-point", str(cp))
+            out += row("Decimal",    str(cp))
+            out += row("Binary",     bin(cp))
+            out += row("Octal",      oct(cp))
+            out += row("Hex",        hex(cp))
+        except Exception as e:
+            out += row("Code-point", f"[error: {e}]")
+
+        # ── MISC ──────────────────────────────────────────────────────────────
+        out += section("MISCELLANEOUS", "🛠  ")
+        try:
+            out += row("Length (chars)",         str(len(raw)))
+            out += row("Length (bytes UTF-8)",   str(len(raw_bytes)))
+            out += row("Lines",                  str(len(raw.splitlines())))
+            out += row("Words",                  str(len(raw.split())))
+        except Exception as e:
+            out += row("Stats", f"[error: {e}]")
+        try:
+            import math as _math
+            counter = Counter(raw)
+            entropy = -sum(
+                (c / len(raw)) * _math.log2(c / len(raw))
+                for c in counter.values()
+            )
+            out += row("Shannon Entropy (bits)", f"{entropy:.4f}")
+        except Exception as e:
+            out += row("Shannon Entropy",        f"[error: {e}]")
+        try:
+            ascii_art_note = "(non-ASCII chars present)" if any(ord(c) > 127 for c in raw) else "(all ASCII)"
+            out += row("ASCII check", ascii_art_note)
+        except Exception as e:
+            out += row("ASCII check", f"[error: {e}]")
+
+        out += "\n" + SEP2 + "\n"
+        out += f"  ✅ All formats generated for {len(raw)}-char input\n"
+        out += SEP2 + "\n"
+
+        self.set_decoder_output(out, "⚡ All formats encoded")
 
     def analyze_input(self):
         """Deep analysis of input"""

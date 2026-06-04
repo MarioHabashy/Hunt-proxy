@@ -2663,12 +2663,16 @@ class HuntBurpGUI(
         # ── Build all widgets (must happen on main thread) ───────────────
         self.init_ui()
 
+        # ── Load project notes SYNCHRONOUSLY so content is always ready
+        #    before any close/save event fires (avoids empty-file race).
+        self._notes_loaded = False
+        self._load_project_notes()
+
         # ── Defer every blocking / IO-heavy call until after the event
         #    loop starts so the window appears immediately and responsive.
         #    Stagger the timers slightly so the UI stays smooth.
         QTimer.singleShot(0,    self.load_notes_from_file)
         QTimer.singleShot(50,   self.load_highlights_from_file)
-        QTimer.singleShot(100,  self._load_project_notes)
         QTimer.singleShot(200,  self.start_monitoring)
 
         def _safe_start_proxy():
@@ -3441,6 +3445,8 @@ class HuntBurpGUI(
                 ed.setFocus()
             self.project_notes_btn.setText(" Project Notes ▲")
         else:
+            # Save immediately when the panel is hidden so content is never lost.
+            self._save_project_notes()
             self._notes_panel.setVisible(False)
             self.project_notes_btn.setText(" Project Notes ▼")
 
@@ -3570,12 +3576,15 @@ class HuntBurpGUI(
 
     def _on_notes_text_changed(self):
         """Debounce-save on every keystroke; highlighter handles live rendering."""
+        # Ignore programmatic changes (loading from file, rehighlight).
+        if not getattr(self, "_notes_loaded", True):
+            return
         if hasattr(self, "_notes_save_indicator"):
             self._notes_save_indicator.setStyleSheet(
                 f"color: {COLOR_WARNING}; font-size: 11px; padding: 0 6px;"
             )
             self._notes_save_indicator.setText("● unsaved")
-        self._notes_autosave_timer.start(1500)
+        self._notes_autosave_timer.start(800)
 
     # ── Notes formatting helpers ──────────────────────────────────────────
 
@@ -3637,11 +3646,13 @@ class HuntBurpGUI(
             return
         path_base = self._notes_file_path_base()
         if not path_base:
+            self._notes_loaded = True
             return
+        self._notes_loaded = False   # block autosave until load is complete
 
         # ── Load tab metadata ────────────────────────────────────────
         meta_path = path_base + "_meta.json"
-        tab_names = ["General"]   # default: single tab
+        tab_names = ["Vuln Scope"]   # default: single tab
         panel_visible = False
         if os.path.exists(meta_path):
             try:
@@ -3705,6 +3716,7 @@ class HuntBurpGUI(
             editor.blockSignals(False)
 
         self._notes_tabs.setCurrentIndex(0)
+        self._notes_loaded = True   # allow autosave from this point on
         self._update_notes_scope_domains()
         if hasattr(self, "_notes_save_indicator"):
             self._notes_save_indicator.setStyleSheet(
@@ -3717,6 +3729,10 @@ class HuntBurpGUI(
 
     def _save_project_notes(self):
         """Save all notes tabs to the project directory."""
+        # Don't save before the initial load completes — avoids writing
+        # empty content if the timer fires during startup.
+        if not getattr(self, "_notes_loaded", True):
+            return
         if not hasattr(self, "_notes_tabs"):
             return
         path_base = self._notes_file_path_base()
@@ -3733,14 +3749,16 @@ class HuntBurpGUI(
                 json.dump({
                     "tabs": tab_names,
                     "panel_visible": getattr(self, "_notes_panel_visible", False),
-                }, fh)
+                }, fh, indent=2)
             # ── Save each tab's content ────────────────────────────
             n_tabs = self._notes_tabs.count()
             for i in range(n_tabs):
                 editor = self._notes_tabs.widget(i)
                 if isinstance(editor, _NotesEditor):
-                    with open(path_base + f"_tab_{i}.md", "w", encoding="utf-8") as fh:
-                        fh.write(editor.toPlainText())
+                    content = editor.toPlainText()
+                    tab_path = path_base + f"_tab_{i}.md"
+                    with open(tab_path, "w", encoding="utf-8") as fh:
+                        fh.write(content)
             # ── Delete orphaned tab files beyond current count ─────────
             i = n_tabs
             while os.path.exists(path_base + f"_tab_{i}.md"):
@@ -3754,8 +3772,9 @@ class HuntBurpGUI(
                     f"color: {COLOR_SUCCESS}; font-size: 11px; padding: 0 6px;"
                 )
                 self._notes_save_indicator.setText("● saved")
+            logger.debug(f"Project notes saved to {path_base}")
         except Exception as e:
-            logger.warning(f"Could not save project notes: {e}")
+            logger.error(f"Could not save project notes: {e}")
             if hasattr(self, "_notes_save_indicator"):
                 self._notes_save_indicator.setStyleSheet(
                     "color: #f38ba8; font-size: 11px; padding: 0 6px;"
