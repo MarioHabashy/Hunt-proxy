@@ -24,6 +24,7 @@ Detection strategy:
     • JS/meta-body scan limited to response content-type text/html or text/javascript
 """
 
+import base64
 import logging
 import re
 import time
@@ -36,9 +37,12 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # Canary domains — clearly fake, unlikely to appear in legitimate responses
 # ─────────────────────────────────────────────────────────────────────────────
-_CANARY_HOST   = "canary-openredirect-test.evil.io"
-_CANARY_URL    = f"https://{_CANARY_HOST}"
-_CANARY_PROTO  = f"//{_CANARY_HOST}"         # protocol-relative
+_CANARY_HOST     = "canary-openredirect-test.evil.io"
+_CANARY_URL      = f"https://{_CANARY_HOST}"
+_CANARY_PROTO    = f"//{_CANARY_HOST}"       # protocol-relative
+_CANARY_DATA_B64 = base64.b64encode(         # base64 data-URL redirect payload
+    f'<script>location="{_CANARY_URL}"</script>'.encode()
+).decode()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Parameter names that commonly control server-side or client-side redirects
@@ -139,17 +143,79 @@ _BASIC_PAYLOADS: List[Tuple[str, str]] = [
     ("whitelist-prefix",      "https://trusted.example.com.{host}"),
     ("whitelist-sub",         "https://sub.{host}"),
 
+    # ── Browser Autocorrect ──────────────────────────────────────────────────
+    # Chrome/Edge normalise these malformed schemes into valid redirect URLs.
+    ("autocorrect-colon",          "https:{host}"),
+    ("autocorrect-semicolon",      "https;{host}"),
+    ("autocorrect-backslash-esc",  "https:\\/\\/{host}"),
+    ("autocorrect-mixed-slash",    "https:/\\/\\{host}"),
+
+    # ── Data URL (base64-encoded redirect) ────────────────────────────────────
+    ("data-b64",                   "data:text/html;base64,{b64}"),
+
     # ── Parameter pollution ──────────────────────────────────────────────────
     # These are handled separately — appended as second redirect param values.
 ]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Target-domain-aware payloads — {target} is replaced at scan time with the
+# target application's own hostname, extracted from the request URL.
+# These bypass validators that check whether the redirect URL contains,
+# starts with, or ends with the application's own domain name.
+# ─────────────────────────────────────────────────────────────────────────────
+_TARGET_AWARE_PAYLOADS: List[Tuple[str, str]] = [
+    # ── @ separator with real target domain ──────────────────────────────────
+    # Validator: {target} = hostname (safe). Browser follows {host} (canary).
+    ("at-real-target",             "https://{target}@{host}"),
+    ("at-real-target-encoded",     "https://{target}%40{host}"),
+    ("at-real-target-dbl-enc",     "https://{target}%2540{host}"),
 
-def _make_payload(template: str) -> str:
+    # ── Path contains target domain (ends-with bypass) ────────────────────────
+    ("canary-path-target",         "https://{host}/{target}"),
+
+    # ── Starts AND ends with target domain ────────────────────────────────────
+    # Satisfies validators checking both start and end of the redirect URL.
+    ("start-end-subdomain",        "https://{target}.{host}/{target}"),
+    ("start-end-at",               "https://{target}@{host}/{target}"),
+
+    # ── Backslash @ trick (browser autocorrects \ → /) ───────────────────────
+    # Validator: {target} = hostname. Browser: {host} = hostname.
+    ("backslash-at-target",        "https://{host}\\@{target}"),
+
+    # ── Double / triple URL-encoded slash before @ ────────────────────────────
+    # Validator (over-decodes): {target} = hostname.
+    # Browser (partial-decode): {target}%252f treated as username → goes to {host}.
+    ("double-enc-slash-at",        "https://{target}%252f@{host}"),
+    ("triple-enc-slash-at",        "https://{target}%25252f@{host}"),
+
+    # ── Combined: double-encoded + starts+ends with target ────────────────────
+    ("combined-enc",               "https://{target}%252f@{host}/{target}"),
+
+    # ── Malformed credential URL with port ────────────────────────────────────
+    # Some browsers route this to the segment after the last @, i.e. {host}.
+    ("malformed-cred-port",        "https://user:password:8080/{target}@{host}"),
+
+    # ── Non-ASCII host confusion ──────────────────────────────────────────────
+    # Validator: {target} = hostname. Browser may strip %ff (\xc3\xbf) → {host} wins.
+    ("non-ascii-ff",               "https://{host}%ff.{target}"),
+
+    # ── Slash look-alike \u2571 (\u2571 = %E2%95%B1) ─────────────────────────
+    # Browser normalises \u2571 → / making https://{host}/.{target} → {host} wins.
+    ("slash-lookalike",            "https://{host}\u2571.{target}"),
+    ("slash-lookalike-encoded",    "https://{host}%E2%95%B1.{target}"),
+]
+
+
+def _make_payload(template: str, target_host: str = "") -> str:
     """Expand placeholder tokens in a payload template."""
-    return (template
-            .replace("{canary}", _CANARY_URL)
-            .replace("{proto}",  _CANARY_PROTO)
-            .replace("{host}",   _CANARY_HOST))
+    result = (template
+              .replace("{canary}", _CANARY_URL)
+              .replace("{proto}",  _CANARY_PROTO)
+              .replace("{host}",   _CANARY_HOST)
+              .replace("{b64}",    _CANARY_DATA_B64))
+    if target_host:
+        result = result.replace("{target}", target_host)
+    return result
 
 
 def _is_redirect_to_canary(location: str) -> bool:
@@ -264,6 +330,7 @@ class OpenRedirectScanMixin:
             return
 
         parsed_url = urllib.parse.urlparse(base_url)
+        target_host = parsed_url.hostname or ""
         query_params = urllib.parse.parse_qs(parsed_url.query, keep_blank_values=True)
         method = "GET"
         body_content = ""
@@ -378,6 +445,7 @@ class OpenRedirectScanMixin:
                 candidate=candidate,
                 baseline_status=baseline_status,
                 baseline_location=baseline_location,
+                target_host=target_host,
             )
             if self.scan_stop_on_first and results["stats"]["findings"] > 0:
                 break
@@ -412,15 +480,20 @@ class OpenRedirectScanMixin:
 
     def _probe_param(self, results, base_url, parsed_url, query_params, body_params,
                      method, body_content, req_headers, cookies,
-                     candidate, baseline_status, baseline_location) -> None:
+                     candidate, baseline_status, baseline_location,
+                     target_host: str = "") -> None:
         stats    = results["stats"]
         found_ids: set = set()  # track which payloads already flagged this param
 
-        for label, template in _BASIC_PAYLOADS:
+        all_payloads = list(_BASIC_PAYLOADS)
+        if target_host:
+            all_payloads.extend(_TARGET_AWARE_PAYLOADS)
+
+        for label, template in all_payloads:
             if not self.running:
                 return
 
-            payload_val = _make_payload(template)
+            payload_val = _make_payload(template, target_host=target_host)
             probe_url, probe_body = self._inject_payload(
                 base_url=base_url,
                 parsed_url=parsed_url,
