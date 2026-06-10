@@ -1,3 +1,4 @@
+
 """
 Professional Mapping Tab
 Complete rewrite with advanced features and clean architecture

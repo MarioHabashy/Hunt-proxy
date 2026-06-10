@@ -176,6 +176,17 @@ class LaunchDialog(QDialog):
         self._refresh_projects()
         self.launch_btn.setFocus()
 
+    def showEvent(self, event):
+        """Center on screen after the window is actually mapped."""
+        super().showEvent(event)
+        from PyQt5.QtWidgets import QApplication
+        screen_geo = QApplication.primaryScreen().availableGeometry()
+        self.adjustSize()
+        self.move(
+            screen_geo.x() + (screen_geo.width()  - self.width())  // 2,
+            screen_geo.y() + (screen_geo.height() - self.height()) // 2,
+        )
+
     # ── UI ─────────────────────────────────────────────────────────────────
 
     def _build_ui(self):

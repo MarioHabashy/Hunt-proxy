@@ -904,7 +904,8 @@ class HuntProxyAddon:
 
     def _serialise_request(self, flow) -> bytes:
         out = bytearray()
-        ver = flow.request.http_version.replace("HTTP/2.0", "HTTP/2")
+        # Normalize to HTTP/1.1 for display
+        ver = "HTTP/1.1"
         out += f"{flow.request.method} {flow.request.path} {ver}\r\n".encode()
 
         port = flow.request.port
@@ -926,7 +927,8 @@ class HuntProxyAddon:
         if not flow.response:
             return b""
         out = bytearray()
-        ver = flow.response.http_version.replace("HTTP/2.0", "HTTP/2")
+        # Normalize to HTTP/1.1 for display
+        ver = "HTTP/1.1"
         reason = flow.response.reason or ""
         out += f"{ver} {flow.response.status_code} {reason}\r\n".encode()
         for k, v in flow.response.headers.items():

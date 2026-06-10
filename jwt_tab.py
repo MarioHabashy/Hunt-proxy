@@ -3471,11 +3471,100 @@ class JWTTab(QWidget):
 
         # Analysis
         self.verify_view.setPlainText(self._analyze_jwt(header, payload, sig_b64))
+
+        # Auto-select attacks appropriate for this algorithm family
+        alg = header.get("alg", "")
+        enabled_count = self._auto_select_attacks_for_alg(alg)
+
         self._set_status(
-            f"[+]  JWT decoded — alg:{header.get('alg','?')}  "
-            f"sub:{payload.get('sub', payload.get('user', payload.get('userId','?')))}",
-            COLOR_SUCCESS
+            f"[+]  JWT decoded — alg:{alg or '?'}  "
+            f"sub:{payload.get('sub', payload.get('user', payload.get('userId', '?')))}  "
+            f"| {enabled_count} tests auto-selected for {alg or 'unknown alg'}",
+            COLOR_SUCCESS,
         )
+
+    # ─────────────────────────────────────────────────────────────────
+    # Smart attack auto-selection based on JWT algorithm
+    # ─────────────────────────────────────────────────────────────────
+
+    def _auto_select_attacks_for_alg(self, alg: str) -> int:
+        """
+        Check / uncheck attack checkboxes based on the JWT algorithm family.
+
+        Algorithm → relevant attack families:
+          HS*   — brute-force secret, blank-pw; NO asymmetric attacks
+          RS*   — alg-confusion, sign2n, JWK/JKU/x5u/x5c; NO brute-force
+          PS*   — same as RS* (RSA-PSS); NO brute-force
+          ES*   — psychic-sig (CVE-2022-21449), JWK/JKU/x5u/x5c; NO brute-force
+          EdDSA — JWK/JKU/x5u/x5c; NO brute-force, NO psychic-sig
+          none  — brute-force already moot; asymmetric n/a
+
+        Returns the number of enabled attacks after selection.
+        """
+        a = alg.upper()
+
+        is_hmac      = a.startswith("HS")
+        is_rsa_pkcs  = a.startswith("RS")              # RS256 / RS384 / RS512
+        is_rsa_pss   = a.startswith("PS")              # PS256 / PS384 / PS512
+        is_rsa       = is_rsa_pkcs or is_rsa_pss
+        is_ecdsa     = a.startswith("ES")              # ES256 / ES384 / ES512
+        is_eddsa     = a in ("EDDSA", "ED25519", "ED448")
+        is_asym      = is_rsa or is_ecdsa or is_eddsa  # any asymmetric key type
+        is_alg_none  = a in ("NONE", "")
+
+        # key → True (enable) / False (disable)
+        sel: Dict[str, bool] = {
+            # ── Universal: always applicable regardless of algorithm ─────
+            "alg_none":           True,
+            "empty_sig":          True,
+            "kid_sqli":           True,
+            "kid_traversal":      True,
+            "kid_rce":            True,
+            "priv_esc":           True,
+            "claim_tamper":       True,
+            "exp_extend":         True,
+            "null_claims":        True,
+            "cty_inject":         True,
+            "type_confusion":     True,
+            "ssrf_claims":        True,
+            "reflected":          True,
+            "claim_fuzz":         True,
+            # ── alg:none mix variants — always applicable ────────────────
+            "mix_none_priv":      True,
+            "mix_none_exp":       True,
+            "mix_none_null":      True,
+            "mix_kid_sqli_none":  True,
+            "mix_full_bypass":    True,
+            # ── HMAC / symmetric only ────────────────────────────────────
+            "weak_secret":        is_hmac or is_alg_none,
+            "blank_pw":           is_hmac or is_alg_none,
+            # ── RSA PKCS#1 only (key-confusion & key-recovery) ───────────
+            "alg_confusion":      is_rsa_pkcs,   # RS256 → HS256 using public key as HMAC secret
+            "sign2n":             is_rsa_pkcs,   # recover RSA modulus from 2 signatures
+            "mix_confusion_priv": is_rsa_pkcs,   # RS256→HS256 combined with privilege escalation
+            # ── Asymmetric key header injections (RSA + ECDSA + EdDSA) ──
+            "embedded_jwk":       is_asym,       # self-sign with embedded JWK key
+            "jku_inject":         is_asym,       # SSRF via jku header
+            "x5u_inject":         is_asym,       # SSRF via x5u header
+            "x5c_inject":         is_asym,       # self-signed cert embedded in x5c
+            "mix_jku_priv":       is_asym,       # jku injection + privilege escalation
+            "mix_jwk_priv":       is_asym,       # embedded JWK + privilege escalation
+            # ── ECDSA only ───────────────────────────────────────────────
+            "psychic_sig":        is_ecdsa,      # CVE-2022-21449 zero-signature bypass
+        }
+
+        # Apply to checkboxes (block signals to avoid cascade)
+        for key, checked in sel.items():
+            cb = self._attack_checks.get(key)
+            if cb is not None:
+                cb.blockSignals(True)
+                cb.setChecked(checked)
+                cb.blockSignals(False)
+
+        # Refresh the master "Select All" tri-state without re-triggering
+        self._on_attack_cb_changed()
+
+        return sum(1 for v in sel.values() if v)
 
     def _analyze_jwt(self, header: dict, payload: dict, sig: str) -> str:
         """Generate a human-readable security analysis of the decoded JWT."""

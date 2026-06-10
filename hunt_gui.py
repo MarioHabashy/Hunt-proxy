@@ -7421,6 +7421,28 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
+    # Apply a dark palette at the QApplication level so every widget starts
+    # with a dark background from the very first paint — prevents the white
+    # frame flash that occurs before apply_dark_theme() sets the stylesheet.
+    _dark_pal = QPalette()
+    _dark_pal.setColor(QPalette.Window,          QColor("#2B2B2B"))
+    _dark_pal.setColor(QPalette.WindowText,      QColor("#BBBBBB"))
+    _dark_pal.setColor(QPalette.Base,            QColor("#1E1E1E"))
+    _dark_pal.setColor(QPalette.AlternateBase,   QColor("#252525"))
+    _dark_pal.setColor(QPalette.ToolTipBase,     QColor("#2B2B2B"))
+    _dark_pal.setColor(QPalette.ToolTipText,     QColor("#BBBBBB"))
+    _dark_pal.setColor(QPalette.Text,            QColor("#BBBBBB"))
+    _dark_pal.setColor(QPalette.BrightText,      QColor("#FFFFFF"))
+    _dark_pal.setColor(QPalette.Button,          QColor("#2D2D2D"))
+    _dark_pal.setColor(QPalette.ButtonText,      QColor("#BBBBBB"))
+    _dark_pal.setColor(QPalette.Link,            QColor("#6A8759"))
+    _dark_pal.setColor(QPalette.Highlight,       QColor("#6A8759"))
+    _dark_pal.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
+    _dark_pal.setColor(QPalette.Dark,            QColor("#1A1A1A"))
+    _dark_pal.setColor(QPalette.Mid,             QColor("#323232"))
+    _dark_pal.setColor(QPalette.Shadow,          QColor("#141414"))
+    app.setPalette(_dark_pal)
+
     # If we were relaunched by _switch_project or _delete_current_project,
     # a project slug may already be set in the environment — skip the dialog.
     env_slug = os.environ.get("HACKR_PROJECT_SLUG", "").strip()
@@ -7441,6 +7463,14 @@ def main():
     # ── Show splash immediately after the dialog closes ───────────────────
     splash = _make_loading_splash()
     splash.show()
+    app.processEvents()
+    # Center after processEvents() so the pixmap size is fully resolved.
+    # Use availableGeometry() + screen x/y offset for multi-monitor safety.
+    _sg = QApplication.primaryScreen().availableGeometry()
+    splash.move(
+        _sg.x() + (_sg.width()  - splash.width())  // 2,
+        _sg.y() + (_sg.height() - splash.height()) // 2,
+    )
     splash.showMessage("  Checking for orphaned proxy processes…",
                        Qt.AlignBottom | Qt.AlignLeft, QColor("#6c7086"))
     app.processEvents()
