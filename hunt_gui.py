@@ -2696,6 +2696,32 @@ class HuntBurpGUI(
             self.status_label.setText("✅ Global settings saved.")
             QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
+    def _edit_polyglot_payload(self):
+        """Let the user view and edit the polyglot payload used by the Repeater."""
+        try:
+            from repeater_tab import _DEFAULT_POLYGLOT as _DP
+        except Exception:
+            _DP = (
+                "'\"><script>alert(Inj3ct3d)</script>"
+                "{{7*7}}${7*7}"
+                "' OR '1'='1'-- "
+                "; ls -la #"
+                "/../../../etc/passwd"
+            )
+        current = self._global_settings.get("polyglot_payload", _DP)
+        text, ok = QInputDialog.getMultiLineText(
+            self, "Set Polyglot Payload",
+            "Edit the polyglot payload.\n"
+            "In the Repeater: select a value, right-click → Test Polyglot\n"
+            "to replace it with this payload and send the request:",
+            current,
+        )
+        if ok:
+            self._global_settings["polyglot_payload"] = text
+            _save_global_settings(self._global_settings)
+            self.status_label.setText("🧬 Polyglot payload saved.")
+            QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
+
     # ── UI construction ────────────────────────────────────────────────────
 
     def init_ui(self):
@@ -5157,6 +5183,14 @@ class HuntBurpGUI(
         tw_action = QAction("  Tools & Wordlists", self)
         tw_action.triggered.connect(lambda: self.show_tools_config_dialog(open_tab=2))
         settings_menu.addAction(tw_action)
+
+        polyglot_action = QAction("🧬 Set Polyglot Payload", self)
+        polyglot_action.setToolTip(
+            "Configure the multi-vulnerability polyglot payload used by\n"
+            "Repeater → right-click → Test Polyglot"
+        )
+        polyglot_action.triggered.connect(self._edit_polyglot_payload)
+        tools_menu.addAction(polyglot_action)
 
         proxy_cert_action = QAction("🔒 Proxy Certificate", self)
         proxy_cert_action.triggered.connect(self.show_proxy_certificate)

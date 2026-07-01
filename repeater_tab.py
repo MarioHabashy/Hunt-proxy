@@ -29,7 +29,8 @@ from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QInputDialog, QCheckBox,
     QSpinBox, QGroupBox, QScrollArea, QStatusBar, QDialog,
     QDialogButtonBox, QSizePolicy, QShortcut, QApplication,
-    QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget
+    QTableWidget, QTableWidgetItem, QHeaderView, QStackedWidget,
+    QAbstractItemView
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl, QSize, QRegularExpression
 from PyQt5.QtGui import QFont, QColor, QTextCursor, QSyntaxHighlighter, QTextCharFormat, QTextDocument, QKeySequence, QPainter
@@ -48,6 +49,40 @@ from inspector_card import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Default polyglot payload (configurable via Tools → Set Polyglot Payload)
+# ─────────────────────────────────────────────────────────────────────────────
+_DEFAULT_POLYGLOT = (
+    "'\"><script>alert(\u0049nj3ct3d)</script>"
+    "{{7*7}}${7*7}<%=7*7%>"
+    "' OR '1'='1'-- "
+    "; ls -la #"
+    "/../../../etc/passwd"
+    "${jndi:ldap://127.0.0.1/x}"
+)
+
+_ENV_SUBDOMAIN_PREFIXES = [
+    "dev","dev1","dev2","develop","development",
+    "staging","stage","stg","stg1",
+    "test","testing","test1","test2","test3",
+    "qa","qa1","qa2","qa3",
+    "uat","uat1",
+    "pre","preprod","pre-prod","pre-production",
+    "sandbox","sandbox1",
+    "beta","alpha","demo","preview",
+    "internal","int","old","legacy",
+    "api-dev","api-staging","api-test",
+    "api2","apiv2","api-v2",
+    "admin","mgmt","management",
+]
+
+_ENV_PATH_PREFIXES = [
+    "/dev","/staging","/test","/qa",
+    "/api/v2","/api/v3","/api/dev",
+    "/beta","/internal","/admin","/sandbox","/preview",
+]
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3699,6 +3734,23 @@ class RepeaterInstance(QWidget):
             "Select a parameter value in the request, then use this to generate AI bypass payloads"
         )
         ai_payloads_act.triggered.connect(self._open_ai_payloads_tab)
+
+        menu.addSeparator()
+        check_methods_act = menu.addAction("🔀  Check HTTP Methods")
+        check_methods_act.setToolTip("Probe all HTTP methods and method-override headers (X-HTTP-Method-Override etc.)")
+        check_methods_act.triggered.connect(self._check_http_methods)
+
+        polyglot_act = menu.addAction("🧬  Test Polyglot  (replaces selection)")
+        polyglot_act.setToolTip("Select a value in the request, then use this to replace it with a multi-vuln polyglot payload and send")
+        polyglot_act.triggered.connect(self._test_polyglot)
+
+        check_env_act = menu.addAction("🌐  Check Environments")
+        check_env_act.setToolTip("Probe dev / staging / test / QA environment variants of this endpoint")
+        check_env_act.triggered.connect(self._check_environments)
+
+        clean_req_act = menu.addAction("🧹  Clean Request")
+        clean_req_act.setToolTip("Identify which headers and parameters are unnecessary by removing them one at a time")
+        clean_req_act.triggered.connect(self._clean_request)
 
         menu.exec_(self.request_editor.mapToGlobal(pos))
 
@@ -7769,6 +7821,92 @@ class RepeaterInstance(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    # ── Check HTTP Methods ───────────────────────────────────────────────────
+
+    def _check_http_methods(self):
+        """Open the HTTP method / override checker dialog."""
+        raw = self.request_editor.toPlainText().strip()
+        if not raw:
+            QMessageBox.warning(self, "No Request", "Enter a request first.")
+            return
+        host = self.host_input.text().strip() or self._parse_host_from_request()
+        if not host:
+            QMessageBox.warning(self, "No Host", "Specify a host first.")
+            return
+        try:
+            port = int(self.port_input.text()) if self.port_input.text() else (443 if self.ssl_check.isChecked() else 80)
+        except ValueError:
+            port = 443 if self.ssl_check.isChecked() else 80
+        dlg = _MethodCheckDialog(host, port, self.ssl_check.isChecked(), raw, 15, self)
+        dlg.show()
+
+    # ── Test Polyglot ────────────────────────────────────────────────────────
+
+    def _test_polyglot(self):
+        """Replace the selected text with the polyglot payload and send."""
+        cursor = self.request_editor.textCursor()
+        if not cursor.hasSelection():
+            QMessageBox.warning(
+                self, "No Selection",
+                "Select the parameter value to replace with the polyglot payload,\n"
+                "then right-click and choose Test Polyglot."
+            )
+            return
+        try:
+            gs = getattr(self.window(), "_global_settings", {}) or {}
+        except Exception:
+            gs = {}
+        payload = gs.get("polyglot_payload", _DEFAULT_POLYGLOT)
+        cursor.insertText(payload)
+        self.request_editor.setTextCursor(cursor)
+        self._send_request()
+
+    # ── Check Environments ───────────────────────────────────────────────────
+
+    def _check_environments(self):
+        """Open the environment-discovery dialog."""
+        raw = self.request_editor.toPlainText().strip()
+        if not raw:
+            QMessageBox.warning(self, "No Request", "Enter a request first.")
+            return
+        host = self.host_input.text().strip() or self._parse_host_from_request()
+        if not host:
+            QMessageBox.warning(self, "No Host", "Specify a host first.")
+            return
+        try:
+            port = int(self.port_input.text()) if self.port_input.text() else (443 if self.ssl_check.isChecked() else 80)
+        except ValueError:
+            port = 443 if self.ssl_check.isChecked() else 80
+        dlg = _EnvCheckDialog(host, port, self.ssl_check.isChecked(), raw, 8, self)
+        dlg.show()
+
+    # ── Clean Request ────────────────────────────────────────────────────────
+
+    def _clean_request(self):
+        """Open the clean-request necessity analyser."""
+        raw = self.request_editor.toPlainText().strip()
+        if not raw:
+            QMessageBox.warning(self, "No Request", "Enter a request first.")
+            return
+        host = self.host_input.text().strip() or self._parse_host_from_request()
+        if not host:
+            QMessageBox.warning(self, "No Host", "Specify a host first.")
+            return
+        try:
+            port = int(self.port_input.text()) if self.port_input.text() else (443 if self.ssl_check.isChecked() else 80)
+        except ValueError:
+            port = 443 if self.ssl_check.isChecked() else 80
+
+        def _apply(new_raw):
+            self.request_editor.setPlainText(new_raw)
+            self.status_bar.setText("🧹 Cleaned request applied")
+            QTimer.singleShot(3000, lambda: self.status_bar.setText("Ready"))
+
+        dlg = _CleanRequestDialog(host, port, self.ssl_check.isChecked(), raw, 15, _apply, self)
+        dlg.show()
+
+
+
     def load_request(self, raw_request: str, host: str = "", port: int = 0, use_ssl: bool = True):
         self.request_editor.setPlainText(raw_request)
         if host:
@@ -7797,6 +7935,612 @@ class RepeaterInstance(QWidget):
 # ─────────────────────────────────────────────────────────────────────────────
 # Repeater Tab  —  single flat tab bar with inline group headers
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP Method Checker — thread + dialog
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DIALOG_STYLE = f"QDialog{{background:{COLOR_BACKGROUND};color:{COLOR_TEXT};}}"
+_TABLE_STYLE2 = (
+    f"QTableWidget{{background:{COLOR_DARK_BG};color:{COLOR_TEXT};"
+    f"gridline-color:{COLOR_BORDER};"
+    f"selection-background-color:{COLOR_HOVER};}}"
+    f"QHeaderView::section{{background:{COLOR_ELEVATED_BG};color:{COLOR_TEXT_MUTED};"
+    f"border:1px solid {COLOR_BORDER};padding:4px;}}"
+)
+
+_STATUS_COLORS = {"2": "#a6e3a1", "3": "#f9e2af", "4": "#f38ba8", "5": "#cba6f7"}
+
+
+def _color_status_item(status: str) -> "QTableWidgetItem":
+    item = QTableWidgetItem(status)
+    item.setForeground(QColor(_STATUS_COLORS.get(status[:1], "#6c7086")))
+    return item
+
+
+class _MethodCheckThread(QThread):
+    """Sends the request with each HTTP method and with method-override headers."""
+    result_ready = pyqtSignal(str, str, int, float, bool)  # label, status, size, ms, interesting
+    finished_all = pyqtSignal()
+
+    _OVERRIDE_HEADERS = [
+        "X-HTTP-Method-Override",
+        "X-Method-Override",
+        "X-HTTP-Method",
+        "X-Original-HTTP-Method",
+    ]
+    _METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE"]
+
+    def __init__(self, host, port, use_ssl, raw, timeout=15, parent=None):
+        super().__init__(parent)
+        self.host, self.port, self.use_ssl = host, port, use_ssl
+        self.raw, self.timeout = raw, timeout
+
+    @staticmethod
+    def _status(resp):
+        m = re.match(r'HTTP/\S+\s+(\d+)', resp)
+        return m.group(1) if m else ""
+
+    @staticmethod
+    def _set_method(raw, method):
+        lines = raw.splitlines(keepends=True)
+        if not lines:
+            return raw
+        parts = lines[0].rstrip("\r\n").split(" ", 2)
+        if len(parts) >= 3:
+            parts[0] = method
+            lines[0] = " ".join(parts) + "\r\n"
+        return "".join(lines)
+
+    @staticmethod
+    def _add_header(raw, name, value):
+        sep = "\r\n\r\n" if "\r\n\r\n" in raw else "\n\n"
+        if sep in raw:
+            head, body = raw.split(sep, 1)
+            nl = "\r\n" if sep == "\r\n\r\n" else "\n"
+            return head + nl + f"{name}: {value}" + sep + body
+        return raw
+
+    def run(self):
+        _dull = ("405", "501", "400", "404", "")
+        for method in self._METHODS:
+            req = self._set_method(self.raw, method)
+            try:
+                resp, ms, sz = _raw_http_send(self.host, self.port, self.use_ssl, req, self.timeout)
+                st = self._status(resp)
+            except Exception:
+                st, ms, sz = "ERR", 0.0, 0
+            self.result_ready.emit(method, st, sz, ms, st not in _dull)
+
+        for hdr in self._OVERRIDE_HEADERS:
+            for target in ("POST", "PUT", "DELETE", "PATCH"):
+                req = self._add_header(self.raw, hdr, target)
+                try:
+                    resp, ms, sz = _raw_http_send(self.host, self.port, self.use_ssl, req, self.timeout)
+                    st = self._status(resp)
+                except Exception:
+                    st, ms, sz = "ERR", 0.0, 0
+                self.result_ready.emit(f"{hdr}: {target}", st, sz, ms, st not in _dull)
+
+        self.finished_all.emit()
+
+
+class _MethodCheckDialog(QDialog):
+    def __init__(self, host, port, use_ssl, raw, timeout=15, parent=None):
+        super().__init__(parent, Qt.Window)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("🔀 HTTP Method Checker")
+        self.resize(820, 460)
+        self.setStyleSheet(_DIALOG_STYLE)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(6)
+
+        info = QLabel(f"Testing HTTP methods and override headers against  <b>{host}:{port}</b>")
+        info.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:12px;")
+        layout.addWidget(info)
+
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["Method / Override Header", "Status", "Size", "Time (ms)", "⚑ Flag"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        for c in (1, 2, 3, 4):
+            self.table.horizontalHeader().setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.setStyleSheet(_TABLE_STYLE2)
+        layout.addWidget(self.table)
+
+        foot = QHBoxLayout()
+        self._lbl = QLabel("⏳ Running…")
+        self._lbl.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:11px;")
+        foot.addWidget(self._lbl)
+        foot.addStretch()
+        btn = QPushButton("Close")
+        btn.clicked.connect(self.accept)
+        foot.addWidget(btn)
+        layout.addLayout(foot)
+
+        self._t = _MethodCheckThread(host, port, use_ssl, raw, timeout, self)
+        self._t.result_ready.connect(self._add_row)
+        self._t.finished_all.connect(lambda: self._lbl.setText(
+            f"✅ Done — {self.table.rowCount()} checks completed."))
+        self._t.start()
+
+    def _add_row(self, label, status, size, ms, interesting):
+        r = self.table.rowCount()
+        self.table.insertRow(r)
+        self.table.setItem(r, 0, QTableWidgetItem(label))
+        self.table.setItem(r, 1, _color_status_item(status))
+        self.table.setItem(r, 2, QTableWidgetItem(f"{size:,} B"))
+        self.table.setItem(r, 3, QTableWidgetItem(f"{ms:.0f}"))
+        flag = QTableWidgetItem("⚠ Interesting" if interesting else "")
+        if interesting:
+            flag.setForeground(QColor("#f9e2af"))
+            bg = QColor("#2e2a1e")
+            for c in range(5):
+                it = self.table.item(r, c)
+                if it:
+                    it.setBackground(bg)
+        self.table.setItem(r, 4, flag)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment Checker — thread + dialog
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _EnvCheckThread(QThread):
+    result_ready = pyqtSignal(str, str, int, float)  # url, status, size, ms
+    finished_all = pyqtSignal()
+
+    def __init__(self, host, port, use_ssl, raw, timeout=8, parent=None):
+        super().__init__(parent)
+        self.host, self.port, self.use_ssl = host, port, use_ssl
+        self.raw, self.timeout = raw, timeout
+
+    def _rebuild(self, new_host, new_path=None):
+        lines = self.raw.splitlines(keepends=True)
+        out = []
+        for i, line in enumerate(lines):
+            if i == 0 and new_path:
+                parts = line.rstrip("\r\n").split(" ", 2)
+                if len(parts) >= 2:
+                    parts[1] = new_path
+                    line = " ".join(parts) + "\r\n"
+            if re.match(r'[Hh]ost:', line):
+                line = f"Host: {new_host}\r\n"
+            out.append(line)
+        return "".join(out)
+
+    def run(self):
+        parts = self.host.split(".")
+        base = ".".join(parts[-2:]) if len(parts) > 2 else self.host
+        first = self.raw.splitlines()[0] if self.raw else ""
+        path = first.split()[1] if len(first.split()) >= 2 else "/"
+        scheme = "https" if self.use_ssl else "http"
+        seen = set()
+
+        def _probe(new_host, new_path=None):
+            key = (new_host, new_path or path)
+            if key in seen or new_host == self.host:
+                return
+            seen.add(key)
+            req = self._rebuild(new_host, new_path)
+            disp = new_path or path
+            url = f"{scheme}://{new_host}:{self.port}{disp}"
+            try:
+                resp, ms, sz = _raw_http_send(new_host, self.port, self.use_ssl, req, self.timeout)
+                m = re.match(r'HTTP/\S+\s+(\d+)', resp)
+                st = m.group(1) if m else "?"
+                self.result_ready.emit(url, st, sz, ms)
+            except Exception:
+                pass
+
+        for prefix in _ENV_SUBDOMAIN_PREFIXES:
+            _probe(f"{prefix}.{base}")
+        for pp in _ENV_PATH_PREFIXES:
+            _probe(self.host, pp.rstrip("/") + "/" + path.lstrip("/"))
+
+        self.finished_all.emit()
+
+
+class _EnvCheckDialog(QDialog):
+    def __init__(self, host, port, use_ssl, raw, timeout=8, parent=None):
+        super().__init__(parent, Qt.Window)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        scheme = "https" if use_ssl else "http"
+        self.setWindowTitle("🌐 Environment Finder")
+        self.resize(940, 520)
+        self.setStyleSheet(_DIALOG_STYLE)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(6)
+
+        info = QLabel(
+            f"Probing dev / staging / test variants of  <b>{scheme}://{host}:{port}</b><br>"
+            "<small>Subdomains that don't resolve or refuse are silently skipped. "
+            "2xx responses are highlighted in green.</small>"
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:12px;")
+        layout.addWidget(info)
+
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["URL", "Status", "Size", "Time (ms)"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        for c in (1, 2, 3):
+            self.table.horizontalHeader().setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.setStyleSheet(_TABLE_STYLE2)
+        layout.addWidget(self.table)
+
+        foot = QHBoxLayout()
+        self._lbl = QLabel("⏳ Probing environments…")
+        self._lbl.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:11px;")
+        foot.addWidget(self._lbl)
+        foot.addStretch()
+        open_btn = QPushButton("🔗 Open in Browser")
+        open_btn.clicked.connect(self._open_sel)
+        foot.addWidget(open_btn)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        foot.addWidget(close_btn)
+        layout.addLayout(foot)
+
+        self._t = _EnvCheckThread(host, port, use_ssl, raw, timeout, self)
+        self._t.result_ready.connect(self._add_row)
+        self._t.finished_all.connect(lambda: self._lbl.setText(
+            f"✅ Done — {self.table.rowCount()} responding environment(s) found."))
+        self._t.start()
+
+    def _add_row(self, url, status, size, ms):
+        r = self.table.rowCount()
+        self.table.insertRow(r)
+        self.table.setItem(r, 0, QTableWidgetItem(url))
+        self.table.setItem(r, 1, _color_status_item(status))
+        self.table.setItem(r, 2, QTableWidgetItem(f"{size:,} B"))
+        self.table.setItem(r, 3, QTableWidgetItem(f"{ms:.0f}"))
+        if status.startswith("2"):
+            bg = QColor("#1e2e1e")
+            for c in range(4):
+                it = self.table.item(r, c)
+                if it:
+                    it.setBackground(bg)
+
+    def _open_sel(self):
+        row = self.table.currentRow()
+        it = self.table.item(row, 0)
+        if it:
+            try:
+                import subprocess
+                subprocess.Popen(["xdg-open", it.text()])
+            except Exception:
+                QApplication.clipboard().setText(it.text())
+                self._lbl.setText("URL copied to clipboard.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Clean Request Analyser — thread + dialog
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _CleanRequestThread(QThread):
+    """
+    Sends baseline, then removes each header / query-param / body-param one at a
+    time and reports the effect on response status and body size.
+    """
+    baseline_done = pyqtSignal(str, int)               # status, body_size
+    result_ready  = pyqtSignal(str, str, str, int, int)  # kind, label, status, size, diff
+    finished_all  = pyqtSignal()
+
+    _SKIP = {"host", "content-length", "connection", "transfer-encoding"}
+
+    def __init__(self, host, port, use_ssl, raw, timeout=15, parent=None):
+        super().__init__(parent)
+        self.host, self.port, self.use_ssl = host, port, use_ssl
+        self.raw, self.timeout = raw, timeout
+
+    @staticmethod
+    def _status(resp):
+        m = re.match(r'HTTP/\S+\s+(\d+)', resp)
+        return m.group(1) if m else ""
+
+    @staticmethod
+    def _bsize(resp):
+        for sep in ("\r\n\r\n", "\n\n"):
+            if sep in resp:
+                return len(resp.split(sep, 1)[1])
+        return 0
+
+    def _parse(self):
+        for sep in ("\r\n\r\n", "\n\n"):
+            if sep in self.raw:
+                head, body = self.raw.split(sep, 1)
+                break
+        else:
+            head, body = self.raw, ""
+        lines = head.strip().splitlines()
+        return (lines[0] if lines else ""), (lines[1:] if len(lines) > 1 else []), body
+
+    def _rebuild(self, first, hdrs, qs=None, bp=None, body=None):
+        if qs is not None and "?" in first:
+            path, _ = first.split()[1].split("?", 1) if len(first.split()) >= 2 else ("/", "")
+            new_qs = urllib.parse.urlencode(qs)
+            new_path = path + ("?" + new_qs if new_qs else "")
+            pts = first.split()
+            if len(pts) >= 2:
+                pts[1] = new_path
+            first = " ".join(pts)
+        body_out = body or ""
+        if bp is not None:
+            body_out = urllib.parse.urlencode(bp)
+        return "\r\n".join([first] + hdrs) + "\r\n\r\n" + body_out
+
+    def run(self):
+        try:
+            base_resp, _, _ = _raw_http_send(self.host, self.port, self.use_ssl, self.raw, self.timeout)
+            b_st = self._status(base_resp)
+            b_sz = self._bsize(base_resp)
+        except Exception as e:
+            self.baseline_done.emit(f"ERR: {e}", 0)
+            self.finished_all.emit()
+            return
+        self.baseline_done.emit(b_st, b_sz)
+
+        first, other_hdrs, body = self._parse()
+        path = first.split()[1] if len(first.split()) >= 2 else "/"
+        qs_params = urllib.parse.parse_qsl(path.split("?", 1)[1], keep_blank_values=True) if "?" in path else []
+
+        ct = next((h.split(":", 1)[1].strip().lower()
+                   for h in other_hdrs if h.lower().startswith("content-type:")), "")
+        body_params = (urllib.parse.parse_qsl(body.strip(), keep_blank_values=True)
+                       if "application/x-www-form-urlencoded" in ct and body.strip() else [])
+
+        def _probe(kind, label, req):
+            try:
+                resp, _, _ = _raw_http_send(self.host, self.port, self.use_ssl, req, self.timeout)
+                st = self._status(resp)
+                sz = self._bsize(resp)
+            except Exception:
+                st, sz = "ERR", 0
+            self.result_ready.emit(kind, label, st, sz, abs(sz - b_sz))
+
+        for i, hdr in enumerate(other_hdrs):
+            if hdr.split(":", 1)[0].strip().lower() in self._SKIP:
+                continue
+            trimmed = [h for j, h in enumerate(other_hdrs) if j != i]
+            _probe("header", hdr.split(":", 1)[0].strip(),
+                   self._rebuild(first, trimmed, None, None, body))
+
+        for i, (k, v) in enumerate(qs_params):
+            trimmed = [(pk, pv) for j, (pk, pv) in enumerate(qs_params) if j != i]
+            _probe("param", f"{k}={v[:40]}", self._rebuild(first, other_hdrs, trimmed, None, body))
+
+        for i, (k, v) in enumerate(body_params):
+            trimmed = [(pk, pv) for j, (pk, pv) in enumerate(body_params) if j != i]
+            _probe("body_param", f"{k}={v[:40]}", self._rebuild(first, other_hdrs, None, trimmed))
+
+        # Test individual cookies inside the Cookie header
+        ck_hdr_idx = next(
+            (i for i, h in enumerate(other_hdrs) if h.lower().startswith("cookie:")), -1
+        )
+        if ck_hdr_idx >= 0:
+            ck_raw = other_hdrs[ck_hdr_idx].split(":", 1)[1].strip()
+            cookies = [c.strip() for c in ck_raw.split(";") if c.strip()]
+            for i, ck in enumerate(cookies):
+                remaining = [c for j, c in enumerate(cookies) if j != i]
+                if remaining:
+                    new_ck_hdr = "Cookie: " + "; ".join(remaining)
+                    mod_hdrs = [new_ck_hdr if idx == ck_hdr_idx else h
+                                for idx, h in enumerate(other_hdrs)]
+                else:
+                    # Last cookie — remove Cookie header entirely
+                    mod_hdrs = [h for idx, h in enumerate(other_hdrs) if idx != ck_hdr_idx]
+                _probe("cookie", ck[:60], self._rebuild(first, mod_hdrs, None, None, body))
+
+        self.finished_all.emit()
+
+
+class _CleanRequestDialog(QDialog):
+    """
+    Shows which headers / params are unnecessary.
+    The user checks items to remove, then clicks "Apply Cleaned Request".
+    """
+
+    def __init__(self, host, port, use_ssl, raw, timeout, apply_cb, parent=None):
+        super().__init__(parent, Qt.Window)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("🧹 Clean Request — Necessity Analyser")
+        self.resize(980, 580)
+        self.setStyleSheet(_DIALOG_STYLE)
+        self._apply_cb = apply_cb
+        self._raw = raw
+        self._rows_meta = []   # (kind, label)
+        self._b_st = ""
+        self._b_sz = 0
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(6)
+
+        info = QLabel(
+            "Each row shows the effect of <i>removing</i> one header or parameter.<br>"
+            "Items marked <b style='color:#f38ba8'>Not needed</b> had no effect on "
+            "status or body size — safe to remove."
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:12px;")
+        layout.addWidget(info)
+
+        top = QHBoxLayout()
+        self._base_lbl = QLabel("Baseline: waiting…")
+        self._base_lbl.setStyleSheet(f"color:{COLOR_TEXT};font-weight:bold;font-size:12px;")
+        top.addWidget(self._base_lbl)
+        top.addStretch()
+        self._prog_lbl = QLabel("⏳ Analysing…")
+        self._prog_lbl.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:11px;")
+        top.addWidget(self._prog_lbl)
+        layout.addLayout(top)
+
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(
+            ["☐", "Kind", "Name / Param", "Status", "Body Size", "Δ vs baseline", "Verdict"]
+        )
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        for c in (0, 1, 3, 4, 5, 6):
+            self.table.horizontalHeader().setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.setStyleSheet(_TABLE_STYLE2)
+        layout.addWidget(self.table)
+
+        btn_row = QHBoxLayout()
+        for label, slot in [("☑ Select Not-Needed", self._sel_unneeded),
+                             ("☐ Clear All",         self._clr)]:
+            b = QPushButton(label)
+            b.clicked.connect(slot)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+        apply_btn = QPushButton("✂️  Apply Cleaned Request")
+        apply_btn.setStyleSheet(
+            f"background:{COLOR_ACCENT};color:#fff;font-weight:bold;"
+            f"padding:5px 16px;border:none;border-radius:4px;"
+        )
+        apply_btn.clicked.connect(self._apply)
+        btn_row.addWidget(apply_btn)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+
+        self._t = _CleanRequestThread(host, port, use_ssl, raw, timeout, self)
+        self._t.baseline_done.connect(self._on_baseline)
+        self._t.result_ready.connect(self._add_row)
+        self._t.finished_all.connect(lambda: self._prog_lbl.setText("✅ Analysis complete."))
+        self._t.start()
+
+    def _on_baseline(self, st, sz):
+        self._b_st, self._b_sz = st, sz
+        self._base_lbl.setText(f"Baseline: HTTP {st}  │  Body {sz:,} B")
+
+    def _add_row(self, kind, label, status, size, diff):
+        r = self.table.rowCount()
+        self.table.insertRow(r)
+        self._rows_meta.append((kind, label))
+
+        chk = QCheckBox()
+        cw = QWidget()
+        cl = QHBoxLayout(cw)
+        cl.addWidget(chk)
+        cl.setAlignment(Qt.AlignCenter)
+        cl.setContentsMargins(0, 0, 0, 0)
+        self.table.setCellWidget(r, 0, cw)
+
+        kind_lbl = {"header": "🔷 Header", "param": "🔹 QParam", "body_param": "🔸 Body Param", "cookie": "🍪 Cookie"}
+        self.table.setItem(r, 1, QTableWidgetItem(kind_lbl.get(kind, kind)))
+        self.table.setItem(r, 2, QTableWidgetItem(label))
+        self.table.setItem(r, 3, _color_status_item(status))
+        self.table.setItem(r, 4, QTableWidgetItem(f"{size:,} B"))
+        d_item = QTableWidgetItem("0 B" if diff == 0 else f"{diff:+,} B")
+        d_item.setForeground(QColor("#a6adc8" if diff == 0 else "#f38ba8"))
+        self.table.setItem(r, 5, d_item)
+
+        needed = diff > 5 or status != self._b_st
+        verdict = QTableWidgetItem("✅ Needed" if needed else "❌ Not needed")
+        verdict.setForeground(QColor("#a6e3a1" if needed else "#f38ba8"))
+        self.table.setItem(r, 6, verdict)
+        if not needed:
+            bg = QColor("#221e1e")
+            for c in range(1, 7):
+                it = self.table.item(r, c)
+                if it:
+                    it.setBackground(bg)
+
+    def _chk(self, r):
+        cw = self.table.cellWidget(r, 0)
+        return cw.findChild(QCheckBox) if cw else None
+
+    def _sel_unneeded(self):
+        for r in range(self.table.rowCount()):
+            it = self.table.item(r, 6)
+            needed = it and "Not" not in it.text() and "Needed" in it.text()
+            chk = self._chk(r)
+            if chk:
+                chk.setChecked(not needed)
+
+    def _clr(self):
+        for r in range(self.table.rowCount()):
+            chk = self._chk(r)
+            if chk:
+                chk.setChecked(False)
+
+    def _apply(self):
+        rm_h, rm_p, rm_b, rm_ck = set(), set(), set(), set()
+        for r in range(self.table.rowCount()):
+            chk = self._chk(r)
+            if not (chk and chk.isChecked()):
+                continue
+            kind, label = self._rows_meta[r]
+            if kind == "header":
+                rm_h.add(label.lower())
+            elif kind == "param":
+                rm_p.add(label.split("=")[0])
+            elif kind == "body_param":
+                rm_b.add(label.split("=")[0])
+            elif kind == "cookie":
+                rm_ck.add(label.split("=")[0].strip())
+
+        if not (rm_h or rm_p or rm_b or rm_ck):
+            QMessageBox.information(self, "Nothing selected", "Check at least one item to remove.")
+            return
+
+        raw = self._raw
+        for sep in ("\r\n\r\n", "\n\n"):
+            if sep in raw:
+                head, body = raw.split(sep, 1)
+                break
+        else:
+            head, body = raw, ""
+
+        lines = head.strip().splitlines()
+        first = lines[0]
+        new_hdrs = [h for h in lines[1:] if h.split(":", 1)[0].strip().lower() not in rm_h]
+
+        # Strip individual cookies from the Cookie header
+        if rm_ck:
+            rebuilt = []
+            for h in new_hdrs:
+                if h.lower().startswith("cookie:"):
+                    ck_val = h.split(":", 1)[1].strip()
+                    remaining = [
+                        c.strip() for c in ck_val.split(";")
+                        if c.strip() and c.strip().split("=")[0].strip() not in rm_ck
+                    ]
+                    if remaining:
+                        rebuilt.append("Cookie: " + "; ".join(remaining))
+                    # else: entire Cookie header removed
+                else:
+                    rebuilt.append(h)
+            new_hdrs = rebuilt
+
+        if "?" in first and rm_p:
+            path_base, qs = first.split()[1].split("?", 1) if len(first.split()) >= 2 else ("/", "")
+            params = [(k, v) for k, v in urllib.parse.parse_qsl(qs, keep_blank_values=True)
+                      if k not in rm_p]
+            new_qs = urllib.parse.urlencode(params)
+            pts = first.split()
+            if len(pts) >= 2:
+                pts[1] = path_base + ("?" + new_qs if new_qs else "")
+            first = " ".join(pts)
+
+        if rm_b and body.strip():
+            bp = [(k, v) for k, v in urllib.parse.parse_qsl(body.strip(), keep_blank_values=True)
+                  if k not in rm_b]
+            body = urllib.parse.urlencode(bp)
+
+        self._apply_cb("\r\n".join([first] + new_hdrs) + "\r\n\r\n" + body)
+        self.accept()
+
 
 # Colour palette for group header tabs (cycles through these)
 _GROUP_COLORS = [
