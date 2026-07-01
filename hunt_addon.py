@@ -349,94 +349,108 @@ class HuntProxyAddon:
 
     def request(self, flow):
         """Process request — rate-limit, drop rules, M&R, header injection, SSL upgrade."""
+        try:
 
-        # ── Rate limiting ─────────────────────────────────────────────────
-        self._apply_rate_limit(flow)
+            # ── Rate limiting ─────────────────────────────────────────────────
+            self._apply_rate_limit(flow)
 
-        # ── Drop rules (request phase) ────────────────────────────────────
-        if self._should_drop(flow, "request"):
-            flow.kill()
-            return
+            # ── Drop rules (request phase) ────────────────────────────────────
+            if self._should_drop(flow, "request"):
+                flow.kill()
+                return
 
-        # ── Match & Replace (request) ─────────────────────────────────────
-        self._apply_rules(flow, "request")
+            # ── Match & Replace (request) ─────────────────────────────────────
+            self._apply_rules(flow, "request")
 
-        # ── Header injection (request) ────────────────────────────────────
-        self._inject_headers(flow, "Request")
+            # ── Header injection (request) ────────────────────────────────────
+            self._inject_headers(flow, "Request")
 
-        # ── HTTPS upgrade ─────────────────────────────────────────────────
-        if self.ssl_config.get("upgrade_to_https") and flow.request.scheme == "http":
-            flow.request.scheme = "https"
-            if flow.request.port == 80:
-                flow.request.port = 443
+            # ── HTTPS upgrade ─────────────────────────────────────────────────
+            if self.ssl_config.get("upgrade_to_https") and flow.request.scheme == "http":
+                flow.request.scheme = "https"
+                if flow.request.port == 80:
+                    flow.request.port = 443
 
-        # ── Scope check ───────────────────────────────────────────────────
-        port   = str(flow.request.port or "")
-        scheme = flow.request.scheme or "http"
-        if not self._in_scope(flow.request.host, scheme, port):
-            return
+            # ── Scope check ───────────────────────────────────────────────────
+            port   = str(flow.request.port or "")
+            scheme = flow.request.scheme or "http"
+            if not self._in_scope(flow.request.host, scheme, port):
+                return
 
-        logger.debug(f"Request: {flow.request.method} {flow.request.pretty_url}")
-        self._save_request_immediate(flow)
+            logger.debug(f"Request: {flow.request.method} {flow.request.pretty_url}")
+            self._save_request_immediate(flow)
 
-        if self._intercept_enabled():
-            self._pause_flow(flow, "request")
+            if self._intercept_enabled():
+                self._pause_flow(flow, "request")
 
+        except Exception as e:
+            logger.error(
+                f"Unhandled error in request hook for "
+                f"{getattr(flow.request, 'pretty_url', '?')}: {e}",
+                exc_info=True,
+            )
     def response(self, flow):
         """Process response — drop rules, M&R, header injection, SSL strip, security header removal."""
+        try:
 
-        # ── Drop rules (response phase) ───────────────────────────────────
-        if self._should_drop(flow, "response"):
-            flow.kill()
-            return
+            # ── Drop rules (response phase) ───────────────────────────────────
+            if self._should_drop(flow, "response"):
+                flow.kill()
+                return
 
-        # ── Match & Replace (response) ────────────────────────────────────
-        self._apply_rules(flow, "response")
+            # ── Match & Replace (response) ────────────────────────────────────
+            self._apply_rules(flow, "response")
 
-        # ── Header injection (response) ───────────────────────────────────
-        self._inject_headers(flow, "Response")
+            # ── Header injection (response) ───────────────────────────────────
+            self._inject_headers(flow, "Response")
 
-        # ── SSL strip: rewrite Location https → http ──────────────────────
-        if self.ssl_config.get("ssl_strip") and flow.response:
-            loc = flow.response.headers.get("Location", "")
-            if loc.startswith("https://"):
-                flow.response.headers["Location"] = "http://" + loc[8:]
+            # ── SSL strip: rewrite Location https → http ──────────────────────
+            if self.ssl_config.get("ssl_strip") and flow.response:
+                loc = flow.response.headers.get("Location", "")
+                if loc.startswith("https://"):
+                    flow.response.headers["Location"] = "http://" + loc[8:]
 
-        # ── Security header removal ────────────────────────────────────────
-        if flow.response:
-            if self.ssl_config.get("remove_hsts"):
-                flow.response.headers.pop("Strict-Transport-Security", None)
-            if self.ssl_config.get("remove_csp"):
-                flow.response.headers.pop("Content-Security-Policy", None)
-                flow.response.headers.pop("Content-Security-Policy-Report-Only", None)
-            if self.ssl_config.get("remove_xframe"):
-                flow.response.headers.pop("X-Frame-Options", None)
-            if self.ssl_config.get("remove_xcto"):
-                flow.response.headers.pop("X-Content-Type-Options", None)
+            # ── Security header removal ────────────────────────────────────────
+            if flow.response:
+                if self.ssl_config.get("remove_hsts"):
+                    flow.response.headers.pop("Strict-Transport-Security", None)
+                if self.ssl_config.get("remove_csp"):
+                    flow.response.headers.pop("Content-Security-Policy", None)
+                    flow.response.headers.pop("Content-Security-Policy-Report-Only", None)
+                if self.ssl_config.get("remove_xframe"):
+                    flow.response.headers.pop("X-Frame-Options", None)
+                if self.ssl_config.get("remove_xcto"):
+                    flow.response.headers.pop("X-Content-Type-Options", None)
 
-        # ── CORS bypass ────────────────────────────────────────────────────
-        if self.ssl_config.get("cors_bypass") and flow.response:
-            flow.response.headers["Access-Control-Allow-Origin"]      = "*"
-            flow.response.headers["Access-Control-Allow-Credentials"] = "true"
-            flow.response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-            flow.response.headers["Access-Control-Allow-Headers"]     = "*"
+            # ── CORS bypass ────────────────────────────────────────────────────
+            if self.ssl_config.get("cors_bypass") and flow.response:
+                flow.response.headers["Access-Control-Allow-Origin"]      = "*"
+                flow.response.headers["Access-Control-Allow-Credentials"] = "true"
+                flow.response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+                flow.response.headers["Access-Control-Allow-Headers"]     = "*"
 
-        # ── Scope check ───────────────────────────────────────────────────
-        port   = str(flow.request.port or "")
-        scheme = flow.request.scheme or "http"
-        if not self._in_scope(flow.request.host, scheme, port):
-            return
+            # ── Scope check ───────────────────────────────────────────────────
+            port   = str(flow.request.port or "")
+            scheme = flow.request.scheme or "http"
+            if not self._in_scope(flow.request.host, scheme, port):
+                return
 
-        logger.debug(f"Response: {flow.request.pretty_url} → {flow.response.status_code if flow.response else '?'}")
-        self._save_response_immediate(flow)
+            logger.debug(f"Response: {flow.request.pretty_url} → {flow.response.status_code if flow.response else '?'}")
+            self._save_response_immediate(flow)
 
-        if (self._intercept_enabled()
-                and self._intercept_responses_enabled()
-                and not getattr(flow, "hunt_dropped", False)):
-            self._pause_flow(flow, "response")
+            if (self._intercept_enabled()
+                    and self._intercept_responses_enabled()
+                    and not getattr(flow, "hunt_dropped", False)):
+                self._pause_flow(flow, "response")
 
-        self._capture_flow_complete(flow)
+            self._capture_flow_complete(flow)
 
+        except Exception as e:
+            logger.error(
+                f"Unhandled error in response hook for "
+                f"{getattr(flow.request, 'pretty_url', '?')}: {e}",
+                exc_info=True,
+            )
     # ── WebSocket hooks ────────────────────────────────────────────────────
 
     async def websocket_message(self, flow):

@@ -115,11 +115,14 @@ def _cleanup_on_exit():
     that touches QLabel, QAction, or any other Qt object here.
     """
     global _main_window_ref
-    logger.info("Running cleanup on exit...")
     mw = _main_window_ref
     if mw is None:
         return
     try:
+        # logger.info() is inside the try block because the logging module
+        # may already be partially torn down at atexit time, which would
+        # raise an AttributeError before reaching the kill code.
+        logger.info("Running cleanup on exit...")
         # Only touch the subprocess — not any Qt widget
         proc = getattr(mw, 'proxy_process', None)
         if proc is not None and proc.poll() is None:
@@ -137,8 +140,41 @@ def _cleanup_on_exit():
                     proc.kill()
             except Exception as e:
                 logger.error(f"Error killing proxy process on exit: {e}")
+
+        # Fallback: _force_stop_proxy() nullifies proxy_process even when the
+        # kill fails.  Check the PID file so the process doesn't survive a
+        # crashed or incomplete stop sequence.
+        try:
+            _project_paths = getattr(mw, '_project_paths', None)
+            pid_file = (
+                os.path.join(_project_paths["project_dir"], "mitm.pid")
+                if _project_paths
+                else "/tmp/mitm.pid"
+            )
+            if os.path.exists(pid_file):
+                with open(pid_file, 'r') as _f:
+                    _stored = _f.read().strip()
+                if _stored.isdigit():
+                    _spid = int(_stored)
+                    try:
+                        os.kill(_spid, 0)   # alive check — raises ProcessLookupError if dead
+                        if hasattr(os, 'killpg'):
+                            try:
+                                os.killpg(os.getpgid(_spid), signal.SIGKILL)
+                            except (ProcessLookupError, OSError):
+                                os.kill(_spid, signal.SIGKILL)
+                        else:
+                            os.kill(_spid, signal.SIGKILL)
+                        logger.info(f"atexit: killed orphaned proxy PID {_spid} via PID file")
+                    except ProcessLookupError:
+                        pass   # already gone
+        except Exception:
+            pass   # best-effort only
     except Exception as e:
-        logger.error(f"Error during proxy cleanup: {e}")
+        try:
+            logger.error(f"Error during proxy cleanup: {e}")
+        except Exception:
+            pass   # logging itself may have been torn down
 
 def _signal_handler(signum, frame):
     """Handle signals like SIGINT and SIGTERM safely via the Qt event loop."""
@@ -1101,14 +1137,27 @@ class ProxyHealthMonitor(QThread):
                     if (self._running
                             and self.parent_gui.proxy_running
                             and not self._test_proxy_connection()):
-                        self.proxy_died.emit("Port not responding")
-                        break
+                        # Before declaring the proxy dead due to a socket
+                        # failure, confirm the process is actually gone.
+                        # A heavily loaded proxy can temporarily refuse new
+                        # connections without having crashed.
+                        _proc2 = self.parent_gui.proxy_process
+                        if _proc2 is not None and _proc2.poll() is None:
+                            logger.warning(
+                                "ProxyHealthMonitor: port unresponsive but "
+                                "process is alive — possible overload, skipping"
+                            )
+                        else:
+                            self.proxy_died.emit("Port not responding")
+                            break
             except RuntimeError:
                 # parent_gui widget was deleted (app is shutting down)
                 break
             except Exception as e:
                 logger.error(f"ProxyHealthMonitor error: {e}")
-                break
+                # Continue monitoring — a transient exception must not
+                # permanently kill the health-check thread.
+                time.sleep(self.check_interval)
 
     def _test_proxy_connection(self) -> bool:
         import socket
@@ -2158,53 +2207,6 @@ class ToolsConfigDialog(QDialog):
         d = QFileDialog.getExistingDirectory(self, "Select PayloadsAllTheThings Directory", self.patt_dir_edit.text())
         if d:
             self.patt_dir_edit.setText(d)
-
-    def _on_ai_provider_changed(self, provider: str):
-        """Save current API key to cache, restore saved key for new provider, update model list & hints."""
-        _MODELS = {
-            "openai": [
-                "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4",
-                "gpt-3.5-turbo", "o1", "o1-mini", "o3-mini",
-            ],
-            "anthropic": [
-                "claude-sonnet-4-5",
-                "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022",
-                "claude-3-opus-20240229", "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
-            ],
-            "groq": [
-                "llama-3.3-70b-versatile", "llama-3.1-8b-instant",
-                "llama3-70b-8192", "llama3-8b-8192",
-                "mixtral-8x7b-32768", "gemma2-9b-it",
-                "llama-3.2-3b-preview", "llama-3.2-90b-vision-preview",
-            ],
-            "gemini": [
-                "gemini-2.0-flash", "gemini-2.0-flash-lite",
-                "gemini-flash-latest",
-                "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash-8b", "gemini-1.5-pro",
-            ],
-            "openrouter": [
-                "meta-llama/llama-3.3-70b-instruct:free",
-                "google/gemini-flash-1.5:free",
-                "mistralai/mistral-7b-instruct:free",
-                "deepseek/deepseek-chat:free",
-                "qwen/qwen-2.5-72b-instruct",
-                "anthropic/claude-3.5-sonnet",
-                "openai/gpt-4o",
-                "microsoft/phi-4",
-            ],
-            "ollama": [
-                "qwen2.5-coder:14b", "qwen2.5-coder:7b", "qwen2.5-coder:32b",
-                "qwen2.5", "llama3", "llama3.1", "llama3.2",
-                "mistral", "mistral-nemo", "gemma2", "gemma3",
-                "phi3", "phi4", "deepseek-r1", "codellama", "llava",
-            ],
-        }
-
-        # Save the current API key and model to caches before switching
-        if hasattr(self, "_api_keys_cache") and hasattr(self, "_current_provider"):
-            self._api_keys_cache[self._current_provider] = self.ai_api_key_edit.text().strip()
-            self._provider_last_models[self._current_provider] = self.ai_model_combo.currentText().strip()
 
     def _on_ai_provider_changed(self, provider: str):
         """Save current API key to cache, restore saved key for new provider, update model list & hints."""
@@ -4006,9 +4008,18 @@ class HuntBurpGUI(
                 logger.error(f"Proxy start failed: {e}", exc_info=True)
 
     def _on_proxy_died(self, reason: str):
-        logger.error(f"Proxy died: {reason}")
-        self._safe_status(f"❌ Proxy died: {reason}")
-        if self.proxy_running:
+        # Guard against re-entrant calls — proxy_died can fire more than once
+        # if the health monitor emits again while a QMessageBox is already open.
+        # A second call here would corrupt Qt state and could close the window.
+        if getattr(self, '_proxy_died_handling', False):
+            logger.warning(f"_on_proxy_died re-entrant call ignored: {reason}")
+            return
+        self._proxy_died_handling = True
+        try:
+            logger.error(f"Proxy died: {reason}")
+            self._safe_status(f"❌ Proxy died: {reason}")
+            if not self.proxy_running:
+                return
             reply = QMessageBox.question(
                 self, "Proxy Died",
                 f"The proxy stopped unexpectedly:\n{reason}\n\nRestart it?",
@@ -4019,6 +4030,10 @@ class HuntBurpGUI(
                 QTimer.singleShot(1000, self.start_proxy)
             else:
                 self._force_stop_proxy()
+        except Exception as e:
+            logger.error(f"Error handling proxy death notification: {e}", exc_info=True)
+        finally:
+            self._proxy_died_handling = False
 
     def stop_proxy(self):
         with self._proxy_lock:
