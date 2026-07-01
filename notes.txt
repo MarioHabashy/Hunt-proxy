@@ -2,9 +2,19 @@ fixes:
 when send websocket in repeater it dont appear in browser 
 repeater group send parallel
 
-
-
-
+** fix suddenly close tool
+** fix freeze and not responding with large traffic if param miner and JS miner is the cause
+** add in repeater , intercept option clean request which remove every parameter and headers in request which dont effect the response
+** when choose many URLs in http history tab then copy need all seclected copied not only the first one
+** fix JS Miner
+** fix localhost testing
+** add intercept the response for this reuqest in intercept tab
+** add JSON beatufier in all tabs
+** fix flow in attack surface tab as cant add POST requests
+** add in repeater/history check methods which will check http methods and olso headers which overrite method X-HTTP-Method-Override 
+** add in repeater/history option like this https://github.com/zigoo0/Pemburu/tree/master which try to find dev like env for this endpoint
+** add in repeater/history option test use polyglot to test many vulners in one input in one request SSTI XSS SQLI BXSS .. etc
+** improve tool in these labs https://labs.cai.do/ specially RXSS llab as not reconginze company parameter when var company = 'ss' can detect but if var company = '' empty cant detect
 
 
 scanner tab :

@@ -1058,12 +1058,12 @@ class JSMinerTab(QWidget):
         sep = self._vsep(); lay.addWidget(sep)
 
         # Live toggle — ON by default
-        self.live_btn = QPushButton("🟢  Live: ON")
+        self.live_btn = QPushButton("  Live: OFF")
         self.live_btn.setCheckable(True)
-        self.live_btn.setChecked(True)
+        self.live_btn.setChecked(False)
         self.live_btn.setFixedWidth(120)
         self.live_btn.clicked.connect(self._toggle_live)
-        self.live_btn.setStyleSheet(self._btn_style(COLOR_SUCCESS))
+        self.live_btn.setStyleSheet(self._btn_style(COLOR_CARD_BG))
         lay.addWidget(self.live_btn)
 
         # Manual URL add
@@ -1331,10 +1331,10 @@ class JSMinerTab(QWidget):
     def _toggle_live(self, checked: bool):
         self._live = checked
         if checked:
-            self.live_btn.setText("🟢  Live: ON")
+            self.live_btn.setText("  Live: ON")
             self.live_btn.setStyleSheet(self._btn_style(COLOR_SUCCESS))
         else:
-            self.live_btn.setText("🔴  Live: OFF")
+            self.live_btn.setText("  Live: OFF")
             self.live_btn.setStyleSheet(self._btn_style(COLOR_CARD_BG))
 
     # ─────────────────────────────────────────────────────────────────────

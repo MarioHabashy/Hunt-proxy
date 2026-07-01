@@ -1254,7 +1254,7 @@ class ParamMinerTab:
         self._build_ui()
 
         # Start live mode by default
-        QTimer.singleShot(500, lambda: self._toggle_live_mode(True))
+        QTimer.singleShot(500, lambda: self._toggle_live_mode(False))
 
     # ══════════════════════════════════════════════════════════════════════════
     #  UI construction
