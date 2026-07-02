@@ -1361,15 +1361,16 @@ class ParameterDetector:
             # ==============================================
 
             # Pattern for JavaScript variable assignments
+            # Use [^\'"]*  (0-or-more) so empty strings like var x = '' are matched too
             js_var_patterns = [
-                # var c1 = 'value1';
-                r'(?:var|let|const)\s+(\w+)\s*=\s*[\'"]([^\'"]+)[\'"];?',
-                # c1 = 'value1';
-                r'(\w+)\s*=\s*[\'"]([^\'"]+)[\'"];?',
-                # Object properties: obj.c1 = 'value1'
-                r'\w+\.(\w+)\s*=\s*[\'"]([^\'"]+)[\'"];?',
-                # Array assignments: arr[0] = 'value1'
-                r'\w+\[[^\]]+\]\s*=\s*[\'"]([^\'"]+)[\'"];?',
+                # var c1 = 'value1';  or  var c1 = '';
+                r'(?:var|let|const)\s+(\w+)\s*=\s*[\'"]([^\'"]*)[\'"];?',
+                # c1 = 'value1';  or  c1 = '';
+                r'(\w+)\s*=\s*[\'"]([^\'"]*)[\'"];?',
+                # Object properties: obj.c1 = 'value1'  or  obj.c1 = ''
+                r'\w+\.(\w+)\s*=\s*[\'"]([^\'"]*)[\'"];?',
+                # Array assignments: arr[0] = 'value1'  or  arr[0] = ''
+                r'\w+\[[^\]]+\]\s*=\s*[\'"]([^\'"]*)[\'"];?',
             ]
 
             # Pattern for boolean/numeric JS variable assignments (no quotes)
@@ -1382,13 +1383,18 @@ class ParameterDetector:
                     for pattern in js_var_patterns:
                         matches = re.findall(pattern, script_content, re.IGNORECASE)
                         for var_name, var_value in matches:
-                            if var_value:  # Skip only truly empty values; booleans are short but security-relevant
-                                detected = ParameterDetector.detect_param_patterns(
-                                    var_name, var_value, "HTML_JS_VAR"
-                                )
-                                if detected:
-                                    key = f"HTML_JS_VAR {var_name}"
-                                    findings.setdefault(key, set()).update(detected)
+                            # Always process — even empty-value vars (var x = '') are
+                            # injectable parameters; name-based GF matching still applies.
+                            detected = ParameterDetector.detect_param_patterns(
+                                var_name, var_value, "HTML_JS_VAR"
+                            )
+                            key = f"HTML_JS_VAR {var_name}"
+                            if detected:
+                                findings.setdefault(key, set()).update(detected)
+                            else:
+                                # Register with a bare marker so empty-value vars still
+                                # appear in the parameter table.
+                                findings.setdefault(key, set()).add("INLINE_JS_VAR")
 
                     # Extract boolean/numeric variables separately
                     bool_matches = re.findall(js_bool_pattern, script_content, re.IGNORECASE)
@@ -1411,9 +1417,10 @@ class ParameterDetector:
                             # Add a severity tag so the risk column shows MEDIUM
                             findings[key].add("MEDIUM")
 
-            # Also check for variables that look like they could be parameters
+            # Also check for variables that look like they could be parameters.
+            # Use [^\'"&?=]* (0-or-more) so var company = '' is still captured.
             js_param_like_pattern = (
-                r'(?:var|let|const)\s+(\w+)\s*=\s*[\'"]([^\'"&?=]{3,})[\'"]'
+                r'(?:var|let|const)\s+(\w+)\s*=\s*[\'"]([^\'"&?=]*)[\'"]'
             )
 
             for script in soup.find_all("script", string=True):
@@ -1443,9 +1450,11 @@ class ParameterDetector:
                             detected = ParameterDetector.detect_param_patterns(
                                 var_name, var_value, "HTML_JS_PARAM"
                             )
+                            key = f"HTML_JS_PARAM {var_name}"
                             if detected:
-                                key = f"HTML_JS_PARAM {var_name}"
                                 findings.setdefault(key, set()).update(detected)
+                            else:
+                                findings.setdefault(key, set()).add("INLINE_JS_VAR")
 
             # ==============================================
             # NEW: Detect function parameters in JS
