@@ -18,7 +18,7 @@ repeater group send parallel
 *d* add in repeater/history option like this https://github.com/zigoo0/Pemburu/tree/master which try to find dev like env for this endpoint
 *d* add in repeater/history option test use polyglot to test many vulners in one input in one request SSTI XSS SQLI BXSS .. etc
 *d* improve tool in these labs https://labs.cai.do/ specially RXSS llab as not reconginze company parameter when var company = 'ss' can detect but if var company = '' empty cant detect
-
+ssss
 
 scanner tab :
     need to make interact.sh cli and auto used to detect blind one
