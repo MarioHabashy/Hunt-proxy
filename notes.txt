@@ -8,7 +8,7 @@ repeater group send parallel
 ** when choose many URLs in http history tab then copy need all seclected copied not only the first one
 ** fix JS Miner
 ** fix localhost testing
-** add intercept the response for this reuqest in intercept tab
+*d* add intercept the response for this reuqest in intercept tab >>> now need to test and test when tur on responses as i find one response only intercepeted when on responses
 ** add JSON beatufier in all tabs
 ** fix flow in attack surface tab as cant add POST requests
 *d* add in repeater/history check methods which will check http methods and olso headers which overrite method X-HTTP-Method-Override 

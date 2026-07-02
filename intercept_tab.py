@@ -110,6 +110,9 @@ class HuntProxyAddon:
     def __init__(self):
         self.request_count = 0
         self._lock = threading.Lock()
+        self._one_shot_lock = threading.Lock()
+        # mitmproxy flow IDs whose *response* must be intercepted (one-shot)
+        self._one_shot_response_intercepts: set = set()
 
         # Paths (populated in configure())
         self.out_jsonl = ""
@@ -186,7 +189,14 @@ class HuntProxyAddon:
         if not self._in_scope(flow.request.host):
             return
 
-        if self._intercept_enabled():
+        # One-shot response intercept ("Intercept response for this request")
+        one_shot = False
+        with self._one_shot_lock:
+            if flow.id in self._one_shot_response_intercepts:
+                self._one_shot_response_intercepts.discard(flow.id)
+                one_shot = True
+
+        if one_shot or self._intercept_enabled():
             self._intercept_flow(flow, flow_type="response")
 
         # Always capture
@@ -259,7 +269,13 @@ class HuntProxyAddon:
                         
                         action = action_data.get("action", "forward")
                         logger.info(f"Action for {flow_id}: {action}")
-                        
+
+                        # Register one-shot response intercept before resuming
+                        if action_data.get("intercept_response"):
+                            with self._one_shot_lock:
+                                self._one_shot_response_intercepts.add(flow.id)
+                            logger.info(f"One-shot response intercept registered for flow {flow_id}")
+
                         if action == "drop":
                             logger.info(f"Dropping flow {flow_id}")
                             flow.kill()
@@ -646,33 +662,48 @@ class InterceptQueueReader(QThread):
             try:
                 if os.path.exists(self._queue_file):
                     with open(self._queue_file, "r", encoding="utf-8") as f:
-                        # If file was truncated, reset position
+                        # If file was truncated/rewritten, reset position
                         if self._last_pos > os.path.getsize(self._queue_file):
                             self._last_pos = 0
-                            
+
                         f.seek(self._last_pos)
                         new_entries = False
-                        
-                        for line in f:
-                            if line.strip():
-                                try:
-                                    entry = json.loads(line.strip())
-                                    flow_id = entry.get("id")
-                                    
-                                    # Only emit if not already processed
-                                    if flow_id and flow_id not in self._processed_ids:
-                                        self.new_flow.emit(entry)
-                                        self._processed_ids.add(flow_id)
-                                        new_entries = True
-                                except Exception as e:
-                                    logger.error(f"Error parsing queue line: {e}")
-                        
-                        self._last_pos = f.tell()
-                        
-                        # Save processed IDs if we added new ones
+
+                        while True:
+                            # Record position BEFORE reading so we can rewind on
+                            # a partial write (writer didn't finish the line yet).
+                            line_start = f.tell()
+                            line = f.readline()
+
+                            if not line:
+                                # Genuine EOF — nothing more to read this cycle.
+                                break
+
+                            stripped = line.strip()
+                            if not stripped:
+                                # Blank / whitespace-only line — advance past it.
+                                self._last_pos = f.tell()
+                                continue
+
+                            try:
+                                entry = json.loads(stripped)
+                                flow_id = entry.get("id")
+                                if flow_id and flow_id not in self._processed_ids:
+                                    self.new_flow.emit(entry)
+                                    self._processed_ids.add(flow_id)
+                                    new_entries = True
+                                # Advance _last_pos only after a successful parse.
+                                self._last_pos = f.tell()
+                            except Exception:
+                                # The line is malformed — most likely a partial write
+                                # still in progress. Rewind to line_start so the
+                                # next cycle re-reads the full (completed) line.
+                                self._last_pos = line_start
+                                break
+
                         if new_entries:
                             self._save_processed_ids()
-                            
+
             except Exception as e:
                 logger.error(f"InterceptQueueReader error: {e}")
             time.sleep(0.3)
@@ -1172,7 +1203,7 @@ class InterceptTab(QWidget):
     def _on_new_intercepted_flow(self, entry: dict):
         """Incoming intercepted flow from queue reader."""
         MAX_PENDING = 50  # Maximum number of pending flows to keep
-        
+
         # Check if we've reached the limit
         if len(self._pending_flows) >= MAX_PENDING:
             logger.warning(f"Pending flow queue full ({MAX_PENDING}), dropping oldest flow")
@@ -1182,15 +1213,27 @@ class InterceptTab(QWidget):
             self._send_action(oldest["id"], "forward", None)
             # Remove from table
             self._remove_flow_from_table(oldest["id"])
-        
-        self._pending_flows.append(entry)
-        self._add_queue_row(entry)
+
+        flow_type = entry.get("type", "")
+
+        # Responses are inserted at the FRONT of the pending queue so they
+        # surface immediately after the current flow is forwarded — instead of
+        # being buried behind a backlog of pending requests.
+        # This mirrors Burp-style behaviour: Request → Response → Next request.
+        if flow_type == "response" and self._pending_flows:
+            self._pending_flows.insert(0, entry)
+            self._add_queue_row(entry, insert_at=0)
+        else:
+            self._pending_flows.append(entry)
+            self._add_queue_row(entry)
+
         self._update_queue_label()
         self.fwd_all_btn.setEnabled(True)
 
-        # Auto-show first flow
-        if len(self._pending_flows) == 1:
-            self._show_flow(entry)
+        # Auto-show only when the editor is empty.
+        if self._current_flow is None:
+            self._show_flow(self._pending_flows[0])
+            self.queue_table.selectRow(0)
 
         # Emit popup signal if enabled
         if self.popup_switch.isChecked():
@@ -1204,9 +1247,13 @@ class InterceptTab(QWidget):
                 self.queue_table.removeRow(row)
                 break
 
-    def _add_queue_row(self, entry: dict):
+    def _add_queue_row(self, entry: dict, insert_at: int = -1):
+        """Add a row to the queue table.  Pass insert_at=0 to prepend."""
         meta = entry.get("meta", {})
-        row = self.queue_table.rowCount()
+        if insert_at >= 0:
+            row = insert_at
+        else:
+            row = self.queue_table.rowCount()
         self.queue_table.insertRow(row)
         self.queue_table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
 
@@ -1226,6 +1273,16 @@ class InterceptTab(QWidget):
         url_item = QTableWidgetItem(meta.get("url", "")[:120])
         url_item.setData(Qt.UserRole, entry.get("id"))
         self.queue_table.setItem(row, 3, url_item)
+
+        # Highlight intercepted responses so they stand out from pending requests
+        if flow_type == "response":
+            bg = QColor("#1a3a2a")   # dark green tint
+            fg = QColor("#a6e3a1")   # green text
+            for col in range(4):
+                it = self.queue_table.item(row, col)
+                if it:
+                    it.setBackground(bg)
+                    it.setForeground(fg)
 
     def _on_queue_selection_changed(self):
         row = self.queue_table.currentRow()
@@ -1348,12 +1405,34 @@ class InterceptTab(QWidget):
         self._remove_current_flow()
 
     def _forward_all(self):
-        for flow in list(self._pending_flows):
+        # Only forward request / WS flows — leave intercepted responses in the
+        # queue so the user can inspect and forward them individually.
+        # This prevents responses from being silently discarded when the user
+        # clicks "Forward All" to clear a backlog of pending requests.
+        to_forward = [f for f in self._pending_flows if f.get("type") != "response"]
+        to_keep    = [f for f in self._pending_flows if f.get("type") == "response"]
+
+        for flow in to_forward:
             self._send_action(flow["id"], "forward", None)
-        self._pending_flows.clear()
+
+        self._pending_flows = to_keep
+
+        # Rebuild the table with only the responses that remain
         self.queue_table.setRowCount(0)
-        self._current_flow = None
-        self._clear_editor()
+        for resp_entry in to_keep:
+            self._add_queue_row(resp_entry)
+
+        kept_ids = {f["id"] for f in to_keep}
+        if not to_keep:
+            self._current_flow = None
+            self._clear_editor()
+            self.fwd_all_btn.setEnabled(False)
+        elif self._current_flow is None or self._current_flow.get("id") not in kept_ids:
+            # Show the first pending response if the editor is empty or was
+            # showing a request that has just been forwarded.
+            self._show_flow(to_keep[0])
+            self.queue_table.selectRow(0)
+
         self._update_queue_label()
 
     def _highlight_matches(self):
@@ -1488,9 +1567,18 @@ class InterceptTab(QWidget):
         report_act.triggered.connect(self._send_to_report)
 
         menu.addSeparator()
+        if self._current_flow and self._current_flow.get("type") == "request":
+            intercept_resp_act = menu.addAction(" Intercept response for this request")
+            intercept_resp_act.setToolTip(
+                "Forward this request and intercept its response — "
+                "without enabling global response intercept"
+            )
+            intercept_resp_act.triggered.connect(self._intercept_response_for_this)
+
+        menu.addSeparator()
         ai_analyze_act = menu.addAction("✨ AI Analyze  (Ctrl+Shift+C)")
         ai_analyze_act.triggered.connect(self._ai_analyze)
-        send_to_ai_act = menu.addAction("📎 Send to AI")
+        send_to_ai_act = menu.addAction("✨ Send to AI")
         send_to_ai_act.triggered.connect(self._send_to_ai)
 
         menu.exec_(self.editor.mapToGlobal(pos))
@@ -1755,18 +1843,21 @@ class InterceptTab(QWidget):
             else:
                 self._remove_current_flow() # Handles clearing editor
 
-    def _send_action(self, flow_id: str, action: str, data: Optional[bytes]):
+    def _send_action(self, flow_id: str, action: str, data: Optional[bytes],
+                     intercept_response: bool = False):
         """Send action for an intercepted flow"""
         if not self._project_dir:
             return
-            
+
         actions_dir = os.path.join(self._project_dir, "intercept_actions")
         os.makedirs(actions_dir, exist_ok=True)
-        
+
         action_file = os.path.join(actions_dir, f"{flow_id}.action")
-        
+
         payload = {"action": action}
-        
+        if intercept_response:
+            payload["intercept_response"] = True
+
         if data is not None:
             # CRITICAL FIX: Preserve the raw HTTP format exactly
             if isinstance(data, str):
@@ -1794,6 +1885,41 @@ class InterceptTab(QWidget):
             
         except Exception as e:
             logger.error(f"Failed to write action file: {e}")
+
+    def _intercept_response_for_this(self):
+        """Forward the current request and intercept its response (one-shot, no global toggle)."""
+        if self._current_flow is None:
+            return
+        if self._current_flow.get("type") != "request":
+            QMessageBox.information(
+                self, "Requests Only",
+                "\"Intercept response for this request\" only applies to intercepted requests."
+            )
+            return
+        # If in GQL edit mode sync panel edits back first
+        if getattr(self, '_gql_mode', False) and getattr(self, '_gql_flow_type', '') != 'response':
+            self._sync_gql_to_raw()
+
+        # Write a file-based marker so the addon reliably intercepts this response
+        # even when many flows are in flight concurrently.
+        mitmflow_id = self._current_flow.get("meta", {}).get("mitmflow_id", "")
+        if mitmflow_id and self._project_dir:
+            marker_path = os.path.join(
+                self._project_dir, "intercept_actions",
+                f"oneshot_resp_{mitmflow_id}"
+            )
+            try:
+                os.makedirs(os.path.dirname(marker_path), exist_ok=True)
+                open(marker_path, "w").close()
+                logger.info(f"One-shot response marker written for mitmflow {mitmflow_id}")
+            except Exception as e:
+                logger.warning(f"Could not write one-shot marker: {e}")
+
+        data = self.editor.toPlainText().encode("utf-8")
+        self._send_action(
+            self._current_flow["id"], "forward", data, intercept_response=True
+        )
+        self._remove_current_flow()
 
     def _remove_current_flow(self):
         if self._current_flow is None:

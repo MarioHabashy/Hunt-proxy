@@ -3736,19 +3736,19 @@ class RepeaterInstance(QWidget):
         ai_payloads_act.triggered.connect(self._open_ai_payloads_tab)
 
         menu.addSeparator()
-        check_methods_act = menu.addAction("🔀  Check HTTP Methods")
+        check_methods_act = menu.addAction("  Check HTTP Methods")
         check_methods_act.setToolTip("Probe all HTTP methods and method-override headers (X-HTTP-Method-Override etc.)")
         check_methods_act.triggered.connect(self._check_http_methods)
 
-        polyglot_act = menu.addAction("🧬  Test Polyglot  (replaces selection)")
+        polyglot_act = menu.addAction("  Test Polyglot  (replaces selection)")
         polyglot_act.setToolTip("Select a value in the request, then use this to replace it with a multi-vuln polyglot payload and send")
         polyglot_act.triggered.connect(self._test_polyglot)
 
-        check_env_act = menu.addAction("🌐  Check Environments")
+        check_env_act = menu.addAction("  Check Environments")
         check_env_act.setToolTip("Probe dev / staging / test / QA environment variants of this endpoint")
         check_env_act.triggered.connect(self._check_environments)
 
-        clean_req_act = menu.addAction("🧹  Clean Request")
+        clean_req_act = menu.addAction("  Clean Request")
         clean_req_act.setToolTip("Identify which headers and parameters are unnecessary by removing them one at a time")
         clean_req_act.triggered.connect(self._clean_request)
 

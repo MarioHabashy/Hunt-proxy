@@ -163,6 +163,11 @@ class HuntProxyAddon:
         self.rate_config: Dict[str, Any] = {}
         self._last_request_time: float = 0.0
 
+        # One-shot per-flow response intercept
+        # (set when GUI chooses "Intercept response for this request")
+        self._one_shot_lock = threading.Lock()
+        self._one_shot_response_intercepts: set = set()   # stores mitmproxy flow.id strings
+
         # Bounded thread pool for intercept polling — prevents thread exhaustion
         # when many flows are intercepted simultaneously (max 50 concurrent pollers)
         self._intercept_pool = ThreadPoolExecutor(max_workers=50,
@@ -435,13 +440,46 @@ class HuntProxyAddon:
             if not self._in_scope(flow.request.host, scheme, port):
                 return
 
-            logger.debug(f"Response: {flow.request.pretty_url} → {flow.response.status_code if flow.response else '?'}")
+            resp_code = flow.response.status_code if flow.response else "?"
+            resp_enabled = self._intercept_responses_enabled()
+            logger.info(
+                f"Response: {flow.request.pretty_url} → {resp_code} "
+                f"[intercept_responses={resp_enabled}]"
+            )
             self._save_response_immediate(flow)
 
-            if (self._intercept_enabled()
-                    and self._intercept_responses_enabled()
+            # ── One-shot response intercept ────────────────────────
+            _one_shot_resp = False
+
+            # Primary: file-based marker (most reliable across thread/timing boundaries)
+            _marker = os.path.join(self.intercept_actions_dir, f"oneshot_resp_{flow.id}")
+            if os.path.exists(_marker):
+                try:
+                    os.remove(_marker)
+                except Exception:
+                    pass
+                _one_shot_resp = True
+                logger.info(f"File-based one-shot response intercept for {flow.id}")
+
+            # Fallback: in-memory set (registered by _poll_action thread)
+            if not _one_shot_resp:
+                with self._one_shot_lock:
+                    if flow.id in self._one_shot_response_intercepts:
+                        self._one_shot_response_intercepts.discard(flow.id)
+                        _one_shot_resp = True
+                        logger.info(f"Memory-based one-shot response intercept for {flow.id}")
+
+            if ((_one_shot_resp
+                 or self._intercept_responses_enabled())
                     and not getattr(flow, "hunt_dropped", False)):
+                logger.info(f"Intercepting response for {flow.request.pretty_url} (one_shot={_one_shot_resp})")
                 self._pause_flow(flow, "response")
+            else:
+                logger.debug(
+                    f"Passing response through (one_shot={_one_shot_resp}, "
+                    f"resp_enabled={self._intercept_responses_enabled()}, "
+                    f"dropped={getattr(flow, 'hunt_dropped', False)})"
+                )
 
             self._capture_flow_complete(flow)
 
@@ -821,13 +859,14 @@ class HuntProxyAddon:
         raw = self._serialise_request(flow) if flow_type == "request" else self._serialise_response(flow)
 
         meta = {
-            "id":        flow_id,
-            "type":      flow_type,
-            "method":    flow.request.method,
-            "url":       flow.request.pretty_url,
-            "host":      flow.request.host,
-            "status":    flow.response.status_code if flow.response else None,
-            "timestamp": time.time(),
+            "id":          flow_id,
+            "mitmflow_id": flow.id,        # mitmproxy's stable flow UUID (used for one-shot marker files)
+            "type":        flow_type,
+            "method":      flow.request.method,
+            "url":         flow.request.pretty_url,
+            "host":        flow.request.host,
+            "status":      flow.response.status_code if flow.response else None,
+            "timestamp":   time.time(),
         }
 
         entry = {
@@ -838,11 +877,12 @@ class HuntProxyAddon:
         }
 
         try:
-            with open(self.intercept_queue_file, "a", encoding="utf-8") as fq:
-                json.dump(entry, fq)
-                fq.write("\n")
-                fq.flush()
-                os.fsync(fq.fileno())
+            with self._lock:
+                with open(self.intercept_queue_file, "a", encoding="utf-8") as fq:
+                    json.dump(entry, fq)
+                    fq.write("\n")
+                    fq.flush()
+                    os.fsync(fq.fileno())
         except Exception as e:
             logger.error(f"Failed to write intercept queue: {e}")
             return
@@ -861,6 +901,23 @@ class HuntProxyAddon:
                         os.remove(action_file)
 
                         action = action_data.get("action", "forward")
+
+                        # Register one-shot response intercept BEFORE resuming
+                        if action_data.get("intercept_response"):
+                            # Write file marker directly from addon — guarantees the exact
+                            # flow.id used here matches what the response() hook checks.
+                            _oneshot_marker = os.path.join(
+                                self.intercept_actions_dir,
+                                f"oneshot_resp_{flow.id}"
+                            )
+                            try:
+                                with open(_oneshot_marker, "w") as _mf:
+                                    _mf.write(flow.id)
+                            except Exception as _me:
+                                logger.warning(f"Could not write one-shot marker: {_me}")
+                            with self._one_shot_lock:
+                                self._one_shot_response_intercepts.add(flow.id)
+                            logger.info(f"One-shot response intercept queued for {flow.id}")
 
                         if action == "drop":
                             if flow_type == "request":
