@@ -3064,9 +3064,21 @@ class HTTPHistoryTab(AnalysisTabMixin):
         """
         )
 
+        # Collect all selected rows for multi-select actions
+        selected_rows = sorted(set(
+            self.history_table.item(i.row(), 0).row()
+            for i in self.history_table.selectedItems()
+            if self.history_table.item(i.row(), 0) is not None
+        ))
+        _multi_select = len(selected_rows) > 1
+
         copy_url_action      = menu.addAction(" Copy URL")
         copy_request_action  = menu.addAction(" Copy Request (Raw)")
         copy_response_action = menu.addAction(" Copy Response (Raw)")
+
+        copy_selected_urls_action = menu.addAction(f"📋 Copy Selected URLs ({len(selected_rows)})")
+        copy_selected_urls_action.setToolTip("Copy all selected URLs to clipboard, one per line")
+        copy_selected_urls_action.setVisible(_multi_select)
 
         menu.addSeparator()
 
@@ -3129,6 +3141,8 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         if action == copy_url_action:
             self.copy_url(finding)
+        elif action == copy_selected_urls_action:
+            self._copy_selected_urls(selected_rows)
         elif action == copy_request_action:
             self.copy_request_raw(finding)
         elif action == copy_response_action:
@@ -3814,6 +3828,24 @@ class HTTPHistoryTab(AnalysisTabMixin):
         if url:
             QApplication.clipboard().setText(url)
             self.status_label.setText("📋 Copied URL")
+            QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
+
+    def _copy_selected_urls(self, selected_rows: list):
+        """Copy the URLs of all selected rows to the clipboard, one per line."""
+        urls = []
+        for row in selected_rows:
+            idx_item = self.history_table.item(row, 0)
+            if idx_item is None:
+                continue
+            finding_index = idx_item.data(Qt.UserRole)
+            if finding_index is None or finding_index >= len(self.findings):
+                continue
+            url = self.findings[finding_index].get("url", "").strip()
+            if url:
+                urls.append(url)
+        if urls:
+            QApplication.clipboard().setText("\n".join(urls))
+            self.status_label.setText(f"📋 Copied {len(urls)} URLs")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def copy_request_raw(self, finding: Dict[str, Any]):

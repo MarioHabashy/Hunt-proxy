@@ -2,15 +2,18 @@ fixes:
 when send websocket in repeater it dont appear in browser 
 repeater group send parallel
 
+
+
+** fix JS Miner
+** fix localhost testing
+** add JSON beatufier in all tabs
+** fix flow in attack surface tab as cant add POST requests
+
 *d* fix suddenly close tool
 *d* fix freeze and not responding with large traffic if param miner and JS miner is the cause
 *d* add in repeater , intercept option clean request which remove every parameter and headers in request which dont effect the response
-** when choose many URLs in http history tab then copy need all seclected copied not only the first one
-** fix JS Miner
-** fix localhost testing
+*d* when choose many URLs in http history tab then copy need all seclected copied not only the first one
 *d* add intercept the response for this reuqest in intercept tab >>> now need to test and test when tur on responses as i find one response only intercepeted when on responses
-** add JSON beatufier in all tabs
-** fix flow in attack surface tab as cant add POST requests
 *d* add in repeater/history check methods which will check http methods and olso headers which overrite method X-HTTP-Method-Override 
 *d* add in repeater/history option like this https://github.com/zigoo0/Pemburu/tree/master which try to find dev like env for this endpoint
 *d* add in repeater/history option test use polyglot to test many vulners in one input in one request SSTI XSS SQLI BXSS .. etc
