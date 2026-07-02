@@ -8341,6 +8341,139 @@ class _CleanRequestThread(QThread):
         self.finished_all.emit()
 
 
+def _build_cleaned_request(raw: str, rm_h: set, rm_p: set, rm_b: set, rm_ck: set) -> str:
+    """Return a copy of *raw* with the specified headers/params/cookies removed."""
+    for sep in ("\r\n\r\n", "\n\n"):
+        if sep in raw:
+            head, body = raw.split(sep, 1)
+            break
+    else:
+        head, body = raw, ""
+
+    lines = head.strip().splitlines()
+    first = lines[0] if lines else ""
+    new_hdrs = [h for h in (lines[1:] if len(lines) > 1 else [])
+                if h.split(":", 1)[0].strip().lower() not in rm_h]
+
+    if rm_ck:
+        rebuilt = []
+        for h in new_hdrs:
+            if h.lower().startswith("cookie:"):
+                ck_val = h.split(":", 1)[1].strip()
+                remaining = [
+                    c.strip() for c in ck_val.split(";")
+                    if c.strip() and c.strip().split("=")[0].strip() not in rm_ck
+                ]
+                if remaining:
+                    rebuilt.append("Cookie: " + "; ".join(remaining))
+                # else: Cookie header omitted entirely
+            else:
+                rebuilt.append(h)
+        new_hdrs = rebuilt
+
+    if rm_p and "?" in first:
+        parts = first.split()
+        if len(parts) >= 2 and "?" in parts[1]:
+            pb, qs = parts[1].split("?", 1)
+            kept = [(k, v) for k, v in urllib.parse.parse_qsl(qs, keep_blank_values=True)
+                    if k not in rm_p]
+            parts[1] = pb + ("?" + urllib.parse.urlencode(kept) if kept else "")
+            first = " ".join(parts)
+
+    if rm_b and body.strip():
+        bp = [(k, v) for k, v in urllib.parse.parse_qsl(body.strip(), keep_blank_values=True)
+              if k not in rm_b]
+        body = urllib.parse.urlencode(bp)
+
+    return "\r\n".join([first] + new_hdrs) + "\r\n\r\n" + body
+
+
+class _VerifyThread(QThread):
+    """Sends a single probe request and returns (status, body_size) for comparison."""
+    done = pyqtSignal(str, int)   # status_code_str, body_size
+
+    def __init__(self, host, port, use_ssl, raw, timeout, parent=None):
+        super().__init__(parent)
+        self.host, self.port, self.use_ssl = host, port, use_ssl
+        self.raw, self.timeout = raw, timeout
+
+    def run(self):
+        try:
+            resp, _, _ = _raw_http_send(self.host, self.port, self.use_ssl, self.raw, self.timeout)
+            m = re.match(r'HTTP/\S+\s+(\d+)', resp)
+            st = m.group(1) if m else "ERR"
+            body = ""
+            for sep in ("\r\n\r\n", "\n\n"):
+                if sep in resp:
+                    body = resp.split(sep, 1)[1]
+                    break
+            self.done.emit(st, len(body))
+        except Exception:
+            self.done.emit("ERR", 0)
+
+
+class _CompanionSearchThread(QThread):
+    """
+    After a combined-removal probe changes the response, probes each removed
+    item individually — adding it back while keeping everything else removed —
+    to find which items are 'companions' (at least one must stay).
+    """
+    item_result = pyqtSignal(str, str, bool)   # kind, label, restores_baseline
+    all_done    = pyqtSignal(list)             # [(kind, label), …] companions
+
+    def __init__(self, host, port, use_ssl, original_raw, removed_items,
+                 rm_h, rm_p, rm_b, rm_ck, b_st, b_sz, timeout, parent=None):
+        super().__init__(parent)
+        self.host, self.port, self.use_ssl = host, port, use_ssl
+        self.original_raw  = original_raw
+        self.removed_items = removed_items
+        self.rm_h, self.rm_p = set(rm_h), set(rm_p)
+        self.rm_b, self.rm_ck = set(rm_b), set(rm_ck)
+        self.b_st, self.b_sz, self.timeout = b_st, b_sz, timeout
+
+    def _probe(self, raw):
+        try:
+            resp, _, _ = _raw_http_send(
+                self.host, self.port, self.use_ssl, raw, self.timeout)
+            m = re.match(r'HTTP/\S+\s+(\d+)', resp)
+            st = m.group(1) if m else "ERR"
+            body = ""
+            for sep in ("\r\n\r\n", "\n\n"):
+                if sep in resp:
+                    body = resp.split(sep, 1)[1]
+                    break
+            return st, len(body)
+        except Exception:
+            return "ERR", 0
+
+    def run(self):
+        companions = []
+        for kind, label in self.removed_items:
+            # Re-build removal sets with THIS item excluded (kept in the request)
+            rm_h  = set(self.rm_h)
+            rm_p  = set(self.rm_p)
+            rm_b  = set(self.rm_b)
+            rm_ck = set(self.rm_ck)
+            if kind == "header":
+                rm_h.discard(label.lower())
+            elif kind == "param":
+                rm_p.discard(label.split("=")[0])
+            elif kind == "body_param":
+                rm_b.discard(label.split("=")[0])
+            elif kind == "cookie":
+                rm_ck.discard(label.split("=")[0].strip())
+
+            probe = _build_cleaned_request(
+                self.original_raw, rm_h, rm_p, rm_b, rm_ck)
+            st, sz = self._probe(probe)
+            restores = st == self.b_st and abs(sz - self.b_sz) <= 50
+            self.item_result.emit(kind, label, restores)
+            if restores:
+                companions.append((kind, label))
+
+        self.all_done.emit(companions)
+
+
 class _CleanRequestDialog(QDialog):
     """
     Shows which headers / params are unnecessary.
@@ -8358,14 +8491,22 @@ class _CleanRequestDialog(QDialog):
         self._rows_meta = []   # (kind, label)
         self._b_st = ""
         self._b_sz = 0
+        self._host, self._port, self._use_ssl, self._timeout = host, port, use_ssl, timeout
+        self._pending_raw = ""
+        self._vt = None
+        self._ct = None
+        self._rm_h = set(); self._rm_p = set()
+        self._rm_b = set(); self._rm_ck = set()
+        self._removed_items = []
 
         layout = QVBoxLayout(self)
         layout.setSpacing(6)
 
         info = QLabel(
-            "Each row shows the effect of <i>removing</i> one header or parameter.<br>"
-            "Items marked <b style='color:#f38ba8'>Not needed</b> had no effect on "
-            "status or body size — safe to remove."
+            "<b>Phase 1</b>: Each row shows the effect of removing <i>one item at a time</i>.<br>"
+            "<b>Phase 2</b> auto-verifies removing all <b style='color:#f38ba8'>Not needed</b> "
+            "items <i>together</i>, then finds "
+            "<b style='color:#f9e2af'>Companion</b> dependencies automatically."
         )
         info.setWordWrap(True)
         info.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:12px;")
@@ -8401,22 +8542,31 @@ class _CleanRequestDialog(QDialog):
             b.clicked.connect(slot)
             btn_row.addWidget(b)
         btn_row.addStretch()
-        apply_btn = QPushButton("✂️  Apply Cleaned Request")
-        apply_btn.setStyleSheet(
+        self._apply_btn = QPushButton("✂️  Apply Cleaned Request")
+        self._apply_btn.setStyleSheet(
             f"background:{COLOR_ACCENT};color:#fff;font-weight:bold;"
             f"padding:5px 16px;border:none;border-radius:4px;"
         )
-        apply_btn.clicked.connect(self._apply)
-        btn_row.addWidget(apply_btn)
+        self._apply_btn.setEnabled(False)   # enabled once Phase 2 determines the result
+        self._apply_btn.clicked.connect(self._apply)
+        btn_row.addWidget(self._apply_btn)
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
 
+        self._phase2_lbl = QLabel("⏳ Phase 2: Waiting for Phase 1 to complete…")
+        self._phase2_lbl.setWordWrap(True)
+        self._phase2_lbl.setStyleSheet(
+            f"color:{COLOR_TEXT_MUTED};font-size:11px;"
+            f"border-top:1px solid {COLOR_BORDER};padding:4px 0;"
+        )
+        layout.addWidget(self._phase2_lbl)
+
         self._t = _CleanRequestThread(host, port, use_ssl, raw, timeout, self)
         self._t.baseline_done.connect(self._on_baseline)
         self._t.result_ready.connect(self._add_row)
-        self._t.finished_all.connect(lambda: self._prog_lbl.setText("✅ Analysis complete."))
+        self._t.finished_all.connect(self._auto_verify)   # Phase 2 starts automatically
         self._t.start()
 
     def _on_baseline(self, st, sz):
@@ -8463,10 +8613,11 @@ class _CleanRequestDialog(QDialog):
     def _sel_unneeded(self):
         for r in range(self.table.rowCount()):
             it = self.table.item(r, 6)
-            needed = it and "Not" not in it.text() and "Needed" in it.text()
+            # Only auto-select pure "Not needed" — never Companion rows
+            is_unneeded = it and "Not needed" in it.text()
             chk = self._chk(r)
             if chk:
-                chk.setChecked(not needed)
+                chk.setChecked(is_unneeded)
 
     def _clr(self):
         for r in range(self.table.rowCount()):
@@ -8474,72 +8625,159 @@ class _CleanRequestDialog(QDialog):
             if chk:
                 chk.setChecked(False)
 
-    def _apply(self):
+    def _auto_verify(self):
+        """Phase 2 — called automatically when Phase 1 analysis finishes."""
+        self._prog_lbl.setText("✅ Phase 1 complete.")
+
         rm_h, rm_p, rm_b, rm_ck = set(), set(), set(), set()
+        removed_items = []
         for r in range(self.table.rowCount()):
-            chk = self._chk(r)
-            if not (chk and chk.isChecked()):
-                continue
-            kind, label = self._rows_meta[r]
-            if kind == "header":
-                rm_h.add(label.lower())
-            elif kind == "param":
-                rm_p.add(label.split("=")[0])
-            elif kind == "body_param":
-                rm_b.add(label.split("=")[0])
-            elif kind == "cookie":
-                rm_ck.add(label.split("=")[0].strip())
+            it = self.table.item(r, 6)
+            if it and "Not needed" in it.text():
+                kind, label = self._rows_meta[r]
+                removed_items.append((kind, label))
+                if kind == "header":
+                    rm_h.add(label.lower())
+                elif kind == "param":
+                    rm_p.add(label.split("=")[0])
+                elif kind == "body_param":
+                    rm_b.add(label.split("=")[0])
+                elif kind == "cookie":
+                    rm_ck.add(label.split("=")[0].strip())
 
         if not (rm_h or rm_p or rm_b or rm_ck):
-            QMessageBox.information(self, "Nothing selected", "Check at least one item to remove.")
+            self._phase2_lbl.setText(
+                "Phase 2: No 'not needed' items found — request is already minimal."
+            )
             return
 
-        raw = self._raw
-        for sep in ("\r\n\r\n", "\n\n"):
-            if sep in raw:
-                head, body = raw.split(sep, 1)
+        self._rm_h, self._rm_p = rm_h, rm_p
+        self._rm_b, self._rm_ck = rm_b, rm_ck
+        self._removed_items = removed_items
+
+        new_raw = _build_cleaned_request(self._raw, rm_h, rm_p, rm_b, rm_ck)
+        self._pending_raw = new_raw
+        n = len(removed_items)
+        self._phase2_lbl.setText(
+            f"⏳ Phase 2: Sending cleaned request ({n} item(s) removed) to verify…"
+        )
+        self._vt = _VerifyThread(self._host, self._port, self._use_ssl,
+                                  new_raw, self._timeout, self)
+        self._vt.done.connect(self._on_verify_done)
+        self._vt.start()
+
+    def _apply(self):
+        """Apply the minimal cleaned request determined by Phase 2."""
+        if self._pending_raw:
+            self._apply_cb(self._pending_raw)
+            self.accept()
+
+    def _on_verify_done(self, st: str, sz: int):
+        """Called after the Phase 2 combined-removal probe completes."""
+        if st == self._b_st and abs(sz - self._b_sz) <= 50:
+            # ✅ Identical to baseline — minimal request is ready
+            self._apply_btn.setEnabled(True)
+            self._phase2_lbl.setText(
+                f"✅ Phase 2: Cleaned request matches baseline "
+                f"(HTTP {st}  │  {sz:,} B). "
+                "Click ‘Apply’ to use it."
+            )
+            return
+
+        # ⚠️ Response changed — companion search on cookie/param values only
+        diff = sz - self._b_sz
+        diff_str = f"+{diff:,}" if diff > 0 else f"{diff:,}"
+        self._phase2_lbl.setText(
+            f"⚠️ Phase 2: Combined removal → HTTP {st}  │  {sz:,} B "
+            f"(Δ {diff_str} B vs baseline HTTP {self._b_st}) — "
+            "checking cookie/param companion dependencies…"
+        )
+
+        # Only test cookie/param items — plain headers cannot be companions
+        companion_candidates = [
+            (kind, label) for kind, label in self._removed_items
+            if kind in ("cookie", "param", "body_param")
+        ]
+
+        if not companion_candidates:
+            self._apply_btn.setEnabled(True)
+            self._phase2_lbl.setText(
+                f"⚠️ Phase 2: Response changed (HTTP {st}) — no cookie/param values "
+                "among removed items to test. Review ‘Needed’ items manually."
+            )
+            return
+
+        self._ct = _CompanionSearchThread(
+            self._host, self._port, self._use_ssl,
+            self._raw, companion_candidates,
+            self._rm_h, self._rm_p, self._rm_b, self._rm_ck,
+            self._b_st, self._b_sz, self._timeout, self
+        )
+        self._ct.item_result.connect(self._on_companion_item)
+        self._ct.all_done.connect(self._on_companion_done)
+        self._ct.start()
+
+    def _on_companion_item(self, kind: str, label: str, restores: bool):
+        """Update the table row verdict with companion-probe result."""
+        for r in range(self.table.rowCount()):
+            if self._rows_meta[r] == (kind, label):
+                it = self.table.item(r, 6)
+                if it:
+                    if restores:
+                        it.setText(" Companion (keep ≥1)")
+                        it.setForeground(QColor("#f9e2af"))   # warm yellow
+                        for c in range(1, 7):
+                            cell = self.table.item(r, c)
+                            if cell:
+                                cell.setBackground(QColor("#2a2a1a"))
+                    else:
+                        it.setText("❌ Not needed")
                 break
-        else:
-            head, body = raw, ""
 
-        lines = head.strip().splitlines()
-        first = lines[0]
-        new_hdrs = [h for h in lines[1:] if h.split(":", 1)[0].strip().lower() not in rm_h]
+    def _on_companion_done(self, companions: list):
+        """After companion search: update table status and set minimal request for Apply."""
+        self._apply_btn.setEnabled(True)
+        kind_map = {"header": "Header", "param": "QParam",
+                    "body_param": "Body param", "cookie": "Cookie"}
 
-        # Strip individual cookies from the Cookie header
-        if rm_ck:
-            rebuilt = []
-            for h in new_hdrs:
-                if h.lower().startswith("cookie:"):
-                    ck_val = h.split(":", 1)[1].strip()
-                    remaining = [
-                        c.strip() for c in ck_val.split(";")
-                        if c.strip() and c.strip().split("=")[0].strip() not in rm_ck
-                    ]
-                    if remaining:
-                        rebuilt.append("Cookie: " + "; ".join(remaining))
-                    # else: entire Cookie header removed
-                else:
-                    rebuilt.append(h)
-            new_hdrs = rebuilt
+        if not companions:
+            # No single item restores baseline — multi-item interaction
+            self._phase2_lbl.setText(
+                "⚠️ Phase 2: No single cookie/param value restores baseline alone — "
+                "interaction involves multiple items. "
+                "Remove items one at a time and re-test manually. "
+                "'Apply' uses the fully-cleaned (possibly broken) request."
+            )
+            # _pending_raw already holds the fully-cleaned request
+            return
 
-        if "?" in first and rm_p:
-            path_base, qs = first.split()[1].split("?", 1) if len(first.split()) >= 2 else ("/", "")
-            params = [(k, v) for k, v in urllib.parse.parse_qsl(qs, keep_blank_values=True)
-                      if k not in rm_p]
-            new_qs = urllib.parse.urlencode(params)
-            pts = first.split()
-            if len(pts) >= 2:
-                pts[1] = path_base + ("?" + new_qs if new_qs else "")
-            first = " ".join(pts)
+        # ── Companions found — build minimal request keeping only first companion ──
+        keep_kind, keep_label = companions[0]
+        rm_h  = set(self._rm_h)
+        rm_p  = set(self._rm_p)
+        rm_b  = set(self._rm_b)
+        rm_ck = set(self._rm_ck)
+        if keep_kind == "header":
+            rm_h.discard(keep_label.lower())
+        elif keep_kind == "param":
+            rm_p.discard(keep_label.split("=")[0])
+        elif keep_kind == "body_param":
+            rm_b.discard(keep_label.split("=")[0])
+        elif keep_kind == "cookie":
+            rm_ck.discard(keep_label.split("=")[0].strip())
 
-        if rm_b and body.strip():
-            bp = [(k, v) for k, v in urllib.parse.parse_qsl(body.strip(), keep_blank_values=True)
-                  if k not in rm_b]
-            body = urllib.parse.urlencode(bp)
+        self._pending_raw = _build_cleaned_request(self._raw, rm_h, rm_p, rm_b, rm_ck)
 
-        self._apply_cb("\r\n".join([first] + new_hdrs) + "\r\n\r\n" + body)
-        self.accept()
+        all_names = " / ".join(
+            f"{kind_map.get(k, k)}:{lbl.split('=')[0]}"
+            for k, lbl in companions
+        )
+        keep_name = f"{kind_map.get(keep_kind, keep_kind)}:{keep_label.split('=')[0]}"
+        self._phase2_lbl.setText(
+            f"🔗 Phase 2: Companion found — at least one of [{all_names}] must stay. "
+            f"Minimal request keeps {keep_name} and removes everything else. "
+            "Click 'Apply' to use it."
+        )
 
 
 # Colour palette for group header tabs (cycles through these)
