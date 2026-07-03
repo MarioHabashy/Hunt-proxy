@@ -5184,7 +5184,7 @@ class HuntBurpGUI(
         tw_action.triggered.connect(lambda: self.show_tools_config_dialog(open_tab=2))
         settings_menu.addAction(tw_action)
 
-        polyglot_action = QAction("🧬 Set Polyglot Payload", self)
+        polyglot_action = QAction(" Set Polyglot Payload", self)
         polyglot_action.setToolTip(
             "Configure the multi-vulnerability polyglot payload used by\n"
             "Repeater → right-click → Test Polyglot"

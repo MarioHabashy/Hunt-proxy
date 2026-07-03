@@ -3,13 +3,33 @@ when send websocket in repeater it dont appear in browser
 repeater group send parallel
 
 
-** in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
-** in bypass access control need to apply this techniqe GET /robots.txt/..;/admin/ or /cart.jsp/..;/admin/  any valid page then /..;/403 page
+
 ** fix JS Miner
 ** fix localhost testing
 ** add JSON beatufier in all tabs
 ** fix flow in attack surface tab as cant add POST requests
 
+** improve test polyglot by check if in URL so URL-encode and also need it in http history tab and open new windows to show request
+    with polyglot and response with section for response analysis to check for vulnerabilities 
+        (may make polyglot for every vuln and try all with special analysis for every one)
+** in bypass access control phase 12:
+        # ── Phase 12 — Valid-path prefix bypass ──────────────────────────
+        # Use a known-valid path as a "trusted" prefix, then traverse to the
+        # blocked resource.  e.g. /robots.txt/..;/admin/  → server may allow
+        # it because the prefix resolves to a public path first.
+        p12 = []
+            # Pattern C: /anchor../blocked_path/ (dot after anchor, no slash)
+            p12.append({
+                "url":     origin + anchor_no_slash + ".." + path + "/",
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}..{path}/",
+
+    i must be like /assets../admin but i can see it /assets/../admin so need to remove /
+
+
+
+*d* in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
+*d* in bypass access control need to apply this techniqe GET /robots.txt/..;/admin/ or /cart.jsp/..;/admin/  any valid page then /..;/403 page
 *d* fix suddenly close tool
 *d* fix freeze and not responding with large traffic if param miner and JS miner is the cause
 *d* add in repeater , intercept option clean request which remove every parameter and headers in request which dont effect the response

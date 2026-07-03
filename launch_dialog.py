@@ -44,7 +44,7 @@ PLATFORMS = ["", "HackerOne", "Bugcrowd", "Intigriti", "Synack",
 
 # ── Persist last-opened project slug ─────────────────────────────────────────
 _SETTINGS_FILE = os.path.join(
-    os.path.expanduser("~"), ".config", "HackRecon", "settings.json"
+    os.path.expanduser("~"), ".config", "hunt-proxy", "settings.json"
 )
 
 def _load_last_slug() -> str:

