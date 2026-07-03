@@ -3,7 +3,11 @@ when send websocket in repeater it dont appear in browser
 repeater group send parallel
 
 
-
+** in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
+** in bypass access control need to apply this techniqe GET /robots.txt/..;/admin/ or /cart.jsp/..;/admin/  any valid page then /..;/403 page
+** in tools runner in content bruteforce need to add wordlists for technologies not one wordlist as in tomcate 
+    so need to make is dynamically to find them like find ~/SecLists/Discovery | grep -i tomcat .... techns from wad and headers
+** fix error in detect tech when bruteforce
 ** fix JS Miner
 ** fix localhost testing
 ** add JSON beatufier in all tabs

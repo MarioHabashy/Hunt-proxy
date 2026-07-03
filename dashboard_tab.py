@@ -628,6 +628,11 @@ class ArchiveRunner:
 class BruteforceRunner:
     """Builds the feroxbuster command and parses its raw output."""
 
+    GITHUB_WORDLIST_URL = (
+        "https://raw.githubusercontent.com/MarioHabashy/Wordlists"
+        "/refs/heads/main/Additional-wordlist"
+    )
+
     # Seclists discovery — checked once at class level, cached as class attribute
     _SECLISTS_CANDIDATES = [
         "/usr/share/seclists",
@@ -638,47 +643,72 @@ class BruteforceRunner:
         "/opt/SecLists",
     ]
 
-    TECH_MAP_RELATIVE = {
-        "wordpress":  ["Discovery/Web-Content/CMS/wordpress.fuzz.txt",
-                       "Discovery/Web-Content/CMS/wp-plugins.fuzz.txt",
-                       "Discovery/Web-Content/CMS/wp-themes.fuzz.txt"],
-        "joomla":     ["Discovery/Web-Content/CMS/joomla.txt"],
-        "drupal":     ["Discovery/Web-Content/CMS/Drupal.txt"],
-        "magento":    ["Discovery/Web-Content/CMS/sitemap-magento.txt"],
-        "sharepoint": ["Discovery/Web-Content/CMS/sharepoint.txt"],
-        "apache":     ["Discovery/Web-Content/apache.txt"],
-        "tomcat":     ["Discovery/Web-Content/tomcat.txt"],
-        "iis":        ["Discovery/Web-Content/IIS.txt",
-                       "Discovery/Web-Content/frontpage.txt"],
-        "graphql":    ["Discovery/Web-Content/graphql.txt"],
-        "api":        ["Discovery/Web-Content/api/api-endpoints.txt"],
-        "coldfusion": ["Discovery/Web-Content/CMS/adobe-AEM.txt"],
-        "cgi":        ["Discovery/Web-Content/CGIs.txt"],
-        "oracle":     ["Discovery/Web-Content/CMS/Oracle-EBS-wordlist.txt"],
-    }
-
     TECH_KEYWORDS = {
-        "wordpress":  r"wordpress|wp-content|wp-admin",
+        "wordpress":  r"wordpress|wp-content|wp-admin|wp-json|wp-login",
         "joomla":     r"joomla",
         "drupal":     r"drupal",
-        "magento":    r"magento",
+        "magento":    r"magento|magentovisitor",
         "sharepoint": r"sharepoint",
-        "apache":     r"apache",
-        "tomcat":     r"tomcat",
-        "iis":        r"iis|asp\.net",
+        "apache":     r"apache|litespeed",
+        "nginx":      r"nginx",
+        "tomcat":     r"tomcat|jsessionid",
+        "iis":        r"iis|asp\.net|x-aspnet-version|asp\.net_sessionid",
         "graphql":    r"graphql",
-        "api":        r"\bapi\b|rest|swagger",
+        "api":        r"\bapi\b|rest|swagger|express",
         "coldfusion": r"coldfusion|adobe",
         "cgi":        r"\bcgi\b|perl",
         "oracle":     r"oracle",
+        "php":        r"\bphp\b|phpsessid|\.php",
     }
 
     def find_seclists(self) -> Optional[str]:
         return next((p for p in self._SECLISTS_CANDIDATES if os.path.isdir(p)), None)
 
+    def detect_technologies(self, text: str) -> List[str]:
+        """Return list of technology names detected in text."""
+        detected = []
+        for tech, pattern in self.TECH_KEYWORDS.items():
+            if re.search(pattern, text, re.IGNORECASE):
+                detected.append(tech)
+        return detected
+
+    def search_wordlists_for_tech(self, seclists: str, tech: str) -> List[str]:
+        """Use find to discover all wordlists under seclists/Discovery/Web-Content matching tech."""
+        base_path = os.path.join(seclists, "Discovery", "Web-Content")
+        try:
+            result = subprocess.run(
+                ["find", base_path, "-type", "f"],
+                capture_output=True, text=True, timeout=20
+            )
+            paths = [
+                p.strip() for p in result.stdout.splitlines()
+                if tech.lower() in p.lower() and p.strip()
+            ]
+            return [p for p in paths if os.path.exists(p)]
+        except Exception:
+            return []
+
+    def fetch_github_wordlist_to_file(self, dest_path: str) -> bool:
+        """Fetch the GitHub additional wordlist via curl. Returns True on success."""
+        try:
+            result = subprocess.run(
+                ["curl", "-fsSL", "--max-time", "30", self.GITHUB_WORDLIST_URL],
+                capture_output=True, text=True, timeout=35
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                with open(dest_path, "w") as f:
+                    f.write(result.stdout)
+                return True
+        except Exception:
+            pass
+        return False
+
     def select_wordlists(self, seclists: Optional[str], tech_content: str,
-                         extra: str = "") -> List[str]:
-        """Return list of existing wordlist paths based on detected tech."""
+                         extra: str = "") -> Dict[str, List[str]]:
+        """Return dict mapping category -> list of existing wordlist paths."""
+        plan: Dict[str, List[str]] = {}
+
+        # Base wordlists always used
         base = []
         if seclists:
             base = [
@@ -687,18 +717,20 @@ class BruteforceRunner:
                 os.path.join(seclists, "Discovery/Web-Content/raft-medium-directories.txt"),
             ]
         base.append("/usr/lib/python3/dist-packages/dirsearch/db/dicc.txt")
+        plan["base"] = [p for p in base if os.path.exists(p)]
 
-        selected = set(base)
         if extra and os.path.exists(extra):
-            selected.add(extra)
+            plan["custom"] = [extra]
 
+        # Tech-specific wordlists — dynamic discovery via find
         if seclists and tech_content:
-            for tech, pattern in self.TECH_KEYWORDS.items():
-                if re.search(pattern, tech_content):
-                    for rel in self.TECH_MAP_RELATIVE.get(tech, []):
-                        selected.add(os.path.join(seclists, rel))
+            detected = self.detect_technologies(tech_content)
+            for tech in detected:
+                found = self.search_wordlists_for_tech(seclists, tech)
+                if found:
+                    plan[tech] = found
 
-        return [p for p in selected if os.path.exists(p)]
+        return plan
 
     def build_command(self, domain: str, wordlist: str,
                       output_file: str, cookie: str = "", proxy: str = "",
@@ -2473,42 +2505,101 @@ class TaskWorker(QThread):
             self._emit("    Install: sudo apt install seclists  OR  git clone https://github.com/danielmiessler/SecLists ~/SecLists")
             self._emit("    Bruteforce will proceed with dirsearch wordlist only — results may be limited.")
 
-        # Collect tech context
+        # ── Step 1: Collect existing tech + header outputs ─────────────────
+        tasks_root = os.path.normpath(os.path.join(self.task_dir, "..", ".."))
+
         tech_content = ""
-        tech_file = os.path.join(self.task_dir, "..", "..", "tasks",
+        header_content = ""
+
+        tech_file = os.path.join(tasks_root, "tasks",
                                  f"tech_{_safe_slug(domain)}", "output.log")
         if os.path.exists(tech_file):
             try:
                 with open(tech_file) as tf:
                     tech_content = tf.read().lower()
+                self._emit(f"[+] Found existing tech (wad) output")
             except Exception:
                 pass
-        else:
-            for root, _, files in os.walk(os.path.join(self.task_dir, "..", "..")):
-                for fn in files:
-                    if fn == "output.log" and "tech_" in root:
-                        try:
-                            with open(os.path.join(root, fn)) as tf:
-                                tech_content += tf.read().lower()
-                        except Exception:
-                            pass
 
-        wordlists = runner.select_wordlists(seclists, tech_content, wordlist_extra)
-        if not wordlists:
+        headers_file = os.path.join(tasks_root, "tasks",
+                                    f"headers_{_safe_slug(domain)}", "output.log")
+        if os.path.exists(headers_file):
+            try:
+                with open(headers_file) as hf:
+                    header_content = hf.read().lower()
+                self._emit(f"[+] Found existing headers output")
+            except Exception:
+                pass
+
+        # ── Step 2: Run wad/headers in-line if outputs not available ───────
+        if not tech_content:
+            self._emit("[*] No tech (wad) output found — running technology detection…")
+            tech_tmp = os.path.join(self.task_dir, "tech_scan.tmp")
+            wad_cmd = TechRunner().build_command(domain)
+            self._run_cmd_to_file(wad_cmd, tech_tmp, timeout=90)
+            if self._has_output(tech_tmp):
+                try:
+                    with open(tech_tmp) as tf:
+                        tech_content = tf.read().lower()
+                    self._emit("[+] Technology detection complete")
+                except Exception:
+                    pass
+
+        if not header_content:
+            self._emit("[*] No headers output found — fetching HTTP headers…")
+            headers_tmp = os.path.join(self.task_dir, "headers_scan.tmp")
+            headers_cmd = HeadersRunner().build_command(domain, cookie, proxy)
+            self._run_cmd_to_file(headers_cmd, headers_tmp, timeout=45)
+            if self._has_output(headers_tmp):
+                try:
+                    with open(headers_tmp) as hf:
+                        header_content = hf.read().lower()
+                    self._emit("[+] Headers fetch complete")
+                except Exception:
+                    pass
+
+        # ── Step 3: Detect technologies from combined output ────────────────
+        combined_content = tech_content + "\n" + header_content
+        detected_techs = runner.detect_technologies(combined_content)
+
+        self._emit("\n" + "─" * 50)
+        if detected_techs:
+            self._emit(f"[✓] Technologies detected: {', '.join(detected_techs)}")
+        else:
+            self._emit("[*] No specific technologies detected — using base wordlists only")
+
+        # ── Step 4: Build wordlist plan (base + dynamic tech search) ────────
+        wordlist_plan = runner.select_wordlists(seclists, combined_content, wordlist_extra)
+
+        # ── Step 5: Fetch GitHub additional wordlist (always) ───────────────
+        github_wl = os.path.join(self.task_dir, "github_wordlist.tmp")
+        self._emit("[*] Fetching GitHub additional wordlist…")
+        if runner.fetch_github_wordlist_to_file(github_wl):
+            self._emit("[+] GitHub wordlist fetched successfully")
+            wordlist_plan["github"] = [github_wl]
+        else:
+            self._emit("[!] Could not fetch GitHub wordlist (offline or unreachable)")
+
+        # ── Step 6: Display wordlist plan by technology ──────────────────────
+        self._emit("\n📋 WORDLIST PLAN:")
+        for category, paths in wordlist_plan.items():
+            if not paths:
+                continue
+            self._emit(f"  [{category.upper()}] — {len(paths)} wordlist(s):")
+            for p in paths:
+                self._emit(f"    • {os.path.basename(p)}")
+        self._emit("─" * 50 + "\n")
+
+        all_wordlists = [p for paths in wordlist_plan.values() for p in paths]
+        if not all_wordlists:
             self._emit("[!] No wordlists found — cannot run bruteforce.")
             self._done(False, "", "No wordlists available")
             return
 
-        # Log which tech-specific lists were added
-        if seclists and tech_content:
-            for tech, pattern in runner.TECH_KEYWORDS.items():
-                if re.search(pattern, tech_content):
-                    self._emit(f"[+] Detected {tech} — adding specialised wordlists")
-
         custom_wl = os.path.join(self.task_dir, "combined_wordlist.txt")
-        self._emit(f"[*] Merging {len(wordlists)} wordlist source(s)…")
+        self._emit(f"[*] Merging {len(all_wordlists)} wordlist source(s)…")
         with open(custom_wl, "w") as fout:
-            for wl in wordlists:
+            for wl in all_wordlists:
                 try:
                     with open(wl) as fin:
                         fout.write(fin.read())

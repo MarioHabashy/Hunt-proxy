@@ -198,6 +198,11 @@ class ArchiveRunner:
 class BruteforceRunner:
     """Builds the feroxbuster command and parses its raw output."""
 
+    GITHUB_WORDLIST_URL = (
+        "https://raw.githubusercontent.com/MarioHabashy/Wordlists"
+        "/refs/heads/main/Additional-wordlist"
+    )
+
     # Seclists discovery — checked once at class level, cached as class attribute
     _SECLISTS_CANDIDATES = [
         "/usr/share/seclists",
@@ -207,27 +212,6 @@ class BruteforceRunner:
         "/opt/seclists",
         "/opt/SecLists",
     ]
-
-    TECH_MAP_RELATIVE = {
-        "wordpress":  ["Discovery/Web-Content/CMS/wordpress.fuzz.txt",
-                       "Discovery/Web-Content/CMS/wp-plugins.fuzz.txt",
-                       "Discovery/Web-Content/CMS/wp-themes.fuzz.txt"],
-        "joomla":     ["Discovery/Web-Content/CMS/joomla.txt"],
-        "drupal":     ["Discovery/Web-Content/CMS/Drupal.txt"],
-        "magento":    ["Discovery/Web-Content/CMS/sitemap-magento.txt"],
-        "sharepoint": ["Discovery/Web-Content/CMS/sharepoint.txt"],
-        "apache":     ["Discovery/Web-Content/apache.txt"],
-        "nginx":      ["Discovery/Web-Content/nginx.txt"],
-        "tomcat":     ["Discovery/Web-Content/tomcat.txt"],
-        "iis":        ["Discovery/Web-Content/IIS.txt",
-                       "Discovery/Web-Content/frontpage.txt"],
-        "graphql":    ["Discovery/Web-Content/graphql.txt"],
-        "api":        ["Discovery/Web-Content/api/api-endpoints.txt"],
-        "coldfusion": ["Discovery/Web-Content/CMS/adobe-AEM.txt"],
-        "cgi":        ["Discovery/Web-Content/CGIs.txt"],
-        "oracle":     ["Discovery/Web-Content/CMS/Oracle-EBS-wordlist.txt"],
-        "php":        ["Discovery/Web-Content/PHP.fuzz.txt"],
-    }
 
     TECH_KEYWORDS = {
         "wordpress":  r"wordpress|wp-content|wp-admin|wp-json|wp-login",
@@ -250,9 +234,51 @@ class BruteforceRunner:
     def find_seclists(self) -> Optional[str]:
         return next((p for p in self._SECLISTS_CANDIDATES if os.path.isdir(p)), None)
 
+    def detect_technologies(self, text: str) -> List[str]:
+        """Return list of technology names detected in text."""
+        detected = []
+        for tech, pattern in self.TECH_KEYWORDS.items():
+            if re.search(pattern, text, re.IGNORECASE):
+                detected.append(tech)
+        return detected
+
+    def search_wordlists_for_tech(self, seclists: str, tech: str) -> List[str]:
+        """Use find to discover all wordlists under seclists/Discovery/Web-Content matching tech."""
+        base_path = os.path.join(seclists, "Discovery", "Web-Content")
+        try:
+            result = subprocess.run(
+                ["find", base_path, "-type", "f"],
+                capture_output=True, text=True, timeout=20
+            )
+            paths = [
+                p.strip() for p in result.stdout.splitlines()
+                if tech.lower() in p.lower() and p.strip()
+            ]
+            return [p for p in paths if os.path.exists(p)]
+        except Exception:
+            return []
+
+    def fetch_github_wordlist_to_file(self, dest_path: str) -> bool:
+        """Fetch the GitHub additional wordlist via curl. Returns True on success."""
+        try:
+            result = subprocess.run(
+                ["curl", "-fsSL", "--max-time", "30", self.GITHUB_WORDLIST_URL],
+                capture_output=True, text=True, timeout=35
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                with open(dest_path, "w") as f:
+                    f.write(result.stdout)
+                return True
+        except Exception:
+            pass
+        return False
+
     def select_wordlists(self, seclists: Optional[str], tech_content: str,
-                         extra: str = "") -> List[str]:
-        """Return list of existing wordlist paths based on detected tech."""
+                         extra: str = "") -> Dict[str, List[str]]:
+        """Return dict mapping category -> list of existing wordlist paths."""
+        plan: Dict[str, List[str]] = {}
+
+        # Base wordlists always used
         base = []
         if seclists:
             base = [
@@ -261,18 +287,20 @@ class BruteforceRunner:
                 os.path.join(seclists, "Discovery/Web-Content/raft-medium-directories.txt"),
             ]
         base.append("/usr/lib/python3/dist-packages/dirsearch/db/dicc.txt")
+        plan["base"] = [p for p in base if os.path.exists(p)]
 
-        selected = set(base)
         if extra and os.path.exists(extra):
-            selected.add(extra)
+            plan["custom"] = [extra]
 
+        # Tech-specific wordlists — dynamic discovery via find
         if seclists and tech_content:
-            for tech, pattern in self.TECH_KEYWORDS.items():
-                if re.search(pattern, tech_content):
-                    for rel in self.TECH_MAP_RELATIVE.get(tech, []):
-                        selected.add(os.path.join(seclists, rel))
+            detected = self.detect_technologies(tech_content)
+            for tech in detected:
+                found = self.search_wordlists_for_tech(seclists, tech)
+                if found:
+                    plan[tech] = found
 
-        return [p for p in selected if os.path.exists(p)]
+        return plan
 
     def build_command(self, domain: str, wordlist: str,
                       output_file: str, cookie: str = "", proxy: str = "",
