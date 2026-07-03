@@ -5,9 +5,6 @@ repeater group send parallel
 
 ** in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
 ** in bypass access control need to apply this techniqe GET /robots.txt/..;/admin/ or /cart.jsp/..;/admin/  any valid page then /..;/403 page
-** in tools runner in content bruteforce need to add wordlists for technologies not one wordlist as in tomcate 
-    so need to make is dynamically to find them like find ~/SecLists/Discovery | grep -i tomcat .... techns from wad and headers
-** fix error in detect tech when bruteforce
 ** fix JS Miner
 ** fix localhost testing
 ** add JSON beatufier in all tabs
@@ -22,7 +19,9 @@ repeater group send parallel
 *d* add in repeater/history option like this https://github.com/zigoo0/Pemburu/tree/master which try to find dev like env for this endpoint
 *d* add in repeater/history option test use polyglot to test many vulners in one input in one request SSTI XSS SQLI BXSS .. etc
 *d* improve tool in these labs https://labs.cai.do/ specially RXSS llab as not reconginze company parameter when var company = 'ss' can detect but if var company = '' empty cant detect
-
+*d* in tools runner in content bruteforce need to add wordlists for technologies not one wordlist as in tomcate 
+    so need to make is dynamically to find them like find ~/SecLists/Discovery | grep -i tomcat .... techns from wad and headers
+*d* fix error in detect tech when bruteforce
 
 scanner tab :
     need to make interact.sh cli and auto used to detect blind one

