@@ -677,7 +677,7 @@ class BruteforceRunner:
         base_path = os.path.join(seclists, "Discovery", "Web-Content")
         try:
             result = subprocess.run(
-                ["find", base_path, "-type", "f"],
+                ["find", base_path, "-type", "f", "-iname", "*.txt"],
                 capture_output=True, text=True, timeout=20
             )
             paths = [

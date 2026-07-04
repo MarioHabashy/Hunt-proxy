@@ -9,9 +9,7 @@ repeater group send parallel
 ** add JSON beatufier in all tabs
 ** fix flow in attack surface tab as cant add POST requests
 
-** fix content bruteforce dont use cookie and must use cookie or authiraze header added 
-    , aslo need to control Status Code Filters   in dialog
-    , also need to have ability to check checckboxes for technologies if i know them
+
 ** improve test polyglot by check if in URL so URL-encode and also need it in http history tab and open new windows to show request
     with polyglot and response with section for response analysis to check for vulnerabilities 
         (may make polyglot for every vuln and try all with special analysis for every one)
