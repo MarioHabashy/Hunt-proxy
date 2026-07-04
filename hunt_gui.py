@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
 """
-hunt_gui.py  –  Main GUI window (updated)
-
-Changes vs original:
-  ✅  Standalone: no longer needs env vars from bash wrapper
-  ✅  LaunchDialog shown on startup → picks/creates project
-  ✅  Project data stored in ~/hackrecon_projects/<slug>/
-  ✅  ScopeTab for program / domain / subdomain management
-  ✅  InterceptTab with Burp-style forward/drop/edit
-  ✅  HuntProxyAddon (inline mitmproxy class) replaces external hunt_script.py
-  ✅  Proxy env vars set from project paths + scope before launching mitmdump
+Hunt Proxy - Professional penetration testing dashboard
 """
 
 import sys
@@ -252,8 +243,8 @@ except AttributeError:
 # GLOBAL SETTINGS
 # ========================================================================
 
-HACKRECON_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "HackRecon")
-HUNT_SETTINGS_FILE = os.path.join(HACKRECON_CONFIG_DIR, "settings.json")
+HUNT_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "HuntProxy")
+HUNT_SETTINGS_FILE = os.path.join(HUNT_CONFIG_DIR, "settings.json")
 
 def _load_global_settings() -> dict:
     """Loads global settings from the user's config directory."""
@@ -267,7 +258,7 @@ def _load_global_settings() -> dict:
 
 def _save_global_settings(settings: dict):
     """Saves global settings to the user's config directory."""
-    os.makedirs(HACKRECON_CONFIG_DIR, exist_ok=True)
+    os.makedirs(HUNT_CONFIG_DIR, exist_ok=True)
     with open(HUNT_SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=2)
 
@@ -2525,7 +2516,7 @@ class TabPopoutWindow(QMainWindow):
         self._main_window = main_window
 
         clean_label = tab_label.replace("⨁ ", "")
-        self.setWindowTitle(f"🔲  {clean_label}  —  HackRecon")
+        self.setWindowTitle(f"🔲  {clean_label}  —  Hunt-Proxy")
         self.resize(1200, 800)
 
         try:
@@ -2725,7 +2716,7 @@ class HuntBurpGUI(
     # ── UI construction ────────────────────────────────────────────────────
 
     def init_ui(self):
-        self.setWindowTitle("Hunt HackRecon – Security Testing Dashboard")
+        self.setWindowTitle("Hunt Proxy")
         self.setup_window_geometry()
         self.apply_dark_theme()
 
@@ -7199,7 +7190,7 @@ class HuntBurpGUI(
         QMessageBox.about(
             self,
             "About Hunt",
-            "Hunt - Security Testing Dashboard From HackRecon\n\n"
+            "Hunt Proxy - Security Testing Dashboard\n\n"
             "GUI for real-time vulnerability detection.\n\n"
             f"Monitoring: {HUNT_JSONL}\n\n"
         )
@@ -7449,7 +7440,7 @@ def _make_loading_splash() -> QSplashScreen:
         f_title = QFont("Segoe UI", 22, QFont.Bold)
         p.setFont(f_title)
         p.setPen(QColor("#89b4fa"))
-        p.drawText(QRect(0, 24, W, 50), Qt.AlignHCenter | Qt.AlignVCenter, "HackRecon Hunt")
+        p.drawText(QRect(0, 24, W, 50), Qt.AlignHCenter | Qt.AlignVCenter, "Hunt Proxy")
 
         f_sub = QFont("Segoe UI", 11)
         p.setFont(f_sub)

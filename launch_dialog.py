@@ -167,7 +167,7 @@ class LaunchDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("HackRecon — Select Project")
+        self.setWindowTitle("Hunt Proxy — Select Project")
         self.setMinimumSize(600, 540)
         self.setModal(True)
         self.setStyleSheet(_BASE_STYLE)
@@ -195,7 +195,7 @@ class LaunchDialog(QDialog):
         root.setContentsMargins(20, 20, 20, 20)
 
         # Header
-        header = QLabel("HackRecon Hunt")
+        header = QLabel("Hunt Proxy")
         header.setStyleSheet(
             f"color: {COLOR_ACCENT}; font-size: 18px; font-weight: 700;"
         )

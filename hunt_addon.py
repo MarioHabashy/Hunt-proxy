@@ -923,7 +923,7 @@ class HuntProxyAddon:
                             if flow_type == "request":
                                 flow.response = http.Response.make(
                                     403,
-                                    b"Request dropped by HackRecon Hunting Tool",
+                                    b"Request dropped by Hunt Proxy Tool",
                                     {"Content-Type": "text/plain"}
                                 )
                                 flow.hunt_dropped = True
