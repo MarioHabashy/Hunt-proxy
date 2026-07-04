@@ -2590,6 +2590,186 @@ class PopoutTabBar(QTabBar):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Custom Payloads Dialog
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _PayloadEditDialog(QDialog):
+    """Sub-dialog to add or edit a single custom payload."""
+
+    def __init__(self, payload: dict = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Payload" if payload else "Add Payload")
+        self.setMinimumWidth(520)
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        form = QFormLayout()
+        form.setLabelAlignment(Qt.AlignRight)
+
+        self.vuln_input = QLineEdit(payload.get("vuln", "") if payload else "")
+        self.vuln_input.setPlaceholderText("e.g. XSS, SQLi, SSTI …")
+
+        self.name_input = QLineEdit(payload.get("name", "") if payload else "")
+        self.name_input.setPlaceholderText("Short display name for the button")
+
+        self.payload_input = QPlainTextEdit(payload.get("payload", "") if payload else "")
+        self.payload_input.setPlaceholderText("Payload string")
+        self.payload_input.setFixedHeight(120)
+        self.payload_input.setLineWrapMode(QPlainTextEdit.NoWrap)
+
+        form.addRow("Vuln:", self.vuln_input)
+        form.addRow("Name:", self.name_input)
+        form.addRow("Payload:", self.payload_input)
+        layout.addLayout(form)
+
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self._accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def _accept(self):
+        if not self.name_input.text().strip():
+            QMessageBox.warning(self, "Missing Name", "Please enter a name for the payload.")
+            return
+        if not self.payload_input.toPlainText().strip():
+            QMessageBox.warning(self, "Missing Payload", "Please enter the payload string.")
+            return
+        self.accept()
+
+    def get_payload(self) -> dict:
+        return {
+            "vuln":    self.vuln_input.text().strip(),
+            "name":    self.name_input.text().strip(),
+            "payload": self.payload_input.toPlainText(),
+        }
+
+
+class _CustomPayloadsDialog(QDialog):
+    """Dialog to manage custom test payloads used in the Repeater toolbar."""
+
+    _HEADER_STYLE = (
+        "QHeaderView::section{background:#232336;color:#cdd6f4;"
+        "padding:4px 8px;border:none;font-size:12px;}"
+    )
+    _TABLE_STYLE = (
+        "QTableWidget{background:#1e1e2e;color:#cdd6f4;border:1px solid #313244;"
+        "gridline-color:#313244;font-size:12px;}"
+        "QTableWidget::item{padding:4px 8px;}"
+        "QTableWidget::item:selected{background:#313264;color:#fff;}"
+    )
+
+    def __init__(self, settings: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Custom Payloads")
+        self.setMinimumSize(720, 440)
+        self.setModal(True)
+        self._settings = settings
+
+        root = QVBoxLayout(self)
+        root.setSpacing(8)
+
+        lbl = QLabel("Define custom payloads that appear as buttons in the Repeater toolbar.\n"
+                      "Click a button in the Repeater to copy its payload to the clipboard.")
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("color:#888;font-size:11px;")
+        root.addWidget(lbl)
+
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Vuln", "Name", "Payload"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setStyleSheet(self._TABLE_STYLE)
+        self.table.horizontalHeader().setStyleSheet(self._HEADER_STYLE)
+        self.table.doubleClicked.connect(self._edit_selected)
+        root.addWidget(self.table)
+
+        btn_row = QHBoxLayout()
+        for label, slot in [("＋ Add", self._add_payload),
+                             ("✎ Edit", self._edit_selected),
+                             ("✕ Delete", self._delete_selected)]:
+            b = QPushButton(label)
+            b.setFixedHeight(28)
+            b.clicked.connect(slot)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.setFixedHeight(28)
+        close_btn.clicked.connect(self.accept)
+        btn_row.addWidget(close_btn)
+        root.addLayout(btn_row)
+
+        self._load_table()
+
+    def _load_table(self):
+        payloads = self._settings.get("custom_payloads", [])
+        self.table.setRowCount(0)
+        for p in payloads:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(p.get("vuln", "")))
+            self.table.setItem(row, 1, QTableWidgetItem(p.get("name", "")))
+            self.table.setItem(row, 2, QTableWidgetItem(p.get("payload", "")))
+
+    def _get_all_payloads(self) -> list:
+        result = []
+        for row in range(self.table.rowCount()):
+            result.append({
+                "vuln":    self.table.item(row, 0).text() if self.table.item(row, 0) else "",
+                "name":    self.table.item(row, 1).text() if self.table.item(row, 1) else "",
+                "payload": self.table.item(row, 2).text() if self.table.item(row, 2) else "",
+            })
+        return result
+
+    def _add_payload(self):
+        dlg = _PayloadEditDialog(parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            p = dlg.get_payload()
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(p["vuln"]))
+            self.table.setItem(row, 1, QTableWidgetItem(p["name"]))
+            self.table.setItem(row, 2, QTableWidgetItem(p["payload"]))
+            self._save()
+
+    def _edit_selected(self):
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            return
+        row = rows[0].row()
+        existing = {
+            "vuln":    self.table.item(row, 0).text() if self.table.item(row, 0) else "",
+            "name":    self.table.item(row, 1).text() if self.table.item(row, 1) else "",
+            "payload": self.table.item(row, 2).text() if self.table.item(row, 2) else "",
+        }
+        dlg = _PayloadEditDialog(existing, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            p = dlg.get_payload()
+            self.table.setItem(row, 0, QTableWidgetItem(p["vuln"]))
+            self.table.setItem(row, 1, QTableWidgetItem(p["name"]))
+            self.table.setItem(row, 2, QTableWidgetItem(p["payload"]))
+            self._save()
+
+    def _delete_selected(self):
+        rows = sorted({r.row() for r in self.table.selectionModel().selectedRows()}, reverse=True)
+        if not rows:
+            return
+        for row in rows:
+            self.table.removeRow(row)
+        self._save()
+
+    def _save(self):
+        self._settings["custom_payloads"] = self._get_all_payloads()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main window
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -2687,31 +2867,15 @@ class HuntBurpGUI(
             self.status_label.setText("✅ Global settings saved.")
             QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
-    def _edit_polyglot_payload(self):
-        """Let the user view and edit the polyglot payload used by the Repeater."""
-        try:
-            from repeater_tab import _DEFAULT_POLYGLOT as _DP
-        except Exception:
-            _DP = (
-                "'\"><script>alert(Inj3ct3d)</script>"
-                "{{7*7}}${7*7}"
-                "' OR '1'='1'-- "
-                "; ls -la #"
-                "/../../../etc/passwd"
-            )
-        current = self._global_settings.get("polyglot_payload", _DP)
-        text, ok = QInputDialog.getMultiLineText(
-            self, "Set Polyglot Payload",
-            "Edit the polyglot payload.\n"
-            "In the Repeater: select a value, right-click → Test Polyglot\n"
-            "to replace it with this payload and send the request:",
-            current,
-        )
-        if ok:
-            self._global_settings["polyglot_payload"] = text
-            _save_global_settings(self._global_settings)
-            self.status_label.setText("🧬 Polyglot payload saved.")
-            QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
+    def _open_custom_payloads_dialog(self):
+        """Open the Custom Payloads manager dialog."""
+        dlg = _CustomPayloadsDialog(self._global_settings, self)
+        dlg.exec_()
+        _save_global_settings(self._global_settings)
+        if hasattr(self, "repeater_tab"):
+            self.repeater_tab.refresh_custom_payloads()
+        self.status_label.setText("⚡ Custom payloads saved.")
+        QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
     # ── UI construction ────────────────────────────────────────────────────
 
@@ -5175,12 +5339,11 @@ class HuntBurpGUI(
         tw_action.triggered.connect(lambda: self.show_tools_config_dialog(open_tab=2))
         settings_menu.addAction(tw_action)
 
-        polyglot_action = QAction(" Set Polyglot Payload", self)
+        polyglot_action = QAction("⚡ Custom Payloads", self)
         polyglot_action.setToolTip(
-            "Configure the multi-vulnerability polyglot payload used by\n"
-            "Repeater → right-click → Test Polyglot"
+            "Manage custom test payloads that appear as buttons in the Repeater toolbar"
         )
-        polyglot_action.triggered.connect(self._edit_polyglot_payload)
+        polyglot_action.triggered.connect(self._open_custom_payloads_dialog)
         tools_menu.addAction(polyglot_action)
 
         proxy_cert_action = QAction("🔒 Proxy Certificate", self)

@@ -2467,7 +2467,45 @@ class RepeaterInstance(QWidget):
         toolbar.addWidget(self.ssl_check)
         toolbar.addWidget(QLabel("Timeout:"))
         toolbar.addWidget(self.timeout_spin)
-        toolbar.addStretch()
+
+        # ── Vuln filter dropdown ──────────────────────────────────────────────
+        self.vuln_combo = QComboBox()
+        self.vuln_combo.addItem("All")
+        self.vuln_combo.setFixedWidth(90)
+        self.vuln_combo.setFixedHeight(26)
+        self.vuln_combo.setToolTip("Filter payload buttons by vulnerability category")
+        self.vuln_combo.setStyleSheet(
+            f"QComboBox{{background:{COLOR_DARK_BG};color:{COLOR_TEXT};"
+            f"border:1px solid {COLOR_BORDER};border-radius:4px;padding:1px 4px;}}"
+            f"QComboBox::drop-down{{border:none;}}"
+            f"QComboBox QAbstractItemView{{background:{COLOR_DARK_BG};color:{COLOR_TEXT};"
+            f"border:1px solid {COLOR_BORDER};}}"
+        )
+        self.vuln_combo.currentTextChanged.connect(self._filter_payload_buttons)
+        toolbar.addWidget(self.vuln_combo)
+
+        # ── Scrollable custom payload buttons ─────────────────────────────────
+        self._payload_scroll = QScrollArea()
+        self._payload_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._payload_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._payload_scroll.setWidgetResizable(True)
+        self._payload_scroll.setFixedHeight(32)
+        self._payload_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._payload_scroll.setStyleSheet(
+            f"QScrollArea{{background:transparent;border:none;}}"
+            f"QScrollBar:horizontal{{height:4px;background:{COLOR_DARK_BG};}}"
+            f"QScrollBar::handle:horizontal{{background:{COLOR_BORDER};border-radius:2px;}}"
+            f"QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{{width:0px;}}"
+        )
+        self._payload_btn_widget = QWidget()
+        self._payload_btn_widget.setStyleSheet("background:transparent;")
+        self._payload_btn_layout = QHBoxLayout(self._payload_btn_widget)
+        self._payload_btn_layout.setContentsMargins(2, 0, 2, 0)
+        self._payload_btn_layout.setSpacing(3)
+        self._payload_btn_layout.addStretch()
+        self._payload_scroll.setWidget(self._payload_btn_widget)
+        toolbar.addWidget(self._payload_scroll)
+
         toolbar.addWidget(self.back_btn)
         toolbar.addWidget(self.history_label)
         toolbar.addWidget(self.fwd_btn)
@@ -3734,10 +3772,6 @@ class RepeaterInstance(QWidget):
         check_methods_act = menu.addAction("  Check HTTP Methods")
         check_methods_act.setToolTip("Probe all HTTP methods and method-override headers (X-HTTP-Method-Override etc.)")
         check_methods_act.triggered.connect(self._check_http_methods)
-
-        polyglot_act = menu.addAction("  Test Polyglot  (replaces selection)")
-        polyglot_act.setToolTip("Select a value in the request, then use this to replace it with a multi-vuln polyglot payload and send")
-        polyglot_act.triggered.connect(self._test_polyglot)
 
         check_env_act = menu.addAction("  Check Environments")
         check_env_act.setToolTip("Probe dev / staging / test / QA environment variants of this endpoint")
@@ -7816,6 +7850,82 @@ class RepeaterInstance(QWidget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(0, self._refresh_payload_buttons)
+
+    # ── Custom Payload Buttons ────────────────────────────────────────────────
+
+    def _refresh_payload_buttons(self):
+        """Reload custom payload buttons and vuln combo from global settings."""
+        try:
+            gs = getattr(self.window(), "_global_settings", {}) or {}
+        except Exception:
+            gs = {}
+        payloads = gs.get("custom_payloads", [])
+
+        # Rebuild vuln combo while preserving current selection
+        current_vuln = self.vuln_combo.currentText()
+        vulns = sorted({p.get("vuln", "") for p in payloads if p.get("vuln")})
+        self.vuln_combo.blockSignals(True)
+        self.vuln_combo.clear()
+        self.vuln_combo.addItem("All")
+        for v in vulns:
+            self.vuln_combo.addItem(v)
+        idx = self.vuln_combo.findText(current_vuln)
+        if idx >= 0:
+            self.vuln_combo.setCurrentIndex(idx)
+        self.vuln_combo.blockSignals(False)
+
+        # Show buttons for current filter
+        selected = self.vuln_combo.currentText()
+        filtered = payloads if selected == "All" else [
+            p for p in payloads if p.get("vuln") == selected
+        ]
+        self._populate_payload_buttons(filtered)
+
+    def _filter_payload_buttons(self):
+        """Filter displayed payload buttons when the vuln combo changes."""
+        try:
+            gs = getattr(self.window(), "_global_settings", {}) or {}
+        except Exception:
+            gs = {}
+        payloads = gs.get("custom_payloads", [])
+        selected = self.vuln_combo.currentText()
+        filtered = payloads if selected == "All" else [
+            p for p in payloads if p.get("vuln") == selected
+        ]
+        self._populate_payload_buttons(filtered)
+
+    def _populate_payload_buttons(self, payloads: list):
+        """Clear and rebuild payload buttons in the scrollable toolbar area."""
+        # Remove all existing buttons (the last item is the stretch)
+        while self._payload_btn_layout.count() > 1:
+            item = self._payload_btn_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        btn_style = (
+            f"QPushButton{{background:{COLOR_ELEVATED_BG};color:{COLOR_TEXT};"
+            f"border:1px solid {COLOR_BORDER};border-radius:3px;"
+            f"padding:1px 7px;font-size:11px;}}"
+            f"QPushButton:hover{{background:{COLOR_HOVER};}}"
+            f"QPushButton:pressed{{background:{COLOR_BORDER};}}"
+        )
+        for i, p in enumerate(payloads):
+            name = p.get("name", f"Payload {i + 1}")
+            payload = p.get("payload", "")
+            vuln = p.get("vuln", "")
+            btn = QPushButton(name)
+            btn.setFixedHeight(22)
+            btn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            btn.setToolTip(f"[{vuln}] Click to copy payload to clipboard")
+            btn.setStyleSheet(btn_style)
+            btn.clicked.connect(lambda _, pl=payload: QApplication.clipboard().setText(pl))
+            self._payload_btn_layout.insertWidget(
+                self._payload_btn_layout.count() - 1, btn
+            )
+
     # ── Check HTTP Methods ───────────────────────────────────────────────────
 
     def _check_http_methods(self):
@@ -9855,6 +9965,13 @@ class RepeaterTab(QWidget):
         self.tabs.addTab(inst, f"🔌 {name}")
         self.tabs.setCurrentWidget(inst)
         return inst
+
+    def refresh_custom_payloads(self):
+        """Refresh payload buttons in all RepeaterInstance tabs."""
+        for i in range(self.tabs.count()):
+            w = self.tabs.widget(i)
+            if isinstance(w, RepeaterInstance):
+                w._refresh_payload_buttons()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
