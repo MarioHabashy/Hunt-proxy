@@ -734,10 +734,15 @@ class BruteforceRunner:
 
     def build_command(self, domain: str, wordlist: str,
                       output_file: str, cookie: str = "", proxy: str = "",
-                      extra_headers: list = None) -> List[str]:
+                      extra_headers: list = None,
+                      filter_codes: list = None) -> List[str]:
+        _filter = filter_codes if filter_codes is not None else [400, 404, 429]
+        filter_args: list = []
+        for code in _filter:
+            filter_args.extend(["-C", str(code)])
         cmd = [
             "feroxbuster", "-u", f"https://{domain}",
-            "-n", "-C", "400", "-C", "404", "-C", "429",
+            "-n", *filter_args,
             "--dont-extract-links", "--no-state", "-k",
             "-w", wordlist, "-o", output_file
         ]
@@ -2562,14 +2567,36 @@ class TaskWorker(QThread):
         combined_content = tech_content + "\n" + header_content
         detected_techs = runner.detect_technologies(combined_content)
 
+        # Merge manually-selected technologies from dialog config
+        manual_techs = self.task_data.get("manual_techs", [])
+        if manual_techs:
+            for mt in manual_techs:
+                if mt not in detected_techs:
+                    detected_techs.append(mt)
+
         self._emit("\n" + "─" * 50)
+        if manual_techs:
+            self._emit(f"[✓] Manually specified: {', '.join(manual_techs)}")
         if detected_techs:
-            self._emit(f"[✓] Technologies detected: {', '.join(detected_techs)}")
+            self._emit(f"[✓] Technologies (combined): {', '.join(detected_techs)}")
         else:
             self._emit("[*] No specific technologies detected — using base wordlists only")
 
         # ── Step 4: Build wordlist plan (base + dynamic tech search) ────────
         wordlist_plan = runner.select_wordlists(seclists, combined_content, wordlist_extra)
+
+        # Add wordlists for manually-selected technologies that weren't auto-detected
+        if seclists and manual_techs:
+            for tech in manual_techs:
+                if tech not in wordlist_plan:
+                    found = runner.search_wordlists_for_tech(seclists, tech)
+                    if found:
+                        wordlist_plan[tech] = found
+                        self._emit(f"[+] Added wordlists for manual tech: {tech} ({len(found)} list(s))")
+                    else:
+                        # Still mark it so it appears in the plan as " no wordlists"
+                        wordlist_plan[f"{tech} (no wordlists found)"] = []
+                        self._emit(f"[!] No SecLists wordlists found for: {tech}")
 
         # ── Step 5: Fetch GitHub additional wordlist (always) ───────────────
         github_wl = os.path.join(self.task_dir, "github_wordlist.tmp")
@@ -2584,6 +2611,7 @@ class TaskWorker(QThread):
         self._emit("\n📋 WORDLIST PLAN:")
         for category, paths in wordlist_plan.items():
             if not paths:
+                self._emit(f"  [⚠ {category.upper()}] — no matching wordlists in SecLists")
                 continue
             self._emit(f"  [{category.upper()}] — {len(paths)} wordlist(s):")
             for p in paths:
@@ -2619,9 +2647,12 @@ class TaskWorker(QThread):
             self._emit(f"[*] Proxy filter enabled — feroxbuster runs without proxy")
             self._emit(f"[*] Interesting status codes will be replayed through {proxy}")
 
+        filter_codes = self.task_data.get("filter_codes")  # None → runner uses defaults
         self._status("running", "Running feroxbuster…")
         cmd = runner.build_command(domain, custom_wl, ferox_out, cookie, ferox_proxy,
-                                  extra_headers=extra_h)
+                                  extra_headers=extra_h, filter_codes=filter_codes)
+        if filter_codes is not None:
+            self._emit(f"[*] Filter codes: {', '.join(str(c) for c in filter_codes)}")
         self._emit(f"[*] Running: feroxbuster -u https://{domain} ...")
         self._run_cmd_to_file(cmd, output_file, timeout=7200)
 
@@ -4144,12 +4175,34 @@ class TaskInputDialog(QDialog):
         self.main_window = main_window
         self._sc_checkboxes: Dict[int, QCheckBox] = {}   # populated in _setup_ui for spider/archive/bruteforce
         self.setWindowTitle(f"Configure {tool_name} — {domain}")
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(540)
+        # Cap height so the dialog never exceeds the available screen space
+        screen = QApplication.primaryScreen()
+        if screen:
+            avail_h = screen.availableGeometry().height()
+            self.setMaximumHeight(int(avail_h * 0.90))
         self._setup_ui(prefill_cookie)
 
     def _setup_ui(self, prefill_cookie: str):
-        layout = QVBoxLayout(self)
+        # Outer layout: scroll area on top, fixed button row at the bottom
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setSpacing(0)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+        scroll_content = QWidget()
+        scroll_content.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(scroll_content)
         layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 4)
+
+        scroll.setWidget(scroll_content)
+        outer_layout.addWidget(scroll, stretch=1)
 
         # ── Tool info banner ─────────────────────────────────────────────────
         TOOL_INFO = {
@@ -4420,6 +4473,88 @@ class TaskInputDialog(QDialog):
             wl_layout.addWidget(browse_btn)
             layout.addWidget(wl_group)
 
+        # ── Known Technologies (bruteforce only) ─────────────────────────────
+        self._tech_checkboxes: Dict[str, QCheckBox] = {}
+        if tool_lc == "bruteforce":
+            from tool_runners import BruteforceRunner as _BFR
+            tech_group = QGroupBox("Known Technologies (optional — adds tech-specific wordlists)")
+            tech_group.setStyleSheet(f"QGroupBox {{ color:{COLOR_ACCENT}; }}")
+            tech_layout = QVBoxLayout(tech_group)
+            tech_hint = QLabel(
+                "Check any technologies you know the target uses. "
+                "These are merged with auto-detected technologies."
+            )
+            tech_hint.setWordWrap(True)
+            tech_hint.setStyleSheet(f"color:{COLOR_TEXT_MUTED}; font-size:9pt;")
+            tech_layout.addWidget(tech_hint)
+            tech_grid = QGridLayout()
+            tech_grid.setSpacing(4)
+            _all_techs = sorted(_BFR.TECH_KEYWORDS.keys())
+            for i, tech in enumerate(_all_techs):
+                cb = QCheckBox(tech)
+                cb.setStyleSheet(f"color:{COLOR_TEXT}; font-size:9pt;")
+                self._tech_checkboxes[tech] = cb
+                tech_grid.addWidget(cb, i // 4, i % 4)
+            tech_layout.addLayout(tech_grid)
+            layout.addWidget(tech_group)
+
+        # ── Feroxbuster Filter Status Codes (bruteforce only) ────────────────
+        self._filter_codes_list: Optional[QListWidget] = None
+        self._filter_code_input: Optional[QSpinBox] = None
+        if tool_lc == "bruteforce":
+            fc_group = QGroupBox("Filter Status Codes (feroxbuster -C — responses to skip)")
+            fc_group.setStyleSheet(f"QGroupBox {{ color:{COLOR_ACCENT}; }}")
+            fc_layout = QVBoxLayout(fc_group)
+            fc_hint = QLabel(
+                "Feroxbuster will ignore responses with these status codes. "
+                "Select an item and press Remove to delete it."
+            )
+            fc_hint.setWordWrap(True)
+            fc_hint.setStyleSheet(f"color:{COLOR_TEXT_MUTED}; font-size:9pt;")
+            fc_layout.addWidget(fc_hint)
+
+            self._filter_codes_list = QListWidget()
+            self._filter_codes_list.setFixedHeight(80)
+            self._filter_codes_list.setStyleSheet(
+                f"QListWidget{{background:{COLOR_DARK_BG};color:{COLOR_TEXT_BRIGHT};"
+                f"border:1px solid {COLOR_BORDER};border-radius:4px;}}"
+            )
+            for _default_code in [400, 404, 429]:
+                self._filter_codes_list.addItem(str(_default_code))
+            fc_layout.addWidget(self._filter_codes_list)
+
+            fc_input_row = QHBoxLayout()
+            self._filter_code_input = QSpinBox()
+            self._filter_code_input.setRange(100, 599)
+            self._filter_code_input.setValue(403)
+            self._filter_code_input.setFixedWidth(80)
+            fc_input_row.addWidget(QLabel("Code:"))
+            fc_input_row.addWidget(self._filter_code_input)
+
+            def _add_filter_code():
+                code = str(self._filter_code_input.value())
+                existing = [self._filter_codes_list.item(i).text()
+                            for i in range(self._filter_codes_list.count())]
+                if code not in existing:
+                    self._filter_codes_list.addItem(code)
+
+            add_fc_btn = QPushButton("+ Add")
+            add_fc_btn.setFixedWidth(60)
+            add_fc_btn.clicked.connect(_add_filter_code)
+            fc_input_row.addWidget(add_fc_btn)
+
+            def _remove_filter_code():
+                for item in self._filter_codes_list.selectedItems():
+                    self._filter_codes_list.takeItem(self._filter_codes_list.row(item))
+
+            remove_fc_btn = QPushButton("✕ Remove")
+            remove_fc_btn.setFixedWidth(80)
+            remove_fc_btn.clicked.connect(_remove_filter_code)
+            fc_input_row.addWidget(remove_fc_btn)
+            fc_input_row.addStretch()
+            fc_layout.addLayout(fc_input_row)
+            layout.addWidget(fc_group)
+
         # ── Proxy SC filter option (spider + bruteforce + archive) ──────────
         self.proxy_replay_checkbox = None
         self._sc_checkboxes: Dict[int, QCheckBox] = {}   # sc → checkbox
@@ -4492,8 +4627,15 @@ class TaskInputDialog(QDialog):
             self.proxy_replay_checkbox.toggled.connect(sc_group_widget.setEnabled)
             layout.addWidget(replay_group)
 
-        # ── Buttons ──────────────────────────────────────────────────────────
-        btn_row = QHBoxLayout()
+        layout.addStretch()
+
+        # ── Buttons — fixed outside the scroll area ───────────────────────────
+        btn_container = QWidget()
+        btn_container.setStyleSheet(
+            f"border-top: 1px solid {COLOR_BORDER}; background: {COLOR_DARK_BG};"
+        )
+        btn_row = QHBoxLayout(btn_container)
+        btn_row.setContentsMargins(12, 8, 12, 8)
         btn_row.addStretch()
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
@@ -4505,7 +4647,7 @@ class TaskInputDialog(QDialog):
         )
         run_btn.clicked.connect(self.accept)
         btn_row.addWidget(run_btn)
-        layout.addLayout(btn_row)
+        outer_layout.addWidget(btn_container)
 
     def _browse_wordlist(self):
         path, _ = QFileDialog.getOpenFileName(self, "Select Wordlist", "", "Text Files (*.txt);;All Files (*)")
@@ -4743,6 +4885,20 @@ class TaskInputDialog(QDialog):
                 selected_codes = [sc for sc, cb in self._sc_checkboxes.items() if cb.isChecked()]
                 if selected_codes:
                     config["proxy_replay_codes"] = selected_codes
+        # ── Manual technologies (bruteforce) ──────────────────────────────────
+        if hasattr(self, "_tech_checkboxes") and self._tech_checkboxes:
+            manual_techs = [t for t, cb in self._tech_checkboxes.items() if cb.isChecked()]
+            if manual_techs:
+                config["manual_techs"] = manual_techs
+        # ── Filter status codes (bruteforce) ─────────────────────────────────
+        if hasattr(self, "_filter_codes_list") and self._filter_codes_list is not None:
+            codes = []
+            for i in range(self._filter_codes_list.count()):
+                try:
+                    codes.append(int(self._filter_codes_list.item(i).text()))
+                except ValueError:
+                    pass
+            config["filter_codes"] = codes  # may be empty list = no filtering
         return config
 
 
@@ -6452,6 +6608,10 @@ class DashboardTab(QWidget):
             "censys_id":       config.get("censys_id", ""),
             "censys_secret":   config.get("censys_secret", ""),
             "proxy_replay":    config.get("proxy_replay", False),
+            "proxy_replay_codes": config.get("proxy_replay_codes", []),
+            "auth_headers":    config.get("auth_headers", []),
+            "manual_techs":    config.get("manual_techs", []),
+            "filter_codes":    config.get("filter_codes", None),
             "tools_dir":       config.get("tools_dir", os.path.expanduser("~/tools")),
             "seclists_dir":    config.get("seclists_dir", ""),
         }

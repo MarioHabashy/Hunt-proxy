@@ -218,13 +218,19 @@ class BruteforceRunner:
         "joomla":     r"joomla",
         "drupal":     r"drupal",
         "magento":    r"magento|magentovisitor",
+        "django":     r"django|csrfmiddlewaretoken",                  
+        "rails":      r"rails|ruby on rails|authenticity_token",       
+        "laravel":    r"laravel|livewire",                           
         "sharepoint": r"sharepoint",
+        "sap":        r"sap|/sap/", 
         "apache":     r"apache|litespeed",
         "nginx":      r"nginx",
         "tomcat":     r"tomcat|jsessionid",
         "iis":        r"iis|asp\.net|x-aspnet-version|asp\.net_sessionid",
         "graphql":    r"graphql",
         "api":        r"\bapi\b|rest|swagger|express",
+        "swagger":    r"swagger|api-docs",                              
+        "spring":     r"spring|springframework|spring-boot",           
         "coldfusion": r"coldfusion|adobe",
         "cgi":        r"\bcgi\b|perl",
         "oracle":     r"oracle",
@@ -247,7 +253,7 @@ class BruteforceRunner:
         base_path = os.path.join(seclists, "Discovery", "Web-Content")
         try:
             result = subprocess.run(
-                ["find", base_path, "-type", "f"],
+                ["find", base_path, "-type", "f", "-iname", "*.txt"],
                 capture_output=True, text=True, timeout=20
             )
             paths = [
@@ -304,15 +310,23 @@ class BruteforceRunner:
 
     def build_command(self, domain: str, wordlist: str,
                       output_file: str, cookie: str = "", proxy: str = "",
-                      tools_dir: str = os.path.expanduser("~/tools")) -> List[str]:
+                      tools_dir: str = os.path.expanduser("~/tools"),
+                      extra_headers: Optional[List[str]] = None,
+                      filter_codes: Optional[List[int]] = None) -> List[str]:
+        _filter = filter_codes if filter_codes is not None else [400, 404, 429]
+        filter_args: List[str] = []
+        for code in _filter:
+            filter_args.extend(["-C", str(code)])
         cmd  = [
             "feroxbuster", "-u", f"https://{domain}",
-            "-n", "-C", "400", "-C", "404", "-C", "429",
+            "-n", *filter_args,
             "--dont-extract-links", "--no-state", "-k",
             "-w", wordlist, "-o", output_file
         ]
         if cookie:
             cmd.extend(["-H", f"Cookie: {cookie}"])
+        if extra_headers:
+            cmd.extend(extra_headers)
         if proxy:
             cmd.extend(["--proxy", proxy])
         return cmd
