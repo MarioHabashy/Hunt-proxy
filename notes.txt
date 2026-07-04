@@ -12,20 +12,8 @@ repeater group send parallel
 ** improve test polyglot by check if in URL so URL-encode and also need it in http history tab and open new windows to show request
     with polyglot and response with section for response analysis to check for vulnerabilities 
         (may make polyglot for every vuln and try all with special analysis for every one)
-** in bypass access control phase 12:
-        # ── Phase 12 — Valid-path prefix bypass ──────────────────────────
-        # Use a known-valid path as a "trusted" prefix, then traverse to the
-        # blocked resource.  e.g. /robots.txt/..;/admin/  → server may allow
-        # it because the prefix resolves to a public path first.
-        p12 = []
-            # Pattern C: /anchor../blocked_path/ (dot after anchor, no slash)
-            p12.append({
-                "url":     origin + anchor_no_slash + ".." + path + "/",
-                "method":  method, "headers": hdrs, "body": body,
-                "technique": f"prefix {anchor}..{path}/",
-
-    i must be like /assets../admin but i can see it /assets/../admin so need to remove /
-
+** improve analysis cookie tab
+** add in analysis tab hash and encoding detection tab
 
 
 *d* in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
