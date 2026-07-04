@@ -1455,7 +1455,7 @@ class ParamMinerTab:
             f"color: {COLOR_TEXT_MUTED}; padding: 5px 14px; }} "
             f"QTabBar::tab:selected {{ background: {COLOR_DARK_BG}; "
             f"color: {COLOR_ACCENT}; border-bottom: 2px solid {COLOR_ACCENT}; }}")
-        self._inner_tabs.addTab(self._hits_tab(),     "🎯 Results")
+        self._inner_tabs.addTab(self._hits_tab(),     " Results")
         self._inner_tabs.addTab(self._terminal_tab(), "💻 Terminal")
         bw_ly.addWidget(self._inner_tabs)
         return bw
@@ -1607,7 +1607,7 @@ class ParamMinerTab:
         ly.setSpacing(4)
 
         # ── ARJUN ─────────────────────────────────────────────────────────────
-        self._section(ly, "🔴  ARJUN  (always active)")
+        self._section(ly, "  ARJUN  (always active)")
 
         ly.addWidget(self._lbl("Chunk size  (-c):"))
         chunk_row = QHBoxLayout()
@@ -1637,7 +1637,7 @@ class ParamMinerTab:
             preset_row.addWidget(pb)
         ly.addLayout(preset_row)
 
-        self.stable_cb = QCheckBox("🐢  Stable mode  (Arjun --stable, ~3× slower)")
+        self.stable_cb = QCheckBox("  Stable mode  (Arjun --stable, ~3× slower)")
         self.stable_cb.setChecked(False)
         self.stable_cb.setStyleSheet(f"QCheckBox {{ color: {COLOR_TEXT_MUTED}; }}")
         self.stable_cb.setToolTip(
@@ -1646,7 +1646,7 @@ class ParamMinerTab:
         ly.addWidget(self.stable_cb)
 
         # ── X8 ────────────────────────────────────────────────────────────────
-        self._section(ly, "🟣  X8  (optional)")
+        self._section(ly, "  X8  (optional)")
 
         x8_hdr = QHBoxLayout()
         self.x8_cb = QCheckBox("Enable x8")
@@ -1667,7 +1667,7 @@ class ParamMinerTab:
         ly.addWidget(self.x8_options_widget)
 
         # ── REQUEST CONFIG ─────────────────────────────────────────────────────
-        self._section(ly, "🔧  REQUEST CONFIG")
+        self._section(ly, "  REQUEST CONFIG")
 
         rr = QHBoxLayout()
         rr.addWidget(self._lbl("Method:"))
@@ -1699,7 +1699,7 @@ class ParamMinerTab:
         self.wordlist_input = QLineEdit()
         self.wordlist_input.setPlaceholderText("Wordlist path (optional)")
         self._style_input(self.wordlist_input)
-        wl_btn = QPushButton("📂")
+        wl_btn = QPushButton("🔍")
         wl_btn.setMaximumWidth(30)
         wl_btn.setStyleSheet(
             f"QPushButton {{ background: {COLOR_DARK_BG}; color: {COLOR_ACCENT}; "
@@ -1709,13 +1709,13 @@ class ParamMinerTab:
         ly.addLayout(wlr)
 
         # ── PROBE MODES ────────────────────────────────────────────────────────
-        self._section(ly, "🎯  PROBE MODES")
+        self._section(ly, "  PROBE MODES")
         self.probe_mode_checks: dict = {}
         for key, lbl_txt, on in [
-            ("query",   "🔗  Query Params  (?param=val)",  True),
-            ("header",  "📨  HTTP Headers",                 True),
-            ("cookie",  "🍪  Cookie Params",                True),
-            ("fat_get", "🐘  Fat GET  (GET + body)",        False),
+            ("query",   "  Query Params  (?param=val)",  True),
+            ("header",  "  HTTP Headers",                 True),
+            ("cookie",  "  Cookie Params",                True),
+            ("fat_get", "  Fat GET  (GET + body)",        False),
         ]:
             cb = QCheckBox(lbl_txt)
             cb.setChecked(on)
@@ -1726,22 +1726,22 @@ class ParamMinerTab:
         # ── ADVANCED ──────────────────────────────────────────────────────────
         self._section(ly, "⚙  ADVANCED")
 
-        self.binary_search_cb = QCheckBox("⚡  Binary Search Bucketing")
+        self.binary_search_cb = QCheckBox("  Binary Search Bucketing")
         self.binary_search_cb.setChecked(True)
         self.binary_search_cb.setStyleSheet(f"QCheckBox {{ color: {COLOR_SUCCESS}; }}")
         ly.addWidget(self.binary_search_cb)
 
-        self.cache_buster_cb = QCheckBox("🛡  Cache Buster  (_cb=random)")
+        self.cache_buster_cb = QCheckBox("  Cache Buster  (_cb=random)")
         self.cache_buster_cb.setChecked(True)
         self.cache_buster_cb.setStyleSheet(f"QCheckBox {{ color: {COLOR_SUCCESS}; }}")
         ly.addWidget(self.cache_buster_cb)
 
-        self.dynamic_harvest_cb = QCheckBox("🌱  Dynamic Word Harvest")
+        self.dynamic_harvest_cb = QCheckBox("  Dynamic Word Harvest")
         self.dynamic_harvest_cb.setChecked(True)
         self.dynamic_harvest_cb.setStyleSheet(f"QCheckBox {{ color: {COLOR_SUCCESS}; }}")
         ly.addWidget(self.dynamic_harvest_cb)
 
-        self.source_analysis_cb = QCheckBox("🔍  HTML/JS Source Analysis")
+        self.source_analysis_cb = QCheckBox("  HTML/JS Source Analysis")
         self.source_analysis_cb.setChecked(True)
         self.source_analysis_cb.setToolTip(
             "Fetch and analyze the response body to extract parameter candidates from:\n"

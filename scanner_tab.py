@@ -2774,7 +2774,7 @@ class ScannerTab(QWidget):
 
         # Request Logs tab
         self.logs_widget = self.create_logs_tab()
-        self.content_tabs.addTab(self.logs_widget, "📝 Request Logs")
+        self.content_tabs.addTab(self.logs_widget, " Request Logs")
 
         # Traffic tab
         self.traffic_widget = self.create_traffic_tab()
@@ -2783,7 +2783,7 @@ class ScannerTab(QWidget):
         # Compare tab
         self.compare_tab = CompareTab(self)
         self.compare_tab.setStyleSheet(self._compare_tab_style())
-        self.content_tabs.addTab(self.compare_tab, "🔀 Compare")
+        self.content_tabs.addTab(self.compare_tab, " Compare")
 
         main_splitter.addWidget(self.content_tabs)
         main_splitter.setSizes([260, 940])

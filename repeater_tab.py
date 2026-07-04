@@ -3613,7 +3613,7 @@ class RepeaterInstance(QWidget):
         menu.addSeparator()
 
         # ── Copy URL ──────────────────────────────────────────────────────────
-        copy_url_act = menu.addAction("🔗  Copy URL")
+        copy_url_act = menu.addAction("  Copy URL")
         copy_url_act.triggered.connect(self._copy_url_from_request)
 
         # ── Change HTTP Method ────────────────────────────────────────────────
@@ -3722,7 +3722,7 @@ class RepeaterInstance(QWidget):
         menu.addSeparator()
         ai_analyze_act = menu.addAction("✨ AI Analyze  (Ctrl+Shift+C)")
         ai_analyze_act.triggered.connect(self._ai_analyze)
-        send_to_ai_act = menu.addAction("📎 Send to AI")
+        send_to_ai_act = menu.addAction("✨ Send to AI")
         send_to_ai_act.triggered.connect(self._send_to_ai)
         ai_payloads_act = menu.addAction(" AI Suggest Payloads")
         ai_payloads_act.setToolTip(
