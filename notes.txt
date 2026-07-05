@@ -11,9 +11,14 @@ repeater group send parallel
 
 
 ** improve analysis cookie tab
-** add in analysis tab hash and encoding detection tab
+in cookie tab need to fix that it detect only one param of cookie not all 
+for example 
+set-cookie: AWSALB=byX9d30aimEEJbTQgCDBYB7/AiSoUahlFj7z968GJvEdtcDCIEkhZJnJLhTSTm0KykcJbVm4f1namkH2TQQ3hKpqJ5XVMUgdXpl260ulG53NJfB8AqE7D9mm+Syh; Expires=Sun, 12 Jul 2026 02:25:32 GMT; Path=/, AWSALBCORS=byX9d30aimEEJbTQgCDBYB7/AiSoUahlFj7z968GJvEdtcDCIEkhZJnJLhTSTm0KykcJbVm4f1namkH2TQQ3hKpqJ5XVMUgdXpl260ulG53NJfB8AqE7D9mm+Syh; Expires=Sun, 12 Jul 2026 02:25:32 GMT; Path=/; SameSite=None; Secure
+in cookie tab i can see only AWSALB
 
+** when change anything in intercept cant see these changes in http hsitory tab
 
+*d* add in analysis tab hash and encoding detection tab
 *d* in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
 *d* in bypass access control need to apply this techniqe GET /robots.txt/..;/admin/ or /cart.jsp/..;/admin/  any valid page then /..;/403 page
 *d* fix suddenly close tool

@@ -1416,34 +1416,14 @@ class InterceptTab(QWidget):
         self._remove_current_flow()
 
     def _forward_all(self):
-        # Only forward request / WS flows — leave intercepted responses in the
-        # queue so the user can inspect and forward them individually.
-        # This prevents responses from being silently discarded when the user
-        # clicks "Forward All" to clear a backlog of pending requests.
-        to_forward = [f for f in self._pending_flows if f.get("type") != "response"]
-        to_keep    = [f for f in self._pending_flows if f.get("type") == "response"]
-
-        for flow in to_forward:
+        for flow in list(self._pending_flows):
             self._send_action(flow["id"], "forward", None)
 
-        self._pending_flows = to_keep
-
-        # Rebuild the table with only the responses that remain
+        self._pending_flows = []
         self.queue_table.setRowCount(0)
-        for resp_entry in to_keep:
-            self._add_queue_row(resp_entry)
-
-        kept_ids = {f["id"] for f in to_keep}
-        if not to_keep:
-            self._current_flow = None
-            self._clear_editor()
-            self.fwd_all_btn.setEnabled(False)
-        elif self._current_flow is None or self._current_flow.get("id") not in kept_ids:
-            # Show the first pending response if the editor is empty or was
-            # showing a request that has just been forwarded.
-            self._show_flow(to_keep[0])
-            self.queue_table.selectRow(0)
-
+        self._current_flow = None
+        self._clear_editor()
+        self.fwd_all_btn.setEnabled(False)
         self._update_queue_label()
 
     def _highlight_matches(self):
