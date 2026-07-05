@@ -2467,6 +2467,16 @@ class RepeaterInstance(QWidget):
         toolbar.addWidget(self.ssl_check)
         toolbar.addWidget(QLabel("Timeout:"))
         toolbar.addWidget(self.timeout_spin)
+        toolbar.addStretch()
+        toolbar.addWidget(self.back_btn)
+        toolbar.addWidget(self.history_label)
+        toolbar.addWidget(self.fwd_btn)
+        toolbar.addWidget(self.send_btn)
+
+        # ── Payload bar (vuln filter + scrollable buttons) ─────────────────────
+        payload_bar = QHBoxLayout()
+        payload_bar.setContentsMargins(0, 0, 0, 0)
+        payload_bar.setSpacing(4)
 
         # ── Vuln filter dropdown ──────────────────────────────────────────────
         self.vuln_combo = QComboBox()
@@ -2482,7 +2492,7 @@ class RepeaterInstance(QWidget):
             f"border:1px solid {COLOR_BORDER};}}"
         )
         self.vuln_combo.currentTextChanged.connect(self._filter_payload_buttons)
-        toolbar.addWidget(self.vuln_combo)
+        payload_bar.addWidget(self.vuln_combo)
 
         # ── Scrollable custom payload buttons ─────────────────────────────────
         self._payload_scroll = QScrollArea()
@@ -2504,13 +2514,9 @@ class RepeaterInstance(QWidget):
         self._payload_btn_layout.setSpacing(3)
         self._payload_btn_layout.addStretch()
         self._payload_scroll.setWidget(self._payload_btn_widget)
-        toolbar.addWidget(self._payload_scroll)
+        payload_bar.addWidget(self._payload_scroll)
 
-        toolbar.addWidget(self.back_btn)
-        toolbar.addWidget(self.history_label)
-        toolbar.addWidget(self.fwd_btn)
-        toolbar.addWidget(self.send_btn)
-
+        root.addLayout(payload_bar)
         root.addLayout(toolbar)
 
         # ── Main splitter ─────────────────────────────────────────────────────
@@ -7866,7 +7872,13 @@ class RepeaterInstance(QWidget):
 
         # Rebuild vuln combo while preserving current selection
         current_vuln = self.vuln_combo.currentText()
-        vulns = sorted({p.get("vuln", "") for p in payloads if p.get("vuln")})
+        seen: set = set()
+        vulns = []
+        for p in payloads:
+            v = p.get("vuln", "")
+            if v and v not in seen:
+                seen.add(v)
+                vulns.append(v)
         self.vuln_combo.blockSignals(True)
         self.vuln_combo.clear()
         self.vuln_combo.addItem("All")
@@ -7919,14 +7931,28 @@ class RepeaterInstance(QWidget):
             btn = QPushButton(name)
             btn.setFixedHeight(22)
             btn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-            btn.setToolTip(f"[{vuln}] Click to copy payload to clipboard")
+            btn.setToolTip(
+                f"[{name} - {vuln}]\n"
+                f"Selection → replaces selected text in request\n"
+                f"No selection → copies payload to clipboard\n\n"
+                f"{payload}"
+            )
             btn.setStyleSheet(btn_style)
-            btn.clicked.connect(lambda _, pl=payload: QApplication.clipboard().setText(pl))
+            btn.clicked.connect(lambda _, pl=payload: self._apply_custom_payload(pl))
             self._payload_btn_layout.insertWidget(
                 self._payload_btn_layout.count() - 1, btn
             )
 
     # ── Check HTTP Methods ───────────────────────────────────────────────────
+
+    def _apply_custom_payload(self, payload: str):
+        """Replace selected text in the request editor, or copy to clipboard if nothing selected."""
+        cursor = self.request_editor.textCursor()
+        if cursor.hasSelection():
+            cursor.insertText(payload)
+            self.request_editor.setTextCursor(cursor)
+        else:
+            QApplication.clipboard().setText(payload)
 
     def _check_http_methods(self):
         """Open the HTTP method / override checker dialog."""

@@ -2698,6 +2698,15 @@ class _CustomPayloadsDialog(QDialog):
             b.setFixedHeight(28)
             b.clicked.connect(slot)
             btn_row.addWidget(b)
+
+        btn_row.addSpacing(8)
+        for label, slot in [("▲ Up", self._move_up),
+                             ("▼ Down", self._move_down)]:
+            b = QPushButton(label)
+            b.setFixedHeight(28)
+            b.clicked.connect(slot)
+            btn_row.addWidget(b)
+
         btn_row.addStretch()
 
         close_btn = QPushButton("Close")
@@ -2764,6 +2773,35 @@ class _CustomPayloadsDialog(QDialog):
         for row in rows:
             self.table.removeRow(row)
         self._save()
+
+    def _move_up(self):
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            return
+        row = rows[0].row()
+        if row == 0:
+            return
+        self._swap_rows(row, row - 1)
+        self.table.selectRow(row - 1)
+        self._save()
+
+    def _move_down(self):
+        rows = self.table.selectionModel().selectedRows()
+        if not rows:
+            return
+        row = rows[0].row()
+        if row >= self.table.rowCount() - 1:
+            return
+        self._swap_rows(row, row + 1)
+        self.table.selectRow(row + 1)
+        self._save()
+
+    def _swap_rows(self, row_a: int, row_b: int):
+        for col in range(self.table.columnCount()):
+            item_a = self.table.takeItem(row_a, col)
+            item_b = self.table.takeItem(row_b, col)
+            self.table.setItem(row_a, col, item_b)
+            self.table.setItem(row_b, col, item_a)
 
     def _save(self):
         self._settings["custom_payloads"] = self._get_all_payloads()
