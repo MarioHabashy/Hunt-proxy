@@ -470,7 +470,7 @@ class HuntProxyAddon:
                         logger.info(f"Memory-based one-shot response intercept for {flow.id}")
 
             if ((_one_shot_resp
-                 or self._intercept_responses_enabled())
+                 or (self._intercept_enabled() and self._intercept_responses_enabled()))
                     and not getattr(flow, "hunt_dropped", False)):
                 logger.info(f"Intercepting response for {flow.request.pretty_url} (one_shot={_one_shot_resp})")
                 self._pause_flow(flow, "response")

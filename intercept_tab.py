@@ -121,6 +121,7 @@ class HuntProxyAddon:
         self.intercept_queue_file = ""
         self.intercept_actions_dir = ""
         self.intercept_enabled_file = ""
+        self.intercept_responses_file = ""
 
         # Scope
         self.scope_hosts: List[str] = []
@@ -140,6 +141,9 @@ class HuntProxyAddon:
         self.intercept_queue_file = os.environ.get("HUNT_INTERCEPT_QUEUE",    "/tmp/intercept_queue.jsonl")
         self.intercept_actions_dir = os.environ.get("HUNT_INTERCEPT_ACTIONS", "/tmp/intercept_actions")
         self.intercept_enabled_file = os.environ.get("HUNT_INTERCEPT_ENABLED","/tmp/intercept_enabled")
+        # Responses intercept file lives beside the intercept_enabled file
+        _intercept_dir = os.path.dirname(self.intercept_enabled_file) or "/tmp"
+        self.intercept_responses_file = os.path.join(_intercept_dir, "intercept_responses")
 
         scope_json = os.environ.get("HUNT_SCOPE_HOSTS", "[]")
         try:
@@ -170,6 +174,9 @@ class HuntProxyAddon:
     def _intercept_enabled(self) -> bool:
         return os.path.exists(self.intercept_enabled_file)
 
+    def _response_intercept_enabled(self) -> bool:
+        return os.path.exists(self.intercept_responses_file)
+
     # ── Request hook ──────────────────────────────────────────────────────
 
     def request(self, flow):
@@ -196,7 +203,11 @@ class HuntProxyAddon:
                 self._one_shot_response_intercepts.discard(flow.id)
                 one_shot = True
 
-        if one_shot or self._intercept_enabled():
+        # Intercept response only when:
+        #   - one-shot (user explicitly requested it), regardless of global toggles, OR
+        #   - intercept is ON  AND  response-intercept is ON
+        # When intercept is OFF nothing is intercepted, even if responses switch is ON.
+        if one_shot or (self._intercept_enabled() and self._response_intercept_enabled()):
             self._intercept_flow(flow, flow_type="response")
 
         # Always capture

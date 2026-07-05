@@ -10,9 +10,6 @@ repeater group send parallel
 ** fix flow in attack surface tab as cant add POST requests
 
 
-** improve test polyglot by check if in URL so URL-encode and also need it in http history tab and open new windows to show request
-    with polyglot and response with section for response analysis to check for vulnerabilities 
-        (may make polyglot for every vuln and try all with special analysis for every one)
 ** improve analysis cookie tab
 ** add in analysis tab hash and encoding detection tab
 

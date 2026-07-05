@@ -9614,6 +9614,209 @@ class SecurityAnalyzer:
                          'Developer annotation left in production code. May reveal endpoints, credentials, or logic flaws.',
                          _dcm.group(0)[:120])
 
+            # ─────────────────────────────────────────────────────────────
+            # 26. Hash-like strings in request/response (MD5/SHA/bcrypt/etc.)
+            # ─────────────────────────────────────────────────────────────
+            _hash_patterns = [
+                # bcrypt / argon2 / scrypt (password hashes — highest interest)
+                (r'\$2[ayb]\$\d{2}\$[./A-Za-z0-9]{53}',           'bcrypt hash',           'CRITICAL'),
+                (r'\$argon2(?:i|d|id)\$[^\s"\'<>]{30,}',           'Argon2 hash',           'CRITICAL'),
+                (r'\$s0\$[0-9a-f]+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+', 'scrypt hash',      'CRITICAL'),
+                # SHA-512 crypt
+                (r'\$6\$[./A-Za-z0-9]{8,16}\$[./A-Za-z0-9]{86}',  'SHA-512 crypt hash',    'HIGH'),
+                # SHA-256 crypt
+                (r'\$5\$[./A-Za-z0-9]{8,16}\$[./A-Za-z0-9]{43}',  'SHA-256 crypt hash',    'HIGH'),
+                # MD5 crypt
+                (r'\$1\$[./A-Za-z0-9]{1,8}\$[./A-Za-z0-9]{22}',   'MD5 crypt hash',        'HIGH'),
+                # Raw hex hashes by length
+                (r'\b[0-9a-fA-F]{128}\b',                          'SHA-512 hex hash (512-bit)', 'MEDIUM'),
+                (r'\b[0-9a-fA-F]{64}\b',                           'SHA-256 hex hash (256-bit)', 'MEDIUM'),
+                (r'\b[0-9a-fA-F]{56}\b',                           'SHA-224 hex hash',      'MEDIUM'),
+                (r'\b[0-9a-fA-F]{40}\b',                           'SHA-1 hex hash (160-bit)', 'LOW'),
+                (r'\b[0-9a-fA-F]{32}\b',                           'MD5 hex hash (128-bit)', 'LOW'),
+                # HMAC prefix hints
+                (r'(?i)(?:hmac[-_]?(?:sha(?:1|224|256|384|512)|md5))[=:\s]+[0-9a-fA-F]{32,}',
+                                                                    'HMAC hash',             'MEDIUM'),
+            ]
+            for _combined_src, _src_label in (
+                    (req_text,         'request'),
+                    (resp_body[:8000], 'response body')):
+                _seen_hashes: set = set()
+                for _hpat, _hlabel, _hsev in _hash_patterns:
+                    for _hm in re.finditer(_hpat, _combined_src):
+                        _hval = _hm.group(0)
+                        _key  = (_hlabel, _hval[:32])
+                        if _key not in _seen_hashes:
+                            _seen_hashes.add(_key)
+                            _add(_hsev, 'Hash Exposure',
+                                 f'{_hlabel} detected in {_src_label}',
+                                 f'A {_hlabel} was found in the {_src_label}. '
+                                 'Exposed password hashes can be cracked offline. '
+                                 'Verify whether this is intentional (e.g. an API response) or leaked.',
+                                 _hval[:80])
+
+            # ─────────────────────────────────────────────────────────────
+            # 27. Hex-encoded data blobs (potential obfuscation / bypass)
+            # ─────────────────────────────────────────────────────────────
+            # Long pure-hex strings that are NOT hash-length (> 64 chars, even length)
+            _hex_blob_re = re.compile(r'(?<![0-9a-fA-F])([0-9a-fA-F]{66,})(?![0-9a-fA-F])')
+            for _combined_src, _src_label in (
+                    (req_text,         'request'),
+                    (resp_body[:8000], 'response body')):
+                for _hbm in _hex_blob_re.finditer(_combined_src):
+                    _hbv = _hbm.group(1)
+                    if len(_hbv) % 2 == 0:  # valid hex must be even length
+                        _add('LOW', 'Encoding Anomaly',
+                             f'Large hex-encoded blob in {_src_label}',
+                             f'Hex string of {len(_hbv)} characters found. May encode binary payloads, '
+                             'shellcode, or obfuscated data used to bypass content filters.',
+                             _hbv[:80] + ('…' if len(_hbv) > 80 else ''))
+                        break  # one per source per response
+
+            # ─────────────────────────────────────────────────────────────
+            # 28. URL-encoded sequences in request body / response body
+            # ─────────────────────────────────────────────────────────────
+            _pct_re = re.compile(r'(?:%[0-9A-Fa-f]{2}){6,}')  # 6+ consecutive %-encoded bytes
+            for _combined_src, _src_label in (
+                    (_bl_body,         'request body'),
+                    (resp_body[:4000], 'response body')):
+                for _pm in _pct_re.finditer(_combined_src):
+                    _pv = _pm.group(0)
+                    _add('MEDIUM', 'Encoding Anomaly',
+                         f'Heavily URL-encoded sequence in {_src_label}',
+                         f'Found {len(_pv)//3} consecutive percent-encoded bytes. '
+                         'Dense URL encoding is frequently used to bypass WAF rules or smuggle payloads.',
+                         _pv[:80])
+                    break  # one per source
+
+            # ─────────────────────────────────────────────────────────────
+            # 29. HTML entity encoding clusters (possible XSS obfuscation)
+            # ─────────────────────────────────────────────────────────────
+            _ent_re = re.compile(r'(?:&#x?[0-9a-fA-F]{1,6};){4,}')
+            for _em in _ent_re.finditer(resp_body):
+                _ev = _em.group(0)
+                _add('MEDIUM', 'Encoding Anomaly',
+                     'HTML entity cluster in response body',
+                     'Sequences of HTML entity-encoded characters can be used to obfuscate script '
+                     'payloads and bypass pattern-based XSS filters.',
+                     _ev[:80])
+                break
+
+            # ─────────────────────────────────────────────────────────────
+            # 30. Unicode escape sequences (\uXXXX / \UXXXXXXXX) in JSON/JS
+            # ─────────────────────────────────────────────────────────────
+            _uni_re = re.compile(r'(?:\\u[0-9a-fA-F]{4}){4,}')
+            for _combined_src, _src_label in (
+                    (req_text,         'request'),
+                    (resp_body[:4000], 'response body')):
+                for _um in _uni_re.finditer(_combined_src):
+                    _uv = _um.group(0)
+                    _add('MEDIUM', 'Encoding Anomaly',
+                         f'Dense Unicode escape sequences in {_src_label}',
+                         'Multiple consecutive \\uXXXX escapes may obfuscate JavaScript payloads '
+                         'to evade WAF/CSP string matching.',
+                         _uv[:80])
+                    break
+
+            # ─────────────────────────────────────────────────────────────
+            # 31. ROT13 / Caesar-shifted strings (trivial obfuscation)
+            # ─────────────────────────────────────────────────────────────
+            import codecs as _codecs
+            _rot13_kw = ['frphevgl', 'cnffjbeq', 'nqzva', 'frperg', 'gbxra',
+                         'pernqragvnyf', 'rkcybvg', 'cnlybnq', 'injrenoyr']
+            for _combined_src, _src_label in (
+                    (req_text,         'request'),
+                    (resp_body[:4000], 'response body')):
+                _src_lower = _combined_src.lower()
+                for _rk in _rot13_kw:
+                    if _rk in _src_lower:
+                        _decoded_rot13 = _codecs.decode(_rk, 'rot_13')
+                        _add('LOW', 'Encoding Anomaly',
+                             f'ROT13-encoded sensitive keyword in {_src_label}',
+                             f'Found ROT13 encoding of "{_decoded_rot13}" ("{_rk}"). '
+                             'Trivial obfuscation is sometimes used to hide credentials or bypass naive scanners.',
+                             _rk)
+                        break
+
+            # ─────────────────────────────────────────────────────────────
+            # 32. Gzip / Deflate / Brotli magic bytes in body
+            # ─────────────────────────────────────────────────────────────
+            _compress_sigs = [
+                ('\x1f\x8b',         'Gzip magic bytes (\\x1f\\x8b)'),
+                ('\x78\x9c',         'Zlib/Deflate magic bytes (\\x78\\x9c)'),
+                ('\x78\x01',         'Zlib low-compression magic bytes (\\x78\\x01)'),
+                ('\x78\xda',         'Zlib best-compression magic bytes (\\x78\\xda)'),
+                ('\xce\xb2\xcf\x81', 'Brotli magic bytes'),
+            ]
+            for _combined_src, _src_label in (
+                    (_bl_body,   'request body'),
+                    (resp_body,  'response body')):
+                for _magic, _label in _compress_sigs:
+                    if _magic in _combined_src:
+                        _add('LOW', 'Encoding Anomaly',
+                             f'{_label} found in {_src_label}',
+                             f'Compressed data signature ({_label}) detected. '
+                             'Sending compressed payloads can bypass content-inspection filters '
+                             'if the server decompresses before processing.',
+                             repr(_magic))
+                        break
+
+            # ─────────────────────────────────────────────────────────────
+            # 33. JWT algorithm confusion indicators
+            # ─────────────────────────────────────────────────────────────
+            _jwt_re = re.compile(r'eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*')
+            for _combined_src, _src_label in (
+                    (req_text,         'request'),
+                    (resp_body[:4000], 'response body')):
+                for _jm in _jwt_re.finditer(_combined_src):
+                    _jv = _jm.group(0)
+                    try:
+                        import base64 as _b64
+                        _hdr_raw = _jv.split('.')[0]
+                        _pad     = _hdr_raw + '=' * (-len(_hdr_raw) % 4)
+                        _hdr_dec = _b64.urlsafe_b64decode(_pad).decode('utf-8', errors='replace')
+                        _alg_lower = _hdr_dec.lower()
+                        if '"alg":"none"' in _alg_lower or '"alg": "none"' in _alg_lower:
+                            _add('CRITICAL', 'JWT',
+                                 f'JWT with "alg":"none" in {_src_label}',
+                                 'Algorithm set to "none" disables signature verification — trivially forgeable.',
+                                 _jv[:80] + '…')
+                        elif '"hs256"' in _alg_lower and 'rs' in _alg_lower:
+                            _add('HIGH', 'JWT',
+                                 f'JWT header has mixed algorithm hint in {_src_label}',
+                                 'Potential RS256→HS256 algorithm confusion attack indicator.',
+                                 _jv[:80] + '…')
+                        else:
+                            # Report generic JWT presence if not already flagged elsewhere
+                            _add('INFO', 'JWT',
+                                 f'JWT token present in {_src_label}',
+                                 f'Header: {_hdr_dec[:120]}',
+                                 _jv[:80] + '…')
+                    except Exception:
+                        pass
+                    break  # one JWT report per source
+
+            # ─────────────────────────────────────────────────────────────
+            # 34. Mixed encoding in a single parameter value
+            #     (e.g. part URL-encoded + part base64 + part hex)
+            # ─────────────────────────────────────────────────────────────
+            if req_text or _bl_body:
+                _mixed_enc_re = re.compile(
+                    r'(?:[0-9a-fA-F]{32,}|%[0-9A-Fa-f]{2}|&#x?[0-9a-fA-F]+;|\\u[0-9a-fA-F]{4}|[A-Za-z0-9+/]{40,}={0,2})'
+                    r'.{0,20}'
+                    r'(?:[0-9a-fA-F]{32,}|%[0-9A-Fa-f]{2}|&#x?[0-9a-fA-F]+;|\\u[0-9a-fA-F]{4}|[A-Za-z0-9+/]{40,}={0,2})',
+                    re.IGNORECASE)
+                _check_src = req_text + '\n' + _bl_body
+                for _mm in _mixed_enc_re.finditer(_check_src):
+                    _mv = _mm.group(0)
+                    if len(_mv) >= 50:
+                        _add('MEDIUM', 'Encoding Anomaly',
+                             'Mixed encoding in request (possible WAF bypass)',
+                             'A value appears to combine multiple encoding schemes (hex + percent + base64 / entity). '
+                             'Layered encoding is a classic WAF evasion technique.',
+                             _mv[:100])
+                        break
+
         except Exception as e:
             logger.debug(f"_analyze_weird: {e}", exc_info=True)
 
