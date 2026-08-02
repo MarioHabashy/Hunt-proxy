@@ -3118,15 +3118,14 @@ class RepeaterInstance(QWidget):
         else:
             headers_part, body_part = resp_text, ""
 
-        # Pretty: try JSON
+        # Pretty: try JSON regardless of Content-Type
         pretty_body = body_part
-        ct_match = re.search(r'[Cc]ontent-[Tt]ype:\s*([^\r\n]+)', headers_part)
-        if ct_match and "json" in ct_match.group(1).lower():
-            try:
-                parsed = json.loads(body_part)
-                pretty_body = json.dumps(parsed, indent=2)
-            except Exception:
-                pass
+        try:
+            _stripped = body_part.strip()
+            if _stripped.startswith(("{", "[")):
+                pretty_body = json.dumps(json.loads(_stripped), indent=2)
+        except Exception:
+            pass
 
         self.resp_pretty.setPlainText(headers_part + "\n\n" + pretty_body)
         self.resp_raw.setPlainText(resp_text)
@@ -3328,7 +3327,18 @@ class RepeaterInstance(QWidget):
 
     def _load_history_entry(self):
         entry = self._history[self._history_pos]
-        self.request_editor.setPlainText(entry["request"])
+        req = entry["request"]
+        # Pretty-print JSON body in request
+        _rsep = "\r\n\r\n" if "\r\n\r\n" in req else "\n\n"
+        if _rsep in req:
+            _rh, _rb = req.split(_rsep, 1)
+            try:
+                _rs = _rb.strip()
+                if _rs.startswith(("{", "[")):
+                    req = _rh + _rsep + json.dumps(json.loads(_rs), indent=2)
+            except Exception:
+                pass
+        self.request_editor.setPlainText(req)
         resp  = entry["response"]
         if "\r\n\r\n" in resp:
             h, b = resp.split("\r\n\r\n", 1)
@@ -3336,6 +3346,12 @@ class RepeaterInstance(QWidget):
             h, b = resp.split("\n\n", 1)
         else:
             h, b = resp, ""
+        try:
+            _bs = b.strip()
+            if _bs.startswith(("{", "[")):
+                b = json.dumps(json.loads(_bs), indent=2)
+        except Exception:
+            pass
         self.resp_pretty.setPlainText(h + "\n\n" + b)
         self.resp_raw.setPlainText(resp)
         self.resp_headers.setPlainText(h)
@@ -8050,6 +8066,16 @@ class RepeaterInstance(QWidget):
 
 
     def load_request(self, raw_request: str, host: str = "", port: int = 0, use_ssl: bool = True):
+        # Pretty-print JSON body on load; content-length is recalculated at send time
+        sep = "\r\n\r\n" if "\r\n\r\n" in raw_request else "\n\n"
+        if sep in raw_request:
+            _hdr, _bdy = raw_request.split(sep, 1)
+            try:
+                _s = _bdy.strip()
+                if _s.startswith(("{", "[")):
+                    raw_request = _hdr + sep + json.dumps(json.loads(_s), indent=2)
+            except Exception:
+                pass
         self.request_editor.setPlainText(raw_request)
         if host:
             self.host_input.setText(host)

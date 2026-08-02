@@ -4,20 +4,20 @@ repeater group send parallel
 
 
 
+** add JSON beatufier in all tabs
+** add option remove cash headers
+** fix freeze when search in response 
+** add option in proxy menu to add file URLs to pass throw tool
+** improve analysis cookie tab
+
+
 ** fix JS Miner
 ** fix localhost testing
-** add JSON beatufier in all tabs
 ** fix flow in attack surface tab as cant add POST requests
 
 
-** improve analysis cookie tab
-in cookie tab need to fix that it detect only one param of cookie not all 
-for example 
-set-cookie: AWSALB=byX9d30aimEEJbTQgCDBYB7/AiSoUahlFj7z968GJvEdtcDCIEkhZJnJLhTSTm0KykcJbVm4f1namkH2TQQ3hKpqJ5XVMUgdXpl260ulG53NJfB8AqE7D9mm+Syh; Expires=Sun, 12 Jul 2026 02:25:32 GMT; Path=/, AWSALBCORS=byX9d30aimEEJbTQgCDBYB7/AiSoUahlFj7z968GJvEdtcDCIEkhZJnJLhTSTm0KykcJbVm4f1namkH2TQQ3hKpqJ5XVMUgdXpl260ulG53NJfB8AqE7D9mm+Syh; Expires=Sun, 12 Jul 2026 02:25:32 GMT; Path=/; SameSite=None; Secure
-in cookie tab i can see only AWSALB
-** fix freeze when search in response 
+
 ** add httpx to tech detection tasks run before content bruteforce
-** add option in proxy menu to add file URLs to pass throw tool
 ** when change anything in intercept cant see these changes in http hsitory tab
 ** improve finding tab to rocord every thing like burp
 

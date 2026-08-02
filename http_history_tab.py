@@ -39,6 +39,44 @@ from constants import (
 
 logger = logging.getLogger(__name__)
 
+
+def _pretty_response(resp_text: str) -> str:
+    """Pretty-print a JSON body in an HTTP response string."""
+    sep = "\r\n\r\n" if "\r\n\r\n" in resp_text else "\n\n"
+    if sep not in resp_text:
+        return resp_text
+    headers_part, body_part = resp_text.split(sep, 1)
+    try:
+        stripped = body_part.strip()
+        if stripped.startswith(("{", "[")):
+            return headers_part + sep + json.dumps(json.loads(stripped), indent=2)
+    except Exception:
+        pass
+    return resp_text
+
+
+def _pretty_request(req_text: str) -> str:
+    """Pretty-print a JSON body in an HTTP request string and update Content-Length."""
+    sep = "\r\n\r\n" if "\r\n\r\n" in req_text else "\n\n"
+    if sep not in req_text:
+        return req_text
+    headers_part, body_part = req_text.split(sep, 1)
+    try:
+        stripped = body_part.strip()
+        if stripped.startswith(("{", "[")):
+            pretty_body = json.dumps(json.loads(stripped), indent=2)
+            new_len = len(pretty_body.encode("utf-8"))
+            headers_part = re.sub(
+                r'(?im)^(content-length:\s*)(\d+)',
+                lambda m: m.group(1) + str(new_len),
+                headers_part,
+            )
+            return headers_part + sep + pretty_body
+    except Exception:
+        pass
+    return req_text
+
+
 class FileMonitorThread(QThread):
     # Use new_findings (plural) for live batches so the main thread is only
     # woken once per poll cycle regardless of how many requests arrived.
@@ -2085,15 +2123,16 @@ class HTTPHistoryTab(AnalysisTabMixin):
                     request_text = f.read()
 
                 self.current_request_raw = request_text
+                display_request = _pretty_request(request_text)
 
                 # Detach syntax highlighter before loading large content so Qt
                 # does not run per-line regex on the main thread and freeze the
                 # UI.  The full content is always displayed — nothing is truncated.
-                if len(request_text) > _MAX_HIGHLIGHT_SIZE:
+                if len(display_request) > _MAX_HIGHLIGHT_SIZE:
                     self.request_highlighter.setDocument(None)
                 else:
                     self.request_highlighter.setDocument(self.request_text.document())
-                self.request_text.setPlainText(request_text)
+                self.request_text.setPlainText(display_request)
 
             except IOError as e:
                 logger.error(f"Failed to read request file: {e}")
@@ -2118,16 +2157,17 @@ class HTTPHistoryTab(AnalysisTabMixin):
                     response_text = f.read()
 
                 self.current_response_raw = response_text
+                display_response = _pretty_response(response_text)
 
                 # Detach syntax highlighter before loading large content so Qt
                 # does not run per-line regex on the main thread.  The full
                 # response is always loaded so analysis, search, and all tools
                 # work on the complete content.
-                if len(response_text) > _MAX_HIGHLIGHT_SIZE:
+                if len(display_response) > _MAX_HIGHLIGHT_SIZE:
                     self.response_highlighter.setDocument(None)
                 else:
                     self.response_highlighter.setDocument(self.response_text.document())
-                self.response_text.setPlainText(response_text)
+                self.response_text.setPlainText(display_response)
 
                 if hasattr(self, 'perform_automatic_highlighting'):
                     self.perform_automatic_highlighting(response_text)
@@ -2307,9 +2347,10 @@ class HTTPHistoryTab(AnalysisTabMixin):
         else:
             self.req_stack.setCurrentIndex(0)
             raw = self.current_request_raw
-            if len(raw) <= _MAX_HIGHLIGHT_SIZE:
+            display = _pretty_request(raw)
+            if len(display) <= _MAX_HIGHLIGHT_SIZE:
                 self.request_highlighter.setDocument(self.request_text.document())
-            self.request_text.setPlainText(raw)
+            self.request_text.setPlainText(display)
             self.req_graphql_btn.setText("⬡ GraphQL")
 
     def _toggle_graphql_resp(self) -> None:
@@ -2322,9 +2363,10 @@ class HTTPHistoryTab(AnalysisTabMixin):
         else:
             self.resp_stack.setCurrentIndex(0)
             raw = self.current_response_raw
-            if len(raw) <= _MAX_HIGHLIGHT_SIZE:
+            display = _pretty_response(raw)
+            if len(display) <= _MAX_HIGHLIGHT_SIZE:
                 self.response_highlighter.setDocument(self.response_text.document())
-            self.response_text.setPlainText(raw)
+            self.response_text.setPlainText(display)
             self.resp_graphql_btn.setText("⬡ GraphQL")
 
     # ── GraphQL panel helpers ─────────────────────────────────────────────
