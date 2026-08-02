@@ -506,11 +506,11 @@ class ProxyOptionsDialog(QDialog):
         layout.setContentsMargins(10, 10, 10, 10)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._create_match_replace_tab(),  "🔄 Match & Replace")
-        self.tabs.addTab(self._create_header_inject_tab(),  "📌 Header Injection")
-        self.tabs.addTab(self._create_drop_rules_tab(),     "🚫 Drop Rules")
-        self.tabs.addTab(self._create_ssl_tab(),            "🔒 SSL & Redirects")
-        self.tabs.addTab(self._create_rate_limit_tab(),     "⏱ Rate Limiting")
+        self.tabs.addTab(self._create_match_replace_tab(),  " Match & Replace")
+        self.tabs.addTab(self._create_header_inject_tab(),  " Header Injection")
+        self.tabs.addTab(self._create_drop_rules_tab(),     " Drop Rules")
+        self.tabs.addTab(self._create_ssl_tab(),            " SSL & Redirects")
+        self.tabs.addTab(self._create_rate_limit_tab(),     " Rate Limiting")
         layout.addWidget(self.tabs)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
