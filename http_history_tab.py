@@ -1665,15 +1665,29 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         # ── Col 7: MIME ───────────────────────────────────────────────────
         mime_type = self.detect_mime_type(finding)
-        mime_item = QTableWidgetItem(mime_type)
+        _ml = mime_type.lower()
+        if "json" in _ml:
+            mime_display = "JSON"
+        elif "html" in _ml:
+            mime_display = "HTML"
+        elif "javascript" in _ml:
+            mime_display = "JS"
+        elif "css" in _ml:
+            mime_display = "CSS"
+        elif "xml" in _ml:
+            mime_display = "XML"
+        else:
+            mime_display = mime_type
+        mime_item = QTableWidgetItem(mime_display)
+        mime_item.setToolTip(mime_type)
         mime_item.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-        if "json" in mime_type.lower():
+        if "json" in _ml:
             mime_item.setForeground(QColor(COLOR_SUCCESS))
-        elif "html" in mime_type.lower():
+        elif "html" in _ml:
             mime_item.setForeground(QColor(COLOR_ACCENT))
-        elif "javascript" in mime_type.lower():
+        elif "javascript" in _ml:
             mime_item.setForeground(QColor(COLOR_MEDIUM))
-        elif "xml" in mime_type.lower():
+        elif "xml" in _ml:
             mime_item.setForeground(QColor(COLOR_LOW))
         else:
             mime_item.setForeground(QColor(COLOR_TEXT_MUTED))
@@ -2939,7 +2953,14 @@ class HTTPHistoryTab(AnalysisTabMixin):
             logger.info(f"Issue filter updated: {total_issues} unique issue types found")
 
     def detect_mime_type(self, finding: Dict[str, Any]) -> str:
-        # During bulk/live ingestion skip the file read; derive type from URL only.
+        # Fast path: content_type is already stored in the finding dict by the addon
+        ct = (finding.get("content_type") or "").strip()
+        if ct:
+            return ct.split(";")[0].strip()
+
+        # No content-type header → blank for bodyless responses (redirects, 204, etc.)
+        if not (finding.get("response_length") or 0):
+            return ""
         # The column shows a best-guess and the file-based check is cheap enough
         # for the single-row case (selection) but too expensive per-row in bursts.
         if not getattr(self, "_bulk_loading", False):
@@ -2947,21 +2968,28 @@ class HTTPHistoryTab(AnalysisTabMixin):
             if response_file and os.path.exists(response_file):
                 try:
                     with open(response_file, "rb") as f:
-                        content = f.read(512)  # 512 B is plenty for magic bytes
+                        # Read enough to capture all headers (responses can have many)
+                        content = f.read(4096)
 
-                    if content.startswith(b"{") or content.startswith(b"["):
+                    text = content.decode("utf-8", errors="ignore")
+
+                    # Priority 1: Content-Type response header (most authoritative)
+                    for line in text.split("\n"):
+                        if line.lower().startswith("content-type:"):
+                            ct = line.split(":", 1)[1].strip().split(";")[0].strip()
+                            if ct:
+                                return ct
+                            break
+
+                    # Priority 2: body magic bytes (when Content-Type header is absent)
+                    sep = "\r\n\r\n" if "\r\n\r\n" in text else "\n\n"
+                    body = text.split(sep, 1)[1].lstrip() if sep in text else ""
+                    if body.startswith("{") or body.startswith("["):
                         return "application/json"
-                    elif b"<html" in content.lower():
+                    elif body.lower().startswith("<!doctype") or "<html" in body[:200].lower():
                         return "text/html"
-                    elif b"<!doctype" in content.lower():
-                        return "text/html"
-                    elif content.startswith(b"<?xml"):
+                    elif body.startswith("<?xml"):
                         return "application/xml"
-                    elif b"content-type:" in content.lower():
-                        lines = content.decode("utf-8", errors="ignore").split("\n")
-                        for line in lines:
-                            if line.lower().startswith("content-type:"):
-                                return line.split(":", 1)[1].strip().split(";")[0]
                 except Exception:
                     pass
 
