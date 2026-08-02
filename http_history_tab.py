@@ -2213,6 +2213,21 @@ class HTTPHistoryTab(AnalysisTabMixin):
             self.current_response_raw,
         )
 
+        # Re-run search against the freshly loaded content so highlights and
+        # match counts are always accurate for the current request/response.
+        if hasattr(self, '_do_search_in_request'):
+            if self.request_search_box.text():
+                self._do_search_in_request()
+            else:
+                SearchHighlighter.clear_highlights(self.request_text)
+                self.request_match_label.setText("0 matches")
+        if hasattr(self, '_do_search_in_response'):
+            if self.response_search_box.text():
+                self._do_search_in_response()
+            else:
+                SearchHighlighter.clear_highlights(self.response_text)
+                self.response_match_label.setText("0 matches")
+
     # ─────────────────────────────────────────────────────────────────────────
     # GraphQL detection and pretty-print view
     # ─────────────────────────────────────────────────────────────────────────
