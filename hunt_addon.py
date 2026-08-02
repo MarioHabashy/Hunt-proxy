@@ -370,6 +370,20 @@ class HuntProxyAddon:
             # ── Header injection (request) ────────────────────────────────────
             self._inject_headers(flow, "Request")
 
+            # ── Cache busting: strip conditional headers that cause 304 responses ──
+            if self.ssl_config.get("strip_if_modified_since"):
+                flow.request.headers.pop("If-Modified-Since", None)
+            if self.ssl_config.get("strip_if_none_match"):
+                flow.request.headers.pop("If-None-Match", None)
+            if self.ssl_config.get("strip_if_match"):
+                flow.request.headers.pop("If-Match", None)
+            if self.ssl_config.get("strip_if_unmodified_since"):
+                flow.request.headers.pop("If-Unmodified-Since", None)
+            if self.ssl_config.get("strip_if_range"):
+                flow.request.headers.pop("If-Range", None)
+            if self.ssl_config.get("strip_cache_control"):
+                flow.request.headers.pop("Cache-Control", None)
+
             # ── HTTPS upgrade ─────────────────────────────────────────────────
             if self.ssl_config.get("upgrade_to_https") and flow.request.scheme == "http":
                 flow.request.scheme = "https"

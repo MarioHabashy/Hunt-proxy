@@ -500,7 +500,7 @@ class ProxyOptionsDialog(QDialog):
         self.rate_config    = {}   # Rate limiting settings
 
         self.setWindowTitle("⚙️ Proxy Config")
-        self.setMinimumSize(980, 660)
+        self.setMinimumSize(1200, 800)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -716,6 +716,32 @@ class ProxyOptionsDialog(QDialog):
         )
         cors_layout.addWidget(self.cors_bypass_cb)
         layout.addWidget(cors_group)
+
+        # Strip conditional request headers that cause 304 Not Modified
+        cache_group = QGroupBox("Cache Busting — Strip Conditional Request Headers")
+        cache_layout = QVBoxLayout(cache_group)
+        cache_info = QLabel(
+            "Remove caching headers from outgoing requests so servers always return a full 200 response "
+            "instead of a 304 Not Modified. Useful when replaying requests during testing."
+        )
+        cache_info.setWordWrap(True)
+        cache_layout.addWidget(cache_info)
+        self.strip_if_modified_since_cb  = QCheckBox("Strip  If-Modified-Since")
+        self.strip_if_none_match_cb      = QCheckBox("Strip  If-None-Match  (ETag conditional)")
+        self.strip_if_match_cb           = QCheckBox("Strip  If-Match")
+        self.strip_if_unmodified_since_cb= QCheckBox("Strip  If-Unmodified-Since")
+        self.strip_if_range_cb           = QCheckBox("Strip  If-Range")
+        self.strip_cache_control_cb      = QCheckBox("Strip  Cache-Control  (remove no-cache / max-age=0)")
+        for cb in [
+            self.strip_if_modified_since_cb,
+            self.strip_if_none_match_cb,
+            self.strip_if_match_cb,
+            self.strip_if_unmodified_since_cb,
+            self.strip_if_range_cb,
+            self.strip_cache_control_cb,
+        ]:
+            cache_layout.addWidget(cb)
+        layout.addWidget(cache_group)
 
         layout.addStretch()
         return widget
@@ -958,16 +984,28 @@ class ProxyOptionsDialog(QDialog):
         self.remove_xframe_cb.setChecked(s.get("remove_xframe", False))
         self.remove_xcto_cb.setChecked(s.get("remove_xcto", False))
         self.cors_bypass_cb.setChecked(s.get("cors_bypass", False))
+        self.strip_if_modified_since_cb.setChecked(s.get("strip_if_modified_since", False))
+        self.strip_if_none_match_cb.setChecked(s.get("strip_if_none_match", False))
+        self.strip_if_match_cb.setChecked(s.get("strip_if_match", False))
+        self.strip_if_unmodified_since_cb.setChecked(s.get("strip_if_unmodified_since", False))
+        self.strip_if_range_cb.setChecked(s.get("strip_if_range", False))
+        self.strip_cache_control_cb.setChecked(s.get("strip_cache_control", False))
 
     def _collect_ssl_settings(self):
         self.ssl_config = {
-            "upgrade_to_https": self.ssl_upgrade_cb.isChecked(),
-            "ssl_strip":        self.ssl_strip_cb.isChecked(),
-            "remove_hsts":      self.remove_hsts_cb.isChecked(),
-            "remove_csp":       self.remove_csp_cb.isChecked(),
-            "remove_xframe":    self.remove_xframe_cb.isChecked(),
-            "remove_xcto":      self.remove_xcto_cb.isChecked(),
-            "cors_bypass":      self.cors_bypass_cb.isChecked(),
+            "upgrade_to_https":       self.ssl_upgrade_cb.isChecked(),
+            "ssl_strip":              self.ssl_strip_cb.isChecked(),
+            "remove_hsts":            self.remove_hsts_cb.isChecked(),
+            "remove_csp":             self.remove_csp_cb.isChecked(),
+            "remove_xframe":          self.remove_xframe_cb.isChecked(),
+            "remove_xcto":            self.remove_xcto_cb.isChecked(),
+            "cors_bypass":            self.cors_bypass_cb.isChecked(),
+            "strip_if_modified_since":  self.strip_if_modified_since_cb.isChecked(),
+            "strip_if_none_match":      self.strip_if_none_match_cb.isChecked(),
+            "strip_if_match":           self.strip_if_match_cb.isChecked(),
+            "strip_if_unmodified_since":self.strip_if_unmodified_since_cb.isChecked(),
+            "strip_if_range":           self.strip_if_range_cb.isChecked(),
+            "strip_cache_control":      self.strip_cache_control_cb.isChecked(),
         }
 
     # ── Rate-limit tab helpers ────────────────────────────────────────────

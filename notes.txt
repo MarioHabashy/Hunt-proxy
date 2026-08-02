@@ -17,7 +17,7 @@ repeater group send parallel
 
 ** add httpx to tech detection tasks run before content bruteforce
 ** when change anything in intercept cant see these changes in http hsitory tab
-** improve finding tab to rocord every thing like burp
+** improve finding tab to record every thing like burp
 
 
 *d* add JSON beatufier in all tabs
