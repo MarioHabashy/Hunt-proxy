@@ -3,3 +3,6 @@
         "./scans"
     ]
 }
+{
+  "git.repositoryDetectionLevel": "subFolders"
+}
