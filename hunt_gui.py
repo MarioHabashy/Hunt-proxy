@@ -4463,7 +4463,7 @@ class HuntBurpGUI(
                     f"border-left: 1px solid {COLOR_BORDER}; font-weight: 600; }}"
                 )
             else:
-                self.proxy_status_label.setText("🔴 Proxy: Stopped")
+                self.proxy_status_label.setText(" Proxy: Stopped")
                 self.proxy_status_label.setStyleSheet(
                     f"QLabel {{ color: {COLOR_TEXT_MUTED}; padding: 0 8px; "
                     f"border-left: 1px solid {COLOR_BORDER}; font-weight: 600; }}"
@@ -7281,7 +7281,7 @@ class HuntBurpGUI(
             """
             )
         else:
-            self.proxy_status_label.setText("🔴 Proxy: Stopped")
+            self.proxy_status_label.setText(" Proxy: Stopped")
             self.proxy_status_label.setStyleSheet(
                 f"""
                 QLabel {{
@@ -7447,7 +7447,7 @@ class HuntBurpGUI(
         status_info.append("PROXY STATUS")
         status_info.append("=" * 60)
         status_info.append("")
-        status_info.append(f"Status: {'🟢 Running' if self.proxy_running else '🔴 Stopped'}")
+        status_info.append(f"Status: {'🟢 Running' if self.proxy_running else ' Stopped'}")
         status_info.append(f"Port: {self.proxy_port}")
         status_info.append(f"Upstream: {self.proxy_upstream if self.proxy_upstream else 'None'}")
         status_info.append(f"Script: {self.proxy_script_file}")
@@ -7500,7 +7500,7 @@ class HuntBurpGUI(
         cert_info.append("=" * 70)
         cert_info.append("")
         cert_info.append("1. Start the proxy (if not already running)")
-        cert_info.append(f"   Status: {'🟢 Running' if self.proxy_running else '🔴 Stopped'}")
+        cert_info.append(f"   Status: {'🟢 Running' if self.proxy_running else ' Stopped'}")
         cert_info.append("")
         cert_info.append("2. Configure your browser to use the proxy")
         cert_info.append(f"   HTTP/HTTPS Proxy: localhost:{self.proxy_port}")
