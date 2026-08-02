@@ -11,9 +11,6 @@ repeater group send parallel
 
 
 
-
-
-
 *d* add option in proxy menu to add file URLs to pass throw tool
 *d* improve analysis cookie tab
 *d* add option remove cash headers
