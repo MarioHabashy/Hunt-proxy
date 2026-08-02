@@ -254,6 +254,11 @@ class FileMonitorThread(QThread):
     def stop(self):
         self.running = False
 
+    def reset_position(self):
+        """Reset read position to 0 so next poll cycle sees the file as empty."""
+        with self._lock:
+            self.last_position = 0
+
 
 class URLItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):

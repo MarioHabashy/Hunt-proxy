@@ -377,7 +377,7 @@ class ImportEndpointsDialog(QDialog):
         ep_lay.addWidget(self.endpoints_edit, 1)
 
         browse_row = QHBoxLayout()
-        browse_btn = QPushButton("📂  Browse file…")
+        browse_btn = QPushButton("  Browse file…")
         browse_btn.clicked.connect(self._browse_file)
         self._ep_count_lbl = QLabel("0 endpoints")
         self._ep_count_lbl.setStyleSheet(f"color: {COLOR_TEXT_MUTED};")

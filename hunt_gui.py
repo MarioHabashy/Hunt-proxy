@@ -5644,7 +5644,7 @@ class HuntBurpGUI(
         self.update_sitemap_tree()
         self._sitemap_dirty = False
         
-        if self._issues_dirty:
+        if getattr(self, '_issues_dirty', False):
             self._issues_dirty = False
         
         self.update_issue_filter_dropdown()
@@ -7092,22 +7092,144 @@ class HuntBurpGUI(
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
     def clear_findings(self):
-        """Clear all findings"""
-        reply = QMessageBox.question(
-            self,
-            "Clear Findings",
-            "Are you sure you want to clear all findings?\n\n"
-            "This will only clear the GUI, not the log files.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+        """Clear all findings — GUI only, or GUI + log files."""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QHBoxLayout
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Clear Findings")
+        dlg.setFixedWidth(460)
+        dlg.setStyleSheet(
+            f"QDialog {{ background-color: {COLOR_BACKGROUND}; color: {COLOR_TEXT}; }}"
+            f"QLabel  {{ color: {COLOR_TEXT}; }}"
+            f"QPushButton {{ padding: 6px 16px; border-radius: 4px; font-weight: 600; }}"
+        )
+        lay = QVBoxLayout(dlg)
+        lay.setSpacing(12)
+        lay.setContentsMargins(16, 16, 16, 16)
+
+        lbl = QLabel(
+            "Choose how to clear findings:\n\n"
+            "  • <b>GUI only</b> — removes rows from the table; log files are kept.\n"
+            "  • <b>Permanent</b> — also truncates the JSONL log file and deletes\n"
+            "    all saved request/response files for the current project.\n\n"
+            "<b>Permanent clear cannot be undone.</b>"
+        )
+        lbl.setWordWrap(True)
+        lbl.setTextFormat(Qt.RichText)
+        lbl.setStyleSheet(f"color: {COLOR_TEXT}; line-height: 1.6;")
+        lay.addWidget(lbl)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+
+        gui_btn = QPushButton("Clear GUI only")
+        gui_btn.setStyleSheet(
+            f"background: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT};"
+            f"border: 1px solid {COLOR_BORDER};"
         )
 
-        if reply == QMessageBox.Yes:
-            self.findings.clear()
-            self.history_table.setRowCount(0)
-            self.status_label.setText("Findings cleared")
+        perm_btn = QPushButton("🗑  Permanent clear")
+        perm_btn.setStyleSheet(
+            f"QPushButton {{ background: {COLOR_CRITICAL}; color: #fff;"
+            f" border: 1px solid {COLOR_CRITICAL}; font-weight: 700; }}"
+            f"QPushButton:hover {{ background: #c0392b; border-color: #c0392b; }}"
+        )
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet(
+            f"background: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_MUTED};"
+            f"border: 1px solid {COLOR_BORDER};"
+        )
+
+        btn_row.addWidget(gui_btn)
+        btn_row.addWidget(perm_btn)
+        btn_row.addWidget(cancel_btn)
+        lay.addLayout(btn_row)
+
+        _choice = [None]
+        gui_btn.clicked.connect(lambda: (_choice.__setitem__(0, "gui"), dlg.accept()))
+
+        def _confirm_permanent():
+            from PyQt5.QtWidgets import QMessageBox as _MB
+            confirm = _MB.warning(
+                dlg, "Permanent Clear — Are you sure?",
+                "This will permanently delete:\n"
+                "  • The JSONL log file (all recorded requests/responses)\n"
+                "  • All request and response files on disk\n\n"
+                "This action CANNOT be undone.",
+                _MB.Yes | _MB.No,
+                _MB.No,
+            )
+            if confirm == _MB.Yes:
+                _choice[0] = "permanent"
+                dlg.accept()
+
+        perm_btn.clicked.connect(_confirm_permanent)
+        cancel_btn.clicked.connect(dlg.reject)
+
+        if dlg.exec_() != QDialog.Accepted or _choice[0] is None:
+            return
+
+        # ── GUI-only clear ────────────────────────────────────────────────
+        self.findings.clear()
+        self.history_table.setRowCount(0)
+
+        if _choice[0] == "gui":
+            self._safe_status("Findings cleared from GUI")
             QTimer.singleShot(2000, lambda: self._safe_status("Ready"))
             logger.info("Findings cleared from GUI")
+            return
+
+        # ── Permanent clear ───────────────────────────────────────────────
+        errors = []
+        jsonl_path = None
+        req_dir = None
+        resp_dir = None
+
+        if getattr(self, '_project_paths', None):
+            jsonl_path = self._project_paths.get("jsonl")
+            req_dir    = self._project_paths.get("requests_dir")
+            resp_dir   = self._project_paths.get("responses_dir")
+        else:
+            jsonl_path = os.environ.get("HUNT_MODE_JSONL", "/tmp/hunt.jsonl")
+
+        # Truncate JSONL
+        if jsonl_path:
+            try:
+                open(jsonl_path, "w").close()
+                logger.info(f"Truncated JSONL: {jsonl_path}")
+            except Exception as exc:
+                errors.append(f"JSONL: {exc}")
+
+        # Delete request files
+        for d in (req_dir, resp_dir):
+            if d and os.path.isdir(d):
+                deleted = 0
+                for fname in os.listdir(d):
+                    try:
+                        os.remove(os.path.join(d, fname))
+                        deleted += 1
+                    except Exception as exc:
+                        errors.append(f"{fname}: {exc}")
+                logger.info(f"Deleted {deleted} files from {d}")
+
+        # Reset the file monitor's read position so it doesn't re-emit old data
+        if hasattr(self, 'monitor_thread') and self.monitor_thread:
+            try:
+                self.monitor_thread.reset_position()
+            except Exception:
+                pass
+
+        if errors:
+            QMessageBox.warning(
+                self, "Partial Clear",
+                "Some files could not be deleted:\n" + "\n".join(errors[:10])
+            )
+            self._safe_status("Findings cleared (with errors)")
+        else:
+            self._safe_status("Findings permanently cleared")
+        QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
+        logger.info("Permanent clear completed")
 
     def export_findings(self):
         """Export findings to JSON file"""
