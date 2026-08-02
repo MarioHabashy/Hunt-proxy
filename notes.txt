@@ -4,9 +4,7 @@ repeater group send parallel
 
 
 
-** add JSON beatufier in all tabs
 ** add option remove cash headers
-** fix freeze when search in response 
 ** add option in proxy menu to add file URLs to pass throw tool
 ** improve analysis cookie tab
 
@@ -22,6 +20,8 @@ repeater group send parallel
 ** improve finding tab to rocord every thing like burp
 
 
+*d* add JSON beatufier in all tabs
+*d* fix freeze when search in response 
 *d* add in analysis tab hash and encoding detection tab
 *d* in bypass access control need to try X-Forward-For with internal IPs like 192.168.1.100
 *d* in bypass access control need to apply this techniqe GET /robots.txt/..;/admin/ or /cart.jsp/..;/admin/  any valid page then /..;/403 page

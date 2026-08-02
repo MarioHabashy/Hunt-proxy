@@ -6842,7 +6842,15 @@ class HuntBurpGUI(
     # ========================================================================
 
     def search_in_request(self):
-        """Handle search in request text"""
+        """Debounced: starts 300 ms timer on each keystroke; search runs on timeout."""
+        if not hasattr(self, "_search_req_timer"):
+            self._search_req_timer = QTimer()
+            self._search_req_timer.setSingleShot(True)
+            self._search_req_timer.setInterval(300)
+            self._search_req_timer.timeout.connect(self._do_search_in_request)
+        self._search_req_timer.start()
+
+    def _do_search_in_request(self):
         search_text = self.request_search_box.text()
         if not search_text:
             self.request_match_label.setText("0 matches")
@@ -6864,7 +6872,15 @@ class HuntBurpGUI(
             SearchHighlighter.clear_highlights(self.request_text)
 
     def search_in_response(self):
-        """Handle search in response text"""
+        """Debounced: starts 300 ms timer on each keystroke; search runs on timeout."""
+        if not hasattr(self, "_search_resp_timer"):
+            self._search_resp_timer = QTimer()
+            self._search_resp_timer.setSingleShot(True)
+            self._search_resp_timer.setInterval(300)
+            self._search_resp_timer.timeout.connect(self._do_search_in_response)
+        self._search_resp_timer.start()
+
+    def _do_search_in_response(self):
         search_text = self.response_search_box.text()
         if not search_text:
             self.response_match_label.setText("0 matches")
