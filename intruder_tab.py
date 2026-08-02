@@ -1227,6 +1227,38 @@ class IntruderAttackThread(QThread):
                 self.progress.emit(self._sent, self._total)
             self._sem.release()
 
+    @staticmethod
+    def _dechunk(data: bytes) -> bytes:
+        """Decode an HTTP/1.1 chunked-transfer-encoded body into raw bytes.
+
+        Chunk format:  <hex-size>\\r\\n<size bytes of data>\\r\\n ... 0\\r\\n\\r\\n
+        Trailing headers (after the terminating 0-size chunk) are ignored.
+        Falls back to returning the original data unchanged if it doesn't
+        parse as valid chunked encoding, rather than raising.
+        """
+        out = bytearray()
+        pos = 0
+        n = len(data)
+        try:
+            while pos < n:
+                line_end = data.find(b"\r\n", pos)
+                if line_end == -1:
+                    break
+                size_line = data[pos:line_end].split(b";", 1)[0].strip()
+                if not size_line:
+                    break
+                chunk_size = int(size_line, 16)
+                if chunk_size == 0:
+                    break
+                chunk_start = line_end + 2
+                chunk_end = chunk_start + chunk_size
+                out.extend(data[chunk_start:chunk_end])
+                pos = chunk_end + 2  # skip trailing \r\n after chunk data
+            return bytes(out) if out else data
+        except (ValueError, IndexError):
+            # Not actually chunked / malformed — return untouched
+            return data
+
     def _http_send(self, raw: str) -> Tuple[Optional[str], Optional[str]]:
         try:
             sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
@@ -1305,11 +1337,19 @@ class IntruderAttackThread(QThread):
 
             try:
                 h_str = headers_part.decode("utf-8", errors="ignore")
+
+                # Un-chunk the body first if Transfer-Encoding: chunked was used.
+                # Without this, the leading chunk-size line (e.g. "246\r\n") gets
+                # passed straight into gzip.decompress() and fails silently,
+                # leaving the raw chunked+gzipped bytes shown as garbage text.
+                if re.search(r'transfer-encoding:\s*chunked', h_str, re.IGNORECASE) and body_part:
+                    body_part = self._dechunk(body_part)
+
                 if re.search(r'content-encoding:\s*gzip', h_str, re.IGNORECASE) and body_part:
                     try:
                         body_part = gzip.decompress(body_part)
-                    except Exception:
-                        pass
+                    except Exception as dec_err:
+                        logger.warning("gzip decompression failed: %s", dec_err)
             except Exception:
                 pass
 
@@ -2451,6 +2491,20 @@ class IntruderTab(QWidget):
         self.detail_autoscroll_check.toggled.connect(
             lambda _: self._on_detail_search_changed(self.detail_search.text()))
 
+        _vsep2 = QFrame()
+        _vsep2.setFrameShape(QFrame.VLine)
+        _vsep2.setFixedHeight(14)
+        _vsep2.setStyleSheet(f"color:{COLOR_BORDER};")
+
+        self.detail_beautify_check = QCheckBox("{ } Beautify JSON")
+        self.detail_beautify_check.setStyleSheet(
+            f"color:{COLOR_TEXT_MUTED};font-size:10px;")
+        self.detail_beautify_check.setChecked(False)
+        self.detail_beautify_check.setToolTip(
+            "Pretty-print the body as JSON when the Request/Response body parses as valid JSON.\n"
+            "Headers are left untouched; non-JSON bodies are shown unchanged.")
+        self.detail_beautify_check.toggled.connect(self._on_beautify_toggled)
+
         _scl.addWidget(_search_ico)
         _scl.addWidget(self.detail_search)
         _scl.addWidget(self.detail_prev_btn)
@@ -2458,6 +2512,8 @@ class IntruderTab(QWidget):
         _scl.addWidget(self.detail_match_label)
         _scl.addWidget(_vsep)
         _scl.addWidget(self.detail_autoscroll_check)
+        _scl.addWidget(_vsep2)
+        _scl.addWidget(self.detail_beautify_check)
         self.detail_tabs.setCornerWidget(_sc, Qt.TopRightCorner)
         # Re-run search when the user switches tabs
         self.detail_tabs.currentChanged.connect(
@@ -2486,6 +2542,11 @@ class IntruderTab(QWidget):
         self.detail_tabs.addTab(self.detail_request, "Request")
         self.detail_tabs.addTab(self.detail_response, "Response")
         dp_layout.addWidget(self.detail_tabs)
+
+        # Raw (un-beautified) text backing the two panes, so toggling the
+        # "Beautify JSON" checkbox can re-render without losing the original.
+        self._detail_raw_request = ""
+        self._detail_raw_response = ""
 
         detail_splitter.addWidget(detail_panel)
         detail_splitter.setSizes([400, 200])
@@ -2696,6 +2757,8 @@ class IntruderTab(QWidget):
         self.progress_bar.setValue(0)
         self.detail_request.clear()
         self.detail_response.clear()
+        self._detail_raw_request = ""
+        self._detail_raw_response = ""
 
         self._attack_thread = IntruderAttackThread(
             host         = host,
@@ -2770,12 +2833,60 @@ class IntruderTab(QWidget):
         self.status_bar.setText(msg)
 
     def _show_detail(self, row_data: dict):
-        self.detail_request.setPlainText(row_data.get("request", ""))
-        self.detail_response.setPlainText(row_data.get("response", ""))
+        self._detail_raw_request = row_data.get("request", "")
+        self._detail_raw_response = row_data.get("response", "")
+        self.detail_request.setPlainText(self._maybe_beautify(self._detail_raw_request))
+        self.detail_response.setPlainText(self._maybe_beautify(self._detail_raw_response))
         # Re-apply search highlights after content loads
         txt = self.detail_search.text()
         if txt:
             QTimer.singleShot(50, lambda: self._on_detail_search_changed(txt))
+
+    def _maybe_beautify(self, text: str) -> str:
+        """Pretty-print the body of an HTTP request/response as JSON when
+        the "Beautify JSON" checkbox is on and the body parses as valid JSON.
+
+        Headers are left byte-for-byte untouched; if the body isn't valid
+        JSON (or the checkbox is off), the original text is returned as-is.
+        """
+        if not text or not self.detail_beautify_check.isChecked():
+            return text
+
+        head, sep, body = "", "", text
+        for candidate_sep in ("\r\n\r\n", "\n\n"):
+            if candidate_sep in text:
+                head, body = text.split(candidate_sep, 1)
+                sep = candidate_sep
+                break
+
+        stripped = body.strip()
+        if not stripped:
+            return text
+
+        try:
+            parsed = json.loads(stripped)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return text
+
+        pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
+        return f"{head}{sep}{pretty}" if sep else pretty
+
+    def _on_beautify_toggled(self, _checked: bool):
+        """Re-render both panes when the Beautify JSON checkbox is toggled."""
+        # Preserve scroll position where possible
+        req_scroll = self.detail_request.verticalScrollBar().value()
+        resp_scroll = self.detail_response.verticalScrollBar().value()
+
+        self.detail_request.setPlainText(self._maybe_beautify(self._detail_raw_request))
+        self.detail_response.setPlainText(self._maybe_beautify(self._detail_raw_response))
+
+        self.detail_request.verticalScrollBar().setValue(req_scroll)
+        self.detail_response.verticalScrollBar().setValue(resp_scroll)
+
+        # Re-apply search highlights against the new text
+        txt = self.detail_search.text()
+        if txt:
+            self._on_detail_search_changed(txt)
 
     def _focus_active_search(self):
         """Ctrl+F: focus the shared search input."""
@@ -2850,6 +2961,8 @@ class IntruderTab(QWidget):
         self.auto_scroll_btn.setText(f"\u23ec Auto-Scroll: {'ON' if on else 'OFF'}")
         self.detail_request.clear()
         self.detail_response.clear()
+        self._detail_raw_request = ""
+        self._detail_raw_response = ""
 
     def _apply_filter(self, text: str):
         """Show/hide rows based on filter text."""
