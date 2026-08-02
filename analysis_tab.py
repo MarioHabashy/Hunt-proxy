@@ -7827,28 +7827,32 @@ class SecurityAnalyzer:
         """
         if not param_value or not response_text or len(param_value) < 3:
             return False
-        
-        # Extract response body (skip headers)
+
+        # Split into headers and body sections
         if '\n\n' in response_text:
-            response_body = response_text.split('\n\n', 1)[1]
+            response_headers, response_body = response_text.split('\n\n', 1)
         else:
-            response_body = response_text
-        
+            response_headers, response_body = '', response_text
+
         # URL decode the parameter value for better matching
         try:
             from urllib.parse import unquote
             decoded_value = unquote(param_value)
         except:
             decoded_value = param_value
-        
-        # Check both original and decoded values
+
+        # Check body (case-sensitive then case-insensitive)
         if param_value in response_body or decoded_value in response_body:
             return True
-        
-        # Also check case-insensitive for better detection
         if param_value.lower() in response_body.lower() or decoded_value.lower() in response_body.lower():
             return True
-        
+
+        # Check response headers — header reflection (e.g. Location, Set-Cookie, custom headers)
+        if param_value in response_headers or decoded_value in response_headers:
+            return True
+        if param_value.lower() in response_headers.lower() or decoded_value.lower() in response_headers.lower():
+            return True
+
         return False
     
     @staticmethod
