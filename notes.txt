@@ -4,17 +4,17 @@ repeater group send parallel
 
 
 
-** add option in proxy menu to add file URLs to pass throw tool
-
-
 ** fix flow in attack surface tab as cant add POST requests
-
-
-
-** add httpx to tech detection tasks run before content bruteforce
-** when change anything in intercept cant see these changes in http hsitory tab
 ** improve finding tab to record every thing like burp
+** when change anything in intercept cant see these changes in http hsitory tab
+** add httpx to tech detection tasks run before content bruteforce
 
+
+
+
+
+
+*d* add option in proxy menu to add file URLs to pass throw tool
 *d* improve analysis cookie tab
 *d* add option remove cash headers
 *d* add JSON beatufier in all tabs

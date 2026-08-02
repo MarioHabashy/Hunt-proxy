@@ -4555,6 +4555,15 @@ class HuntBurpGUI(
             logger.error(f"Failed to load highlights: {e}")
             self.highlighted_rows = {}
 
+    def show_import_endpoints_dialog(self):
+        """Open the Import Endpoints dialog."""
+        from import_endpoints_dialog import ImportEndpointsDialog
+        dialog = ImportEndpointsDialog(
+            project_paths=getattr(self, '_project_paths', None),
+            parent=self,
+        )
+        dialog.show()   # non-modal so the user can watch results arrive live
+
     def show_proxy_options_dialog(self):
         """Show the dialog to configure all proxy options (Match & Replace, Header Injection, Drop Rules, SSL, Rate Limiting)."""
         if not hasattr(self, '_project_paths') or not self._project_paths:
@@ -5399,6 +5408,15 @@ class HuntBurpGUI(
         view_proxy_log_action = QAction("📋 View Proxy Log", self)
         view_proxy_log_action.triggered.connect(self.show_proxy_log)
         proxy_menu.addAction(view_proxy_log_action)
+
+        proxy_menu.addSeparator()
+
+        import_endpoints_action = QAction("📥 Import Endpoints…", self)
+        import_endpoints_action.setToolTip(
+            "Send a list of URLs through the tool and add them to HTTP History"
+        )
+        import_endpoints_action.triggered.connect(self.show_import_endpoints_dialog)
+        proxy_menu.addAction(import_endpoints_action)
 
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
