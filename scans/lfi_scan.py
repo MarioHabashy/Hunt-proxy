@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Path to the global settings file written by hunt_gui.py
 _HUNT_SETTINGS_FILE = os.path.join(
-    os.path.expanduser("~"), ".config", "HackRecon", "settings.json"
+    os.path.expanduser("~"), ".config", "hunt-proxy", "settings.json"
 )
 
 # SecLists-relative path for the LFI wordlist

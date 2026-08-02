@@ -1471,13 +1471,13 @@ class AttackSurfaceTab(QWidget):
     def _storage_file(self) -> str:
         if self._project_dir:
             return os.path.join(self._project_dir, "attack_surface.json")
-        return os.path.join(os.path.expanduser("~"), ".config", "HackRecon", "attack_surface.json")
+        return os.path.join(os.path.expanduser("~"), ".config", "hunt-proxy", "attack_surface.json")
 
     @property
     def _flows_file(self) -> str:
         if self._project_dir:
             return os.path.join(self._project_dir, "attack_surface_flows.json")
-        return os.path.join(os.path.expanduser("~"), ".config", "HackRecon", "attack_surface_flows.json")
+        return os.path.join(os.path.expanduser("~"), ".config", "hunt-proxy", "attack_surface_flows.json")
 
     def set_project_dir(self, project_dir: str):
         self._project_dir = project_dir

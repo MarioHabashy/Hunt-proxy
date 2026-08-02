@@ -118,7 +118,15 @@ setup_venv_and_python_deps() {
     cryptography \
     regex \
     keyring \
-    pyOpenSSL
+    pyOpenSSL \
+    gmpy2 \
+    brotli \
+    zstandard \
+    websocket-client \
+    wsproto \
+    pyngrok \
+    boto3 \
+    stripe
 
   log "Installing Python CLI tools used by dashboard"
   python3 -m pip install \

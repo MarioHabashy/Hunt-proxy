@@ -294,10 +294,10 @@ def _format_response(entry: 'TrafficEntry') -> str:
     if len(entry.response_body) > 8000:
         parts.append("[… truncated …]")
     return "\n".join(parts)
-HACKRECON_CONFIG = os.path.join(
-    os.path.expanduser("~"), ".config", "HackRecon", "HackRecon.config"
+# ── Persist last-opened project slug ─────────────────────────────────────────
+_SETTINGS_FILE = os.path.join(
+    os.path.expanduser("~"), ".config", "hunt-proxy", "settings.json"
 )
-
 # ─────────────────────────────────────────────────────────────────────────────
 # SSTI exploitation hints shown in format_ssti_results
 # ─────────────────────────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ def _load_lfi_wordlist() -> List[str]:
     """
     wordlist_path = None
     try:
-        with open(HACKRECON_CONFIG, "r") as cfg:
+        with open(_SETTINGS_FILE, "r") as cfg:
             for line in cfg:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -388,7 +388,7 @@ def _load_lfi_wordlist() -> List[str]:
                     wordlist_path = line.split("=", 1)[1].strip().strip("\"'")
                     break
     except FileNotFoundError:
-        logger.warning(f"HackRecon config not found: {HACKRECON_CONFIG}")
+        logger.warning(f"HackRecon config not found: {_SETTINGS_FILE}")
         return []
     except Exception as e:
         logger.warning(f"Error reading HackRecon config: {e}")
@@ -4966,7 +4966,7 @@ class ScannerTab(QWidget):
         except Exception:
             pass
         _settings_file = os.path.join(
-            os.path.expanduser("~"), ".config", "HackRecon", "settings.json"
+            os.path.expanduser("~"), ".config", "hunt-proxy", "settings.json"
         )
         try:
             if os.path.exists(_settings_file):

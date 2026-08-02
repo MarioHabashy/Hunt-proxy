@@ -14354,7 +14354,7 @@ class AnalysisTabMixin:
         # Fall back to reading from the settings file
         try:
             cfg = os.path.join(
-                os.path.expanduser("~"), ".config", "HackRecon", "settings.json"
+                os.path.expanduser("~"), ".config", "hunt-proxy", "settings.json"
             )
             if os.path.exists(cfg):
                 with open(cfg, 'r', encoding='utf-8') as fh:

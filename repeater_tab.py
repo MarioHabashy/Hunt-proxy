@@ -932,6 +932,17 @@ class HttpSendThread(QThread):
                             headers_part_resp = h_str.encode("utf-8", errors="replace")
                         except Exception:
                             pass
+                    elif re.search(r'content-encoding:\s*br', h_str, re.IGNORECASE) and body_part_resp:
+                        try:
+                            import brotli
+                            body_part_resp = brotli.decompress(body_part_resp)
+                            h_str = re.sub(
+                                r'(?im)^content-encoding:[^\r\n]*\r?\n', '',
+                                h_str
+                            )
+                            headers_part_resp = h_str.encode("utf-8", errors="replace")
+                        except Exception:
+                            pass
                 except Exception:
                     pass
 
@@ -9065,6 +9076,14 @@ def _raw_http_send(host: str, port: int, use_ssl: bool, raw_request: str, timeou
                 headers_b = h_str.encode("utf-8", errors="replace")
             except Exception:
                 pass
+        elif re.search(r'content-encoding:\s*br', h_str, re.IGNORECASE) and body_b:
+            try:
+                import brotli
+                body_b = brotli.decompress(body_b)
+                h_str = re.sub(r'(?im)^content-encoding:[^\r\n]*\r?\n', '', h_str)
+                headers_b = h_str.encode("utf-8", errors="replace")
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -9149,6 +9168,18 @@ class GroupSendThread(QThread):
         if re.search(rb'content-encoding:\s*gzip', hb, re.IGNORECASE) and bb:
             try:
                 bb = gzip.decompress(bb)
+            except Exception:
+                pass
+        elif re.search(rb'content-encoding:\s*deflate', hb, re.IGNORECASE) and bb:
+            try:
+                import zlib
+                bb = zlib.decompress(bb)
+            except Exception:
+                pass
+        elif re.search(rb'content-encoding:\s*br', hb, re.IGNORECASE) and bb:
+            try:
+                import brotli
+                bb = brotli.decompress(bb)
             except Exception:
                 pass
 

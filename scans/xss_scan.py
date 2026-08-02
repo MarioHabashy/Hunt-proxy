@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ── Global settings path (same as hunt_gui.py and lfi_scan.py) ──────────────
 _HUNT_SETTINGS_FILE = os.path.join(
-    os.path.expanduser("~"), ".config", "HackRecon", "settings.json"
+    os.path.expanduser("~"), ".config", "hunt-proxy", "settings.json"
 )
 
 # Sub-directory inside PayloadsAllTheThings that holds XSS payloads

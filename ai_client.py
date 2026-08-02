@@ -8,7 +8,7 @@ Supports:
 
 Zero additional dependencies beyond optional keyring — uses Python's built-in urllib.request.
 
-Settings are read from ~/.config/HackRecon/settings.json:
+Settings are read from ~/.config/hunt-proxy/settings.json:
   ai_provider : "openai" | "anthropic" | "ollama"
   ai_api_key  : str  (API key; leave empty for Ollama)
   ai_model    : str  (model name)
@@ -42,7 +42,7 @@ try:
 except ImportError:
     _KEYRING_AVAILABLE = False
 
-_KEYRING_SERVICE = "HackRecon"
+_KEYRING_SERVICE = "hunt-proxy"
 
 
 # ── Default models per provider ───────────────────────────────────────────────
