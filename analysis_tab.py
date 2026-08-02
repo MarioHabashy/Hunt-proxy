@@ -13806,29 +13806,82 @@ class AnalysisTabMixin:
         return ""
 
 
+    def _clear_analysis_display(self):
+        """Wipe all analysis UI panels so no stale data from the previous request shows."""
+        if hasattr(self, 'param_table'):
+            self.param_table.setRowCount(0)
+        if hasattr(self, 'param_count_badge'):
+            self.param_count_badge.setText("…")
+            self.param_count_badge.setStyleSheet(
+                "color: #888; font-size: 10px; "
+                "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+            )
+        if hasattr(self, 'vuln_text'):
+            self.vuln_text.setHtml("")
+        if hasattr(self, 'vuln_stats_label'):
+            self.vuln_stats_label.setText("")
+        if hasattr(self, 'current_vuln_params'):
+            self.current_vuln_params = {}
+        if hasattr(self, 'highlight_table'):
+            self.highlight_table.setRowCount(0)
+        if hasattr(self, 'leak_count_badge'):
+            self.leak_count_badge.setText("…")
+            self.leak_count_badge.setStyleSheet(
+                "color: #888; font-size: 10px; "
+                "background: #1a1a1a; border-radius: 3px; padding: 1px 6px;"
+            )
+
     def perform_automatic_analysis(self, finding: Dict):
         """
         Perform automatic analysis when a request is selected.
-        Called from HTTP History tab.
-
-        Heavy analysis runs in a background thread (SelectionAnalysisWorker)
-        so the UI never freezes on large responses.  Results are delivered
-        back to the main thread via the _on_selection_analysis_finished slot.
-        Returns None immediately; callers must NOT rely on the return value.
+        Debounced (400 ms) so rapid row-clicks don't spawn multiple workers.
         """
         if not hasattr(self, 'auto_analyze') or not self.auto_analyze.isChecked():
             return None
 
-        # Store the current finding so stale callbacks can be detected
-        self.current_analysis_finding = finding
+        # Always update pending finding immediately so stale checks work
         self._pending_analysis_finding = finding
+        self.current_analysis_finding  = finding
 
-        # Cancel any previous worker still running (rapid selections)
+        # Clear stale data from the previous request immediately
+        self._clear_analysis_display()
+
+        # Debounce: restart a single-shot timer; the actual worker launch
+        # happens in _do_launch_analysis_worker 400 ms after the last call.
+        if not hasattr(self, '_analysis_debounce_timer'):
+            self._analysis_debounce_timer = QTimer(self)
+            self._analysis_debounce_timer.setSingleShot(True)
+            self._analysis_debounce_timer.timeout.connect(self._do_launch_analysis_worker)
+        self._analysis_debounce_timer.start(400)
+
+        return None
+
+    def _do_launch_analysis_worker(self):
+        """Actual worker launch — called by the debounce timer."""
+        finding = getattr(self, '_pending_analysis_finding', None)
+        if finding is None:
+            return
+        if not hasattr(self, 'auto_analyze') or not self.auto_analyze.isChecked():
+            return
+
+        # Skip auto-analysis for very large responses to avoid long regex runs
+        _MAX_AUTO_BYTES = 3 * 1024 * 1024  # 3 MB
+        resp_file = finding.get('response_file', '')
+        if resp_file and os.path.exists(resp_file):
+            size = os.path.getsize(resp_file)
+            if size > _MAX_AUTO_BYTES:
+                mb = size / 1024 / 1024
+                self.auto_analyze.setText(f"↺ Auto (skip >{mb:.1f} MB)")
+                return
+        # Cancel any previous worker still running
         prev = getattr(self, '_selection_analysis_worker', None)
         if prev is not None and prev.isRunning():
-            prev.finished.disconnect()
-            prev.quit()
-            prev.wait(80)
+            try:
+                prev.finished.disconnect()
+            except Exception:
+                pass
+            prev.cancel_flag = True
+            prev.quit()  # signal thread loop; cancel_flag drops the result
 
         # Reset param badge + table immediately so stale counts don't linger
         if hasattr(self, 'param_count_badge'):
@@ -13840,17 +13893,13 @@ class AnalysisTabMixin:
         if hasattr(self, 'param_table'):
             self.param_table.setRowCount(0)
 
-        # Show loading indicator
         self.auto_analyze.setText("↺ Analyzing…")
 
-        # Launch background worker
         worker = SelectionAnalysisWorker(finding)
         worker.finished.connect(self._on_selection_analysis_finished)
         worker.error.connect(lambda msg: self.auto_analyze.setText("↺ Auto"))
         worker.start()
         self._selection_analysis_worker = worker
-
-        return None
 
     def _on_selection_analysis_finished(self, finding: dict, analysis_results: dict):
         """
@@ -13917,18 +13966,36 @@ class AnalysisTabMixin:
             self.auto_highlight.setText("· Auto")
             return
 
-        # Store for re-highlighting and stale-result detection
-        self.last_response_text = response_text
+        # Store for stale-result detection
+        self.last_response_text      = response_text
         self._pending_highlight_text = response_text
+
+        # Debounce: restart timer; actual launch happens 400 ms after last call
+        if not hasattr(self, '_highlight_debounce_timer'):
+            self._highlight_debounce_timer = QTimer(self)
+            self._highlight_debounce_timer.setSingleShot(True)
+            self._highlight_debounce_timer.timeout.connect(self._do_launch_highlight_worker)
+        self._highlight_debounce_timer.start(400)
+
+    def _do_launch_highlight_worker(self):
+        """Actual worker launch — called by the debounce timer."""
+        response_text = getattr(self, '_pending_highlight_text', None)
+        if not response_text:
+            return
+        if not hasattr(self, 'auto_highlight') or not self.auto_highlight.isChecked():
+            return
 
         # Cancel any previous worker still running
         prev = getattr(self, '_selection_highlight_worker', None)
         if prev is not None and prev.isRunning():
-            prev.finished.disconnect()
-            prev.quit()
-            prev.wait(80)
+            try:
+                prev.finished.disconnect()
+            except Exception:
+                pass
+            prev.cancel_flag = True
+            prev.quit()  # signal thread loop; cancel_flag drops the result
 
-        # Reset leak badge + table immediately so stale counts don't linger
+        # Reset leak badge + table so stale counts don't linger
         if hasattr(self, 'leak_count_badge'):
             self.leak_count_badge.setText("…")
             self.leak_count_badge.setStyleSheet(
@@ -13938,10 +14005,8 @@ class AnalysisTabMixin:
         if hasattr(self, 'highlight_table'):
             self.highlight_table.setRowCount(0)
 
-        # Show loading indicator
         self.auto_highlight.setText("· Scanning…")
 
-        # Launch background worker
         worker = SelectionHighlightWorker(response_text)
         worker.finished.connect(self._on_selection_highlight_finished)
         worker.error.connect(lambda msg: self.auto_highlight.setText("· Auto"))
@@ -14455,9 +14520,9 @@ def _mp_run_highlight(text: str) -> dict:
 
 class SelectionAnalysisWorker(QThread):
     """
-    Runs SecurityAnalyzer.analyze_finding() in a *separate process* via
-    ProcessPoolExecutor so that CPU/regex work never holds the shared GIL
-    and the main Qt thread stays completely responsive.
+    Runs SecurityAnalyzer.analyze_finding() directly in this QThread.
+    No subprocess is spawned — ProcessPoolExecutor caused zombie process
+    accumulation when workers were cancelled faster than they could complete.
     """
     finished = pyqtSignal(dict, dict)   # (finding, analysis_results)
     error    = pyqtSignal(str)
@@ -14466,23 +14531,25 @@ class SelectionAnalysisWorker(QThread):
         super().__init__()
         self._finding = dict(finding)       # shallow-copy; only basic types
         self._original_finding = finding    # live reference updated on main thread
+        self.cancel_flag = False
 
     def run(self):
-        from concurrent.futures import ProcessPoolExecutor
         try:
-            with ProcessPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_mp_run_analysis, self._finding)
-                results = future.result(timeout=180)
-            self.finished.emit(self._original_finding, results)
+            if self.cancel_flag:
+                return
+            results = _mp_run_analysis(self._finding)
+            if not self.cancel_flag:
+                self.finished.emit(self._original_finding, results)
         except Exception as e:
             logger.error(f"SelectionAnalysisWorker error: {e}", exc_info=True)
-            self.error.emit(str(e))
+            if not self.cancel_flag:
+                self.error.emit(str(e))
 
 
 class SelectionHighlightWorker(QThread):
     """
-    Runs _detect_highlight_patterns() in a *separate process* so large
-    responses do not block the main thread at all.
+    Runs _detect_highlight_patterns() directly in this QThread.
+    No subprocess is spawned — avoids the same zombie-process issue.
     """
     finished = pyqtSignal(object)
     error    = pyqtSignal(str)
@@ -14490,14 +14557,16 @@ class SelectionHighlightWorker(QThread):
     def __init__(self, text: str):
         super().__init__()
         self._text = text
+        self.cancel_flag = False
 
     def run(self):
-        from concurrent.futures import ProcessPoolExecutor
         try:
-            with ProcessPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_mp_run_highlight, self._text)
-                patterns = future.result(timeout=180)
-            self.finished.emit(patterns)
+            if self.cancel_flag:
+                return
+            patterns = _mp_run_highlight(self._text)
+            if not self.cancel_flag:
+                self.finished.emit(patterns)
         except Exception as e:
             logger.error(f"SelectionHighlightWorker error: {e}", exc_info=True)
-            self.error.emit(str(e))
+            if not self.cancel_flag:
+                self.error.emit(str(e))
