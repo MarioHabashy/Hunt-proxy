@@ -4158,9 +4158,10 @@ class HuntBurpGUI(
                     "mitmdump",
                     "-s", self.proxy_script_file,
                     "--listen-port", str(self.proxy_port),
-                    "--set", "flow_detail=1",  # Increased for debugging
+                    "--set", "flow_detail=1",
                     "--set", "termlog_verbosity=info",
                     "--set", "console_eventlog_verbosity=info",
+                    "--set", "http2=false",  # prevent ERR_HTTP2_PROTOCOL_ERROR
                 ]
 
                 # Add upstream proxy if configured

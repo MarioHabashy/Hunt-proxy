@@ -7620,7 +7620,7 @@ class SecurityAnalyzer:
             SecurityAnalyzer._analyze_security_headers(request_text, response_text, results)
             SecurityAnalyzer._analyze_vulnerabilities(response_text, url, status, results)
             SecurityAnalyzer._analyze_data_leakage(response_text, results)
-            SecurityAnalyzer._analyze_cookies(response_text, results)       # NEW
+            SecurityAnalyzer._analyze_cookies(response_text, results, request_text)
             SecurityAnalyzer._analyze_tech_stack(response_text, url, results)  # NEW
             SecurityAnalyzer._analyze_weird(request_text, response_text, url, status, results)  # NEW
             
@@ -9061,61 +9061,88 @@ class SecurityAnalyzer:
             results['severity'] = 'LOW'
             
     @staticmethod
-    def _analyze_cookies(response_text: str, results: Dict):
-        """Parse Set-Cookie headers from raw response text and check security flags."""
-        if not response_text:
-            return
-        # Only look at the header section (before first blank line)
-        header_section = response_text.split('\n\n')[0] if '\n\n' in response_text else response_text
+    def _analyze_cookies(response_text: str, results: Dict, request_text: str = ''):
+        """Parse Cookie from request header and Set-Cookie from response; check security flags."""
         cookie_entries = []
-        for line in header_section.split('\n'):
-            stripped = line.strip()
-            if stripped.lower().startswith('set-cookie:'):
-                raw = stripped[len('set-cookie:'):].strip()
-                parts = [p.strip() for p in raw.split(';')]
-                if not parts:
-                    continue
-                name_val = parts[0]
-                name = name_val.split('=')[0].strip() if '=' in name_val else name_val
-                value_raw = name_val.split('=', 1)[1] if '=' in name_val else ''
-                value_preview = (value_raw[:24] + '…') if len(value_raw) > 24 else value_raw
 
-                attrs = {}
-                for p in parts[1:]:
-                    if '=' in p:
-                        k, v = p.split('=', 1)
-                        attrs[k.strip().lower()] = v.strip()
-                    else:
-                        attrs[p.strip().lower()] = True
+        # ── Request cookies (Cookie: header) ────────────────────────────
+        if request_text:
+            req_hdr_section = request_text.split('\n\n')[0] if '\n\n' in request_text else request_text
+            for line in req_hdr_section.split('\n'):
+                stripped = line.strip()
+                if stripped.lower().startswith('cookie:'):
+                    raw = stripped[len('cookie:'):].strip()
+                    for pair in raw.split(';'):
+                        pair = pair.strip()
+                        if not pair:
+                            continue
+                        name = pair.split('=')[0].strip() if '=' in pair else pair
+                        value_raw = pair.split('=', 1)[1].strip() if '=' in pair else ''
+                        value_preview = (value_raw[:24] + '…') if len(value_raw) > 24 else value_raw
+                        cookie_entries.append({
+                            'source':     'REQ',
+                            'name':       name,
+                            'value':      value_preview,
+                            'secure':     None,
+                            'httponly':   None,
+                            'samesite':   '—',
+                            'is_session': None,
+                            'issues':     [],
+                        })
 
-                has_secure   = 'secure'   in attrs
-                has_httponly = 'httponly' in attrs
-                samesite_val = attrs.get('samesite', '')
-                max_age      = attrs.get('max-age', '')
-                expires      = attrs.get('expires', '')
-                is_session   = not max_age and not expires
+        # ── Response Set-Cookie headers ──────────────────────────────────
+        if response_text:
+            resp_hdr_section = response_text.split('\n\n')[0] if '\n\n' in response_text else response_text
+            for line in resp_hdr_section.split('\n'):
+                stripped = line.strip()
+                if stripped.lower().startswith('set-cookie:'):
+                    raw = stripped[len('set-cookie:'):].strip()
+                    parts = [p.strip() for p in raw.split(';')]
+                    if not parts:
+                        continue
+                    name_val = parts[0]
+                    name = name_val.split('=')[0].strip() if '=' in name_val else name_val
+                    value_raw = name_val.split('=', 1)[1] if '=' in name_val else ''
+                    value_preview = (value_raw[:24] + '…') if len(value_raw) > 24 else value_raw
 
-                issues = []
-                if not has_secure:
-                    issues.append(('MISSING_SECURE', 'HIGH', 'Cookie sent over HTTP — intercept risk'))
-                if not has_httponly:
-                    issues.append(('MISSING_HTTPONLY', 'MEDIUM', 'Readable by JavaScript — XSS risk'))
-                if not samesite_val:
-                    issues.append(('MISSING_SAMESITE', 'MEDIUM', 'No CSRF protection via SameSite'))
-                elif samesite_val.lower() == 'none' and not has_secure:
-                    issues.append(('SAMESITE_NONE_NO_SECURE', 'HIGH', 'SameSite=None requires Secure flag'))
+                    attrs = {}
+                    for p in parts[1:]:
+                        if '=' in p:
+                            k, v = p.split('=', 1)
+                            attrs[k.strip().lower()] = v.strip()
+                        else:
+                            attrs[p.strip().lower()] = True
 
-                cookie_entries.append({
-                    'name':       name,
-                    'value':      value_preview,
-                    'secure':     has_secure,
-                    'httponly':   has_httponly,
-                    'samesite':   samesite_val if samesite_val else '—',
-                    'is_session': is_session,
-                    'domain':     attrs.get('domain', '—'),
-                    'path':       attrs.get('path', '/'),
-                    'issues':     issues,
-                })
+                    has_secure   = 'secure'   in attrs
+                    has_httponly = 'httponly' in attrs
+                    samesite_val = attrs.get('samesite', '')
+                    max_age      = attrs.get('max-age', '')
+                    expires      = attrs.get('expires', '')
+                    is_session   = not max_age and not expires
+
+                    issues = []
+                    if not has_secure:
+                        issues.append(('MISSING_SECURE', 'HIGH', 'Cookie sent over HTTP — intercept risk'))
+                    if not has_httponly:
+                        issues.append(('MISSING_HTTPONLY', 'MEDIUM', 'Readable by JavaScript — XSS risk'))
+                    if not samesite_val:
+                        issues.append(('MISSING_SAMESITE', 'MEDIUM', 'No CSRF protection via SameSite'))
+                    elif samesite_val.lower() == 'none' and not has_secure:
+                        issues.append(('SAMESITE_NONE_NO_SECURE', 'HIGH', 'SameSite=None requires Secure flag'))
+
+                    cookie_entries.append({
+                        'source':     'RESP',
+                        'name':       name,
+                        'value':      value_preview,
+                        'secure':     has_secure,
+                        'httponly':   has_httponly,
+                        'samesite':   samesite_val if samesite_val else '—',
+                        'is_session': is_session,
+                        'domain':     attrs.get('domain', '—'),
+                        'path':       attrs.get('path', '/'),
+                        'issues':     issues,
+                    })
+
         results['cookies'] = cookie_entries
 
     @staticmethod
@@ -10576,20 +10603,21 @@ class AnalysisTabMixin:
         return container
 
     def _create_cookie_panel(self) -> QWidget:
-        """Panel: shows Set-Cookie headers with security flag analysis."""
+        """Panel: request Cookie header + response Set-Cookie headers with security flag analysis."""
         container, tbl = self._make_panel_table(
-            ["Cookie Name", "Value", "Secure", "HttpOnly", "SameSite", "Type", "Issues"],
+            ["Src", "Cookie Name", "Value", "Secure", "HttpOnly", "SameSite", "Type", "Issues"],
             accent_color='#7a5c3a'
         )
         self.cookie_table = tbl
         hdr = tbl.horizontalHeader()
-        hdr.setSectionResizeMode(0, QHeaderView.Interactive);  tbl.setColumnWidth(0, 148)  # Cookie Name
-        hdr.setSectionResizeMode(1, QHeaderView.Interactive);  tbl.setColumnWidth(1, 100)  # Value
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)                           # Secure
-        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # HttpOnly
-        hdr.setSectionResizeMode(4, QHeaderView.ResizeToContents)                           # SameSite
-        hdr.setSectionResizeMode(5, QHeaderView.ResizeToContents)                           # Type
-        hdr.setSectionResizeMode(6, QHeaderView.Stretch)                                    # Issues
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)                           # Src
+        hdr.setSectionResizeMode(1, QHeaderView.Interactive);  tbl.setColumnWidth(1, 148)  # Cookie Name
+        hdr.setSectionResizeMode(2, QHeaderView.Interactive);  tbl.setColumnWidth(2, 100)  # Value
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # Secure
+        hdr.setSectionResizeMode(4, QHeaderView.ResizeToContents)                           # HttpOnly
+        hdr.setSectionResizeMode(5, QHeaderView.ResizeToContents)                           # SameSite
+        hdr.setSectionResizeMode(6, QHeaderView.ResizeToContents)                           # Type
+        hdr.setSectionResizeMode(7, QHeaderView.Stretch)                                    # Issues
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
         tbl.customContextMenuRequested.connect(
             lambda pos, t=tbl: self._show_table_context_menu(pos, t))
@@ -10994,12 +11022,12 @@ class AnalysisTabMixin:
             tbl.setItem(row, 4, QTableWidgetItem(desc))
 
     def _populate_cookie_table(self, cookie_entries: list):
-        """Fill the cookie security table from _analyze_cookies results."""
+        """Fill the cookie security table (request Cookie + response Set-Cookie)."""
         tbl = self.cookie_table
         tbl.setRowCount(0)
         if not cookie_entries:
             tbl.insertRow(0)
-            item = QTableWidgetItem("No Set-Cookie headers found in response")
+            item = QTableWidgetItem("No cookies found in request or response")
             item.setForeground(QColor('#666666'))
             tbl.setItem(0, 0, item)
             return
@@ -11008,49 +11036,63 @@ class AnalysisTabMixin:
             row = tbl.rowCount()
             tbl.insertRow(row)
 
-            tbl.setItem(row, 0, QTableWidgetItem(entry.get('name', '?')))
-            tbl.setItem(row, 1, QTableWidgetItem(entry.get('value', '')))
+            is_req = entry.get('source', 'RESP') == 'REQ'
 
-            secure_ok = entry.get('secure', False)
-            tbl.setItem(row, 2, self._color_item(
-                '✓' if secure_ok else '✗',
-                self._SEVERITY_COLORS['OK'] if secure_ok else self._SEVERITY_COLORS['HIGH']
-            ))
+            # col 0 — Src badge
+            src_item = self._color_item(
+                '→ REQ' if is_req else '← RESP',
+                '#6ab0de' if is_req else '#a0c88a'
+            )
+            tbl.setItem(row, 0, src_item)
 
-            httponly_ok = entry.get('httponly', False)
-            tbl.setItem(row, 3, self._color_item(
-                '✓' if httponly_ok else '✗',
-                self._SEVERITY_COLORS['OK'] if httponly_ok else self._SEVERITY_COLORS['MEDIUM']
-            ))
+            tbl.setItem(row, 1, QTableWidgetItem(entry.get('name', '?')))
+            tbl.setItem(row, 2, QTableWidgetItem(entry.get('value', '')))
 
-            ss = entry.get('samesite', '—')
-            ss_col = (self._SEVERITY_COLORS['OK'] if ss.lower() in ('strict', 'lax')
-                      else self._SEVERITY_COLORS['MEDIUM'] if ss.lower() == 'none'
-                      else self._SEVERITY_COLORS['MEDIUM'] if ss == '—'
-                      else '#BBBBBB')
-            tbl.setItem(row, 4, self._color_item(ss, ss_col))
-
-            typ = '○ Session' if entry.get('is_session') else '· Persistent'
-            tbl.setItem(row, 5, QTableWidgetItem(typ))
-
-            issues = entry.get('issues', [])
-            if issues:
-                issues_str = '; '.join(f"{i[0]}({i[1]})" for i in issues)
-                worst_sev  = max((i[1] for i in issues), key=lambda s: {'CRITICAL':4,'HIGH':3,'MEDIUM':2,'LOW':1,'INFO':0}.get(s, 0))
-                item = self._color_item(issues_str, self._SEVERITY_COLORS.get(worst_sev, '#BBBBBB'))
+            if is_req:
+                # Security flags are unknown for cookies sent in the request
+                for c in (3, 4, 5, 6):
+                    tbl.setItem(row, c, self._color_item('—', '#555555'))
+                tbl.setItem(row, 7, self._color_item('Sent in request', '#6ab0de'))
             else:
-                item = self._color_item('✓ OK', self._SEVERITY_COLORS['OK'])
-            tbl.setItem(row, 6, item)
+                secure_ok = entry.get('secure', False)
+                tbl.setItem(row, 3, self._color_item(
+                    '✓' if secure_ok else '✗',
+                    self._SEVERITY_COLORS['OK'] if secure_ok else self._SEVERITY_COLORS['HIGH']
+                ))
 
-            # Row tint by worst issue
-            if issues:
-                worst = max((i[1] for i in issues), key=lambda s: {'CRITICAL':4,'HIGH':3,'MEDIUM':2,'LOW':1}.get(s, 0))
-                tint = {'HIGH': QColor(80, 30, 10, 40), 'MEDIUM': QColor(80, 70, 0, 30), 'CRITICAL': QColor(100, 0, 0, 50)}.get(worst)
-                if tint:
-                    for c in range(tbl.columnCount()):
-                        it = tbl.item(row, c)
-                        if it:
-                            it.setBackground(tint)
+                httponly_ok = entry.get('httponly', False)
+                tbl.setItem(row, 4, self._color_item(
+                    '✓' if httponly_ok else '✗',
+                    self._SEVERITY_COLORS['OK'] if httponly_ok else self._SEVERITY_COLORS['MEDIUM']
+                ))
+
+                ss = entry.get('samesite', '—')
+                ss_col = (self._SEVERITY_COLORS['OK'] if ss.lower() in ('strict', 'lax')
+                          else self._SEVERITY_COLORS['MEDIUM'] if ss.lower() == 'none'
+                          else self._SEVERITY_COLORS['MEDIUM'] if ss == '—'
+                          else '#BBBBBB')
+                tbl.setItem(row, 5, self._color_item(ss, ss_col))
+
+                typ = '○ Session' if entry.get('is_session') else '· Persistent'
+                tbl.setItem(row, 6, QTableWidgetItem(typ))
+
+                issues = entry.get('issues', [])
+                if issues:
+                    issues_str = '; '.join(f"{i[0]}({i[1]})" for i in issues)
+                    worst_sev  = max((i[1] for i in issues), key=lambda s: {'CRITICAL':4,'HIGH':3,'MEDIUM':2,'LOW':1,'INFO':0}.get(s, 0))
+                    tbl.setItem(row, 7, self._color_item(issues_str, self._SEVERITY_COLORS.get(worst_sev, '#BBBBBB')))
+                else:
+                    tbl.setItem(row, 7, self._color_item('✓ OK', self._SEVERITY_COLORS['OK']))
+
+                # Row tint by worst issue
+                if issues:
+                    worst = max((i[1] for i in issues), key=lambda s: {'CRITICAL':4,'HIGH':3,'MEDIUM':2,'LOW':1}.get(s, 0))
+                    tint = {'HIGH': QColor(80, 30, 10, 40), 'MEDIUM': QColor(80, 70, 0, 30), 'CRITICAL': QColor(100, 0, 0, 50)}.get(worst)
+                    if tint:
+                        for c in range(tbl.columnCount()):
+                            it = tbl.item(row, c)
+                            if it:
+                                it.setBackground(tint)
 
     def _populate_cors_table(self, results: dict):
         """Fill the CORS table.

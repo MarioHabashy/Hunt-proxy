@@ -4,13 +4,9 @@ repeater group send parallel
 
 
 
-** add option remove cash headers
 ** add option in proxy menu to add file URLs to pass throw tool
-** improve analysis cookie tab
 
 
-** fix JS Miner
-** fix localhost testing
 ** fix flow in attack surface tab as cant add POST requests
 
 
@@ -19,7 +15,8 @@ repeater group send parallel
 ** when change anything in intercept cant see these changes in http hsitory tab
 ** improve finding tab to record every thing like burp
 
-
+*d* improve analysis cookie tab
+*d* add option remove cash headers
 *d* add JSON beatufier in all tabs
 *d* fix freeze when search in response 
 *d* add in analysis tab hash and encoding detection tab
@@ -37,6 +34,8 @@ repeater group send parallel
 *d* in tools runner in content bruteforce need to add wordlists for technologies not one wordlist as in tomcate 
     so need to make is dynamically to find them like find ~/SecLists/Discovery | grep -i tomcat .... techns from wad and headers
 *d* fix error in detect tech when bruteforce
+
+
 
 scanner tab :
     need to make interact.sh cli and auto used to detect blind one
