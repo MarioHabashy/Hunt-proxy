@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-intruder_tab.py  –  Burp Suite-style Intruder Tab for Hunt GUI
+intruder_tab.py  –  Fuzzer Tab for Hunt GUI
 
 Attack types:
-  • Sniper       – single payload set, cycles through positions one at a time
-  • Battering Ram – single payload set, inserts same payload into ALL positions
-  • Pitchfork    – multiple payload sets, one per position, parallel iteration
-  • Cluster Bomb – multiple payload sets, cartesian product
+  • Single Position   – single payload set, cycles through positions one at a time
+  • All Positions     – single payload set, inserts same payload into ALL positions
+  • Paired Payloads    – multiple payload sets, one per position, parallel iteration
+  • All Combinations  – multiple payload sets, cartesian product
 
 Payload sources:
   • Simple List (manual or load file)
@@ -16,6 +16,7 @@ Payload sources:
 """
 
 import re
+import bisect
 import ssl
 import json
 import time
@@ -1044,7 +1045,7 @@ class IntruderAttackThread(QThread):
         template: str,
         positions: List[Tuple[int, int]],   # list of (start, end) byte offsets in template
         payload_sets: List[List[str]],
-        attack_type: str = "sniper",
+        attack_type: str = "single_position",
         timeout: int = 10,
         threads: int = 5,
         delay_ms: int = 0,
@@ -1141,7 +1142,7 @@ class IntruderAttackThread(QThread):
         n_pos  = len(self.positions)
         n_sets = len(self.payload_sets)
 
-        if self.attack_type == "sniper":
+        if self.attack_type == "single_position":
             # One payload set; iterate each position independently
             pset = self.payload_sets[0] if self.payload_sets else []
             for pos_i in range(n_pos):
@@ -1150,17 +1151,17 @@ class IntruderAttackThread(QThread):
                     combo[pos_i] = payload
                     yield combo
 
-        elif self.attack_type == "battering_ram":
+        elif self.attack_type == "all_positions":
             pset = self.payload_sets[0] if self.payload_sets else []
             for payload in pset:
                 yield [payload] * n_pos
 
-        elif self.attack_type == "pitchfork":
+        elif self.attack_type == "paired":
             sets = [self.payload_sets[i] if i < n_sets else [] for i in range(n_pos)]
             for combo in zip(*sets):
                 yield list(combo)
 
-        elif self.attack_type == "cluster_bomb":
+        elif self.attack_type == "all_combinations":
             sets = [self.payload_sets[i] if i < n_sets else [""] for i in range(n_pos)]
             for combo in itertools.product(*sets):
                 yield list(combo)
@@ -1659,9 +1660,14 @@ class ResultsTable(QTableWidget):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._context_menu)
 
-    def _insert_row(self, row_data: dict):
-        """Insert a single row at the bottom of the table."""
-        r = self.rowCount()
+    def _insert_row(self, row_data: dict, at: Optional[int] = None):
+        """Insert a single row into the table.
+
+        By default appends at the bottom (at=None). Pass an explicit row
+        index to insert elsewhere, e.g. to keep the table in sorted order
+        while new results are still streaming in from a running attack.
+        """
+        r = self.rowCount() if at is None else at
         self.insertRow(r)
         values = [
             str(row_data.get("#", r+1)),
@@ -1692,10 +1698,25 @@ class ResultsTable(QTableWidget):
             self.setItem(r, col, item)
 
     def add_result(self, row_data: dict):
-        self._results.append(row_data)
-        self._insert_row(row_data)
+        if self._sort_col == -1:
+            # No active sort: fast path, just append at the bottom.
+            self._results.append(row_data)
+            self._insert_row(row_data)
+            if getattr(self, '_auto_scroll', True):
+                self.scrollToBottom()
+            return
+
+        # A column sort is active — insert the new result at the position
+        # that keeps the current sort order intact, both in the backing
+        # list and in the visible table, instead of dropping it unsorted
+        # at the bottom.
+        idx = self._sorted_insert_index(row_data)
+        self._results.insert(idx, row_data)
+        self._insert_row(row_data, at=idx)
         if getattr(self, '_auto_scroll', True):
-            self.scrollToBottom()
+            item = self.item(idx, 0)
+            if item is not None:
+                self.scrollToItem(item)
 
     def _repopulate(self):
         """Clear the table and re-insert all rows from self._results in current order."""
@@ -1710,16 +1731,8 @@ class ResultsTable(QTableWidget):
     # Columns that should be sorted numerically
     _NUMERIC_COLS = {0, 2, 3, 4}
 
-    def _sort_by_column(self, col: int):
-        if self._sort_col == col:
-            self._sort_asc = not self._sort_asc
-        else:
-            self._sort_col = col
-            self._sort_asc = True
-
-        order = Qt.AscendingOrder if self._sort_asc else Qt.DescendingOrder
-        self.horizontalHeader().setSortIndicator(col, order)
-
+    def _sort_key_func(self, col: int):
+        """Return a function that extracts the sort key for column `col` from a result dict."""
         key_name = self._COL_KEYS[col]
         if col in self._NUMERIC_COLS:
             def sort_key(d):
@@ -1730,7 +1743,39 @@ class ResultsTable(QTableWidget):
         else:
             def sort_key(d):
                 return str(d.get(key_name) or "").lower()
+        return sort_key
 
+    def _sorted_insert_index(self, row_data: dict) -> int:
+        """Binary-search the index where row_data belongs in self._results,
+        given the currently active sort column/direction. self._results is
+        assumed to already be in that sorted order."""
+        key_func = self._sort_key_func(self._sort_col)
+        key_val = key_func(row_data)
+        keys = [key_func(d) for d in self._results]
+        if self._sort_asc:
+            return bisect.bisect_right(keys, key_val)
+        # Descending: keys are sorted highest-to-lowest, so walk manually
+        # to find the leftmost slot that preserves that order.
+        lo, hi = 0, len(keys)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if keys[mid] > key_val:
+                lo = mid + 1
+            else:
+                hi = mid
+        return lo
+
+    def _sort_by_column(self, col: int):
+        if self._sort_col == col:
+            self._sort_asc = not self._sort_asc
+        else:
+            self._sort_col = col
+            self._sort_asc = True
+
+        order = Qt.AscendingOrder if self._sort_asc else Qt.DescendingOrder
+        self.horizontalHeader().setSortIndicator(col, order)
+
+        sort_key = self._sort_key_func(col)
         self._results.sort(key=sort_key, reverse=not self._sort_asc)
         self._repopulate()
 
@@ -2098,13 +2143,13 @@ class PositionsHighlighter(QSyntaxHighlighter):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class IntruderTab(QWidget):
-    """Full Burp-style Intruder tab."""
+    """Fuzzer / attack-automation tab (payload positions × payload sets)."""
 
     ATTACK_TYPES = {
-        "Sniper":       "sniper",
-        "Battering Ram":"battering_ram",
-        "Pitchfork":    "pitchfork",
-        "Cluster Bomb": "cluster_bomb",
+        "Single Position":  "single_position",
+        "All Positions":    "all_positions",
+        "Paired Payloads":  "paired",
+        "All Combinations": "all_combinations",
     }
 
     def __init__(self, parent=None):
@@ -2689,8 +2734,8 @@ class IntruderTab(QWidget):
 
     def _sync_payload_panels_count(self, n_positions: int):
         """Add or remove payload panels to match position count."""
-        attack = self.ATTACK_TYPES.get(self.attack_type_combo.currentText(), "sniper")
-        if attack in ("sniper", "battering_ram"):
+        attack = self.ATTACK_TYPES.get(self.attack_type_combo.currentText(), "single_position")
+        if attack in ("single_position", "all_positions"):
             needed = 1
         else:
             needed = max(1, n_positions)
@@ -2713,10 +2758,10 @@ class IntruderTab(QWidget):
 
     def _update_attack_desc(self):
         descs = {
-            "Sniper":        "Single payload set. Each position attacked individually, other positions left unchanged.",
-            "Battering Ram": "Single payload set. Same payload inserted into ALL positions simultaneously.",
-            "Pitchfork":     "Multiple payload sets (one per position). Payloads iterated in parallel.",
-            "Cluster Bomb":  "Multiple payload sets. Every combination tested — positions × payload sets (cartesian product).",
+            "Single Position":  "Single payload set. Each position attacked individually, other positions left unchanged.",
+            "All Positions":    "Single payload set. Same payload inserted into ALL positions simultaneously.",
+            "Paired Payloads":  "Multiple payload sets (one per position). Payloads iterated in parallel.",
+            "All Combinations": "Multiple payload sets. Every combination tested — positions × payload sets (cartesian product).",
         }
         text = self.attack_type_combo.currentText()
         self.atk_desc_label.setText(descs.get(text, ""))
@@ -2750,7 +2795,7 @@ class IntruderTab(QWidget):
         except ValueError:
             port = 443 if self.ssl_check.isChecked() else 80
 
-        attack_type = self.ATTACK_TYPES.get(self.attack_type_combo.currentText(), "sniper")
+        attack_type = self.ATTACK_TYPES.get(self.attack_type_combo.currentText(), "single_position")
 
         self.results_table.clear_results()
         self.result_count_label.setText("0 requests")
@@ -2958,7 +3003,7 @@ class IntruderTab(QWidget):
     def _toggle_auto_scroll(self):
         on = self.auto_scroll_btn.isChecked()
         self.results_table._auto_scroll = on
-        self.auto_scroll_btn.setText(f"\u23ec Auto-Scroll: {'ON' if on else 'OFF'}")
+        self.auto_scroll_btn.setText(f" Auto-Scroll: {'ON' if on else 'OFF'}")
         self.detail_request.clear()
         self.detail_response.clear()
         self._detail_raw_request = ""
