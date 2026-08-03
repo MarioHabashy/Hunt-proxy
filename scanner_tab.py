@@ -227,7 +227,7 @@ def _build_multipart_preview(files: dict, boundary: str = "----ScannerBoundaryPr
     return "\r\n".join(lines)
 
 # ---------------------------------------------------------------------------
-# HackRecon config — used by LFI wordlist loader
+#  config — used by LFI wordlist loader
 # ---------------------------------------------------------------------------
 
 
@@ -373,7 +373,7 @@ _SSTI_EXPLOIT_HINTS: Dict[str, List[str]] = {
 
 def _load_lfi_wordlist() -> List[str]:
     """
-    Load the LFI/Path-Traversal wordlist path from HackRecon.config,
+    Load the LFI/Path-Traversal wordlist path from Hunt-Proxy.config,
     then read and return its payloads as a list of strings.
     Returns an empty list on any error so the caller can handle it gracefully.
     """
@@ -388,14 +388,14 @@ def _load_lfi_wordlist() -> List[str]:
                     wordlist_path = line.split("=", 1)[1].strip().strip("\"'")
                     break
     except FileNotFoundError:
-        logger.warning(f"HackRecon config not found: {_SETTINGS_FILE}")
+        logger.warning(f"Hunt-Proxy config not found: {_SETTINGS_FILE}")
         return []
     except Exception as e:
-        logger.warning(f"Error reading HackRecon config: {e}")
+        logger.warning(f"Error reading Hunt-Proxy config: {e}")
         return []
 
     if not wordlist_path:
-        logger.warning("lfi_wordlist key not found in HackRecon config")
+        logger.warning("lfi_wordlist key not found in Hunt-Proxy config")
         return []
 
     wordlist_path = os.path.expanduser(wordlist_path)
@@ -3038,7 +3038,7 @@ class ScannerTab(QWidget):
         self.lfi_checkbox.setChecked(False)
         self.lfi_checkbox.setToolTip(
             "Local File Inclusion / Path Traversal scan\n"
-            "Requires lfi_wordlist= in HackRecon.config"
+            "Requires lfi_wordlist= in Hunt-Proxy.config"
         )
         row2.addWidget(self.lfi_checkbox)
 
