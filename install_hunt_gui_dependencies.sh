@@ -376,7 +376,7 @@ EOF
 }
 
 main() {
-  log "Bootstrapping Hunt GUI dependencies on Linux"
+  log "Bootstrapping Hunt-Proxy GUI dependencies on Linux"
   install_apt_packages
   ensure_python3_available
   install_go_if_needed

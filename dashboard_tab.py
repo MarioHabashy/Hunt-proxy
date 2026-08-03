@@ -5879,7 +5879,7 @@ class DashboardTab(QWidget):
         if hasattr(parent, "_project_paths") and parent._project_paths:
             self.project_dir = parent._project_paths.get("project_dir")
         if not self.project_dir:
-            self.project_dir = os.path.expanduser("~/hackrecon_projects/default")
+            self.project_dir = os.path.expanduser("~/hunt_projects/default")
             os.makedirs(self.project_dir, exist_ok=True)
 
         # Current scope context

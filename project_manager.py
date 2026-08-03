@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-project_manager.py - Persistent project storage for HackRecon Hunt GUI
+project_manager.py - Persistent project storage for Hunt-Proxy GUI
 
-Stores everything under ~/hackrecon_projects/<program_slug>/
+Stores everything under ~/hunt_projects/<program_slug>/
 Structure:
-    ~/hackrecon_projects/
+    ~/hunt_projects/
         projects.json           <- index of all programs
         <program_slug>/
             project.json        <- program meta + domains + subdomains
@@ -41,8 +41,8 @@ from typing import Dict, List, Optional, Any
 # Paths
 # ─────────────────────────────────────────────────────────────────────────────
 
-HACKRECON_DIR = os.path.expanduser("~/hackrecon_projects")
-PROJECTS_INDEX = os.path.join(HACKRECON_DIR, "projects.json")
+HUNT_OUT_DIR = os.path.expanduser("~/hunt_projects")
+PROJECTS_INDEX = os.path.join(HUNT_OUT_DIR, "projects.json")
 
 
 def _ensure_dir(path: str):
@@ -62,7 +62,7 @@ def _slug(name: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _load_index() -> Dict[str, Any]:
-    _ensure_dir(HACKRECON_DIR)
+    _ensure_dir(HUNT_OUT_DIR)
     if os.path.exists(PROJECTS_INDEX):
         try:
             with open(PROJECTS_INDEX, "r", encoding="utf-8") as f:
@@ -73,7 +73,7 @@ def _load_index() -> Dict[str, Any]:
 
 
 def _save_index(index: Dict[str, Any]):
-    _ensure_dir(HACKRECON_DIR)
+    _ensure_dir(HUNT_OUT_DIR)
     with open(PROJECTS_INDEX, "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2)
 
@@ -109,7 +109,7 @@ def create_program(name: str, platform: str = "", platform_url: str = "") -> str
     if slug in index.get("programs", {}):
         raise ValueError(f"Program '{name}' already exists (slug: {slug})")
 
-    project_dir = os.path.join(HACKRECON_DIR, slug)
+    project_dir = os.path.join(HUNT_OUT_DIR, slug)
     _ensure_dir(project_dir)
     _ensure_dir(os.path.join(project_dir, "requests"))
     _ensure_dir(os.path.join(project_dir, "responses"))
@@ -142,7 +142,7 @@ def delete_program(slug: str, delete_data: bool = False):
     _save_index(index)
 
     if delete_data:
-        project_dir = os.path.join(HACKRECON_DIR, slug)
+        project_dir = os.path.join(HUNT_OUT_DIR, slug)
         if os.path.exists(project_dir):
             shutil.rmtree(project_dir)
 
@@ -304,7 +304,7 @@ def bulk_add_subdomains(slug: str, domain: str, subdomains: List[str]):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _scope_rules_path(slug: str) -> str:
-    return os.path.join(HACKRECON_DIR, slug, "scope_rules.json")
+    return os.path.join(HUNT_OUT_DIR, slug, "scope_rules.json")
 
 
 def load_scope_rules(slug: str) -> List[Dict[str, Any]]:
@@ -544,7 +544,7 @@ def is_host_in_scope(slug: str, host: str, scheme: str = "http", port: str = "")
 
 def get_project_paths(slug: str) -> Dict[str, str]:
     """Return all important paths for a project."""
-    project_dir = os.path.join(HACKRECON_DIR, slug)
+    project_dir = os.path.join(HUNT_OUT_DIR, slug)
     return {
         "project_dir": project_dir,
         "jsonl": os.path.join(project_dir, "hunt.jsonl"),
@@ -634,7 +634,7 @@ def extract_parent_domain(host: str, registered_domains: List[str]) -> Optional[
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _project_path(slug: str) -> str:
-    return os.path.join(HACKRECON_DIR, slug, "project.json")
+    return os.path.join(HUNT_OUT_DIR, slug, "project.json")
 
 
 def _write_project(slug: str, data: Dict[str, Any]):

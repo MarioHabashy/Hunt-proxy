@@ -84,8 +84,6 @@ def _coerce_model(provider: str, model: str) -> str:
 def _resolve_api_key(settings: dict, provider: str) -> str:
     """
     Return the API key for *provider*, preferring OS keyring over plain settings dict.
-    Store a key securely with:
-        keyring.set_password("HackRecon", "openai_api_key", "<key>")
     Falls back gracefully when keyring is not installed.
     """
     if _KEYRING_AVAILABLE:

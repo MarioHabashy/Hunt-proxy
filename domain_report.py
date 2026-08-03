@@ -1016,14 +1016,14 @@ def generate(domain: str, project_dir: str,
 <head>
 <meta charset="UTF-8">
 <meta name="dashboard-storage-prefix" content="{_h(storage_prefix)}">
-<title>Hackrecon Reconnaissance Dashboard - {_h(domain)}</title>
+<title>Hunt-Proxy Reconnaissance Dashboard - {_h(domain)}</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>{CSS}</style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1><i class="fas fa-crosshairs"></i> HACKRECON RECONNAISSANCE DASHBOARD</h1>
+    <h1><i class="fas fa-crosshairs"></i> HUNT-PROXY RECONNAISSANCE DASHBOARD</h1>
     <div class="domain">{_h(domain)}</div>
     <div style="margin-top:10px;color:var(--text-secondary);font-size:.9em">Generated on {now}</div>
   </div>
