@@ -553,7 +553,7 @@ class _SizeItem(QTableWidgetItem):
 
 
 class InspectorSection(QWidget):
-    """Collapsible section widget for the Inspector panel (Burp Suite Inspector style)."""
+    """Collapsible section widget for the Inspector panel."""
 
     def __init__(self, title: str, parent=None):
         super().__init__(parent)

@@ -2,25 +2,6 @@
 jwt_tab.py  –  JWT Analyzer & Attack Lab
 =========================================
 A professional JWT testing tab for web application pentesting.
-
-Layout (horizontal split):
-  ┌──────────────────────────────┬────────────────────────────────────┐
-  │  LEFT PANEL                  │  RIGHT PANEL                       │
-  │  ┌────────────────────────┐  │  ┌──────────────────────────────┐ │
-  │  │  HTTP Request (raw)    │  │  │  🔑 JWT Decoder              │ │
-  │  │  [Parse JWT]  [Send]   │  │  │  Header / Payload / Sig      │ │
-  │  └────────────────────────┘  │  └──────────────────────────────┘ │
-  │  ┌────────────────────────┐  │  ┌──────────────────────────────┐ │
-  │  │  🎯 Attack Config      │  │  │  [RES] Attack Results           │ │
-  │  │  [x] alg:none/false    │  │  │  table of forged tokens      │ │
-  │  │  [x] RS256→HS256       │  │  └──────────────────────────────┘ │
-  │  │  [x] Weak secret BF    │  │  ┌──────────────────────────────┐ │
-  │  │  [x] jku/x5u inject    │  │  │  ✏️ Token Editor / Preview   │ │
-  │  │  [x] kid SQLi/traversal│  │  └──────────────────────────────┘ │
-  │  │  [x] Claim tampering   │  │                                    │
-  │  │  [Run All] [Run Sel.]  │  │                                    │
-  │  └────────────────────────┘  │                                    │
-  └──────────────────────────────┴────────────────────────────────────┘
 """
 
 from __future__ import annotations

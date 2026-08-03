@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-scope_tab.py  –  Burp Suite-style Target Scope management tab
+scope_tab.py - Target Scope management tab
 
 Features:
-  • Burp-style Include / Exclude scope rules table  (protocol · host · all subdomains · port · comment)
+  • Include / Exclude scope rules table  (protocol · host · all subdomains · port · comment)
   • Each rule has: Enabled checkbox, Type (Include/Exclude), Protocol, Host, ☑ All Subdomains, Port, Comment
   • Add domain or subdomain via one combined input with "Include all subdomains" checkbox
   • Domain / Subdomain lists auto-updated from scope rules
   • "Set as Target" button to focus scope for proxy / dashboard
   • Proxy auto-restart on any scope change
-  • Signals so HuntBurpGUI can react when scope changes
+  • Signals so HuntGUI can react when scope changes
 """
 
 import os
@@ -315,12 +315,12 @@ class BulkSubdomainDialog(QDialog):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Add Scope Entry dialog (Burp-style)
+# Add Scope Entry dialog
 # ─────────────────────────────────────────────────────────────────────────────
 
 class AddScopeEntryDialog(QDialog):
     """
-    Burp Suite-style dialog for adding a scope entry.
+    Dialog for adding a scope entry.
     Supports: protocol, host (with optional wildcard), all-subdomains checkbox, port.
     """
 
@@ -458,7 +458,7 @@ COLUMN_WIDTHS  = [30, 80, 80, 250, 70, 60, 200]
 
 class ScopeRulesTable(QTableWidget):
     """
-    Burp-style scope rules table.
+    Scope rules table.
     Shows include (green) and exclude (red) rules.
     """
     rule_changed = pyqtSignal()
@@ -665,9 +665,9 @@ class ScopeRulesTable(QTableWidget):
 
 class ScopeTab(QWidget):
     """
-    Burp Suite-style scope management tab.
+    Scope management tab.
 
-    Left side: Burp-style scope rules table (Include + Exclude sections)
+    Left side: Scope rules table (Include + Exclude sections)
     Right side: Domain + Subdomain lists derived from project data
 
     Emits `scope_changed(slug, domain, subdomain)` when the user sets a specific
@@ -733,7 +733,7 @@ class ScopeTab(QWidget):
             f"QSplitter::handle:hover {{ background-color: {COLOR_ACCENT}; }}"
         )
 
-        # Left: Scope Rules (Burp-style)
+        # Left: Scope Rules 
         splitter.addWidget(self._build_scope_rules_panel())
 
         # Right: Domains + Subdomains lists
@@ -743,7 +743,7 @@ class ScopeTab(QWidget):
         root.addWidget(splitter, stretch=1)
 
     def _build_scope_rules_panel(self) -> QWidget:
-        """Left panel: Burp-like Include/Exclude rules table."""
+        """Left panel: Include/Exclude rules table."""
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 4, 0)

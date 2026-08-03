@@ -3,7 +3,7 @@
 hunt_addon.py – mitmproxy addon for Hunt GUI
 
 Enhanced scope checking:
-  - Reads HUNT_SCOPE_RULES_FILE (JSON) with Burp-style include/exclude rules
+  - Reads HUNT_SCOPE_RULES_FILE (JSON) with include/exclude rules
   - Falls back to HUNT_SCOPE_HOSTS (simple JSON list) if no rules file
   - Supports wildcard hosts (*.example.com), all_subdomains flag, protocol/port filtering
   - Auto-reloads scope rules file when it changes on disk (no proxy restart needed for scope edits)
@@ -76,7 +76,7 @@ def _port_matches(port_str: str, rule_port: str) -> bool:
 def check_scope_rules(rules: List[Dict[str, Any]], host: str,
                       scheme: str = "http", port: str = "") -> bool:
     """
-    Burp-style scope check using a list of include/exclude rules.
+    Scope check using a list of include/exclude rules.
     Returns True if host is in scope.
     """
     if not rules:
@@ -121,7 +121,7 @@ class HuntProxyAddon:
     Mitmproxy addon that:
       1. Captures all in-scope HTTP traffic → JSONL + request/response files
       2. Optionally intercepts (pauses) flows for GUI editing/dropping
-      3. Uses Burp-style scope rules (include/exclude) from scope_rules.json
+      3. Uses include/exclude scope rules from scope_rules.json
       4. Auto-reloads scope rules when the file changes (no proxy restart needed)
     """
 
@@ -188,7 +188,7 @@ class HuntProxyAddon:
         self.proxy_rules_file       = os.environ.get("HUNT_PROXY_RULES",         "")
         self.scope_rules_file       = os.environ.get("HUNT_SCOPE_RULES_FILE",    "")
 
-        # Load Burp-style scope rules from file
+        # Load include/exclude scope rules from file
         self._load_scope_rules()
 
         # Legacy fallback: HUNT_SCOPE_HOSTS env var
@@ -322,7 +322,7 @@ class HuntProxyAddon:
 
     def _in_scope(self, host: str, scheme: str = "http", port: str = "") -> bool:
         """
-        Burp-style scope check.
+        Scope check using include/exclude rules.
         Uses loaded scope_rules (include/exclude).
         Falls back to legacy scope_hosts list if no rules defined.
         """

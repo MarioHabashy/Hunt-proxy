@@ -8,8 +8,6 @@ Sources:
   • nomore403    (devploit)         verb tampering, case, headers, path tricks,
                                     double-encoding, HTTP versions, mid-paths
   • byp4xx       (lobuhi)           UA rotation, extensions, default credentials
-  • BurpSuite_403Bypasser (sting8k) URL-encoded mid-paths, extra header set
-
 Phases
 ------
   0  Baseline

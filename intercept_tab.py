@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-intercept_tab.py  –  Burp-style intercept tab for Hunt GUI
+intercept_tab.py  
 
 Architecture:
   • HuntProxyAddon   – a mitmproxy Addon class that runs INSIDE mitmdump as
@@ -89,7 +89,7 @@ INTERCEPT_QUEUE_FILE = None   # set at runtime: <project_dir>/intercept_queue.js
 INTERCEPT_ACTIONS_DIR = None  # set at runtime: <project_dir>/intercept_actions/
 INTERCEPT_ENABLED_FILE = None # set at runtime: <project_dir>/intercept_enabled
 
-MAX_PENDING = 1               # Only hold 1 flow at a time (Burp default)
+MAX_PENDING = 1               # Only hold 1 flow at a time 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -771,7 +771,6 @@ class ToggleSwitch(QCheckBox):
 
 class InterceptTab(QWidget):
     """
-    Burp-like Intercept tab.
     Shows intercepted flows one at a time; user can edit then Forward or Drop.
     """
 
@@ -1230,7 +1229,6 @@ class InterceptTab(QWidget):
         # Responses are inserted at the FRONT of the pending queue so they
         # surface immediately after the current flow is forwarded — instead of
         # being buried behind a backlog of pending requests.
-        # This mirrors Burp-style behaviour: Request → Response → Next request.
         if flow_type == "response" and self._pending_flows:
             self._pending_flows.insert(0, entry)
             self._add_queue_row(entry, insert_at=0)

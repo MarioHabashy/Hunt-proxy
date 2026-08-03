@@ -3507,7 +3507,7 @@ class BypassTab(QWidget):
 
 def add_bypass_tab(parent):
     """
-    Call in HuntBurpGUI._setup_tabs() after JS Miner, before API Keys:
+    Call in HuntGUI._setup_tabs() after JS Miner, before API Keys:
 
         from bypass_tab import add_bypass_tab
         add_bypass_tab(self)

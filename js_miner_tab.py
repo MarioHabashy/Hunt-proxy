@@ -1876,7 +1876,7 @@ class JSMinerTab(QWidget):
                           "Test with encoded payloads", "Check CSP bypass opportunities"],
             "REDIRECT":  ["Test with: //evil.com", "Try URL-encoded variants",
                           "Check if victim needs to be logged in"],
-            "WEBSOCKET": ["Intercept with Burp WebSocket tab",
+            "WEBSOCKET": ["Intercept with WebSocket tab",
                           "Test Cross-Site WebSocket Hijacking (CSWSH)",
                           "Check if auth token in URL or header"],
             "CORS":      ["Test with: Origin: https://evil.com",

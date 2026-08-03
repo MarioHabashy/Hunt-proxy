@@ -13,7 +13,7 @@ Covers all PortSwigger + SSRFmap SSRF attack categories:
                 enclosed-alphanumeric Unicode, HTTPS bypass, IPv6 port forms,
                 backslash-@ weak-parser payloads, URL-path encoding /%61dmin)
   Phase 4  — Whitelist-bypass URL confusion payloads
-  Phase 6  — Blind SSRF via OOB (interactsh / Burp Collaborator)
+  Phase 6  — Blind SSRF via OOB (interactsh / Collaborator)
   Phase 7  — Referer header SSRF
   Phase 8  — Smart value-aware injection
               (param already contains a URL / IP → Intruder-style subnet +
@@ -1376,7 +1376,7 @@ class SsrfScanMixin:
         oast_url: str = "",
     ) -> None:
         """
-        Inject an interactsh / Burp Collaborator URL to detect blind SSRF.
+        Inject an interactsh / Collaborator URL to detect blind SSRF.
         A DNS lookup or HTTP callback to oast_url confirms out-of-band interaction.
 
         Note: we cannot detect the callback ourselves — we record the payload

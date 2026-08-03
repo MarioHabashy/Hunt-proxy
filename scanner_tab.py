@@ -234,7 +234,7 @@ def _build_multipart_preview(files: dict, boundary: str = "----ScannerBoundaryPr
 def _format_request(entry: 'TrafficEntry') -> str:
     """
     Render a TrafficEntry as a raw HTTP/1.1 request string — exactly the
-    format Burp Repeater expects, so users can copy-paste directly.
+    format Repeater expects, so users can copy-paste directly.
 
         POST /path HTTP/1.1
         Host: example.com
@@ -3089,7 +3089,7 @@ class ScannerTab(QWidget):
             "Phase 3 : Blacklist-bypass obfuscation (decimal, octal, hex, ...)\n"
             "Phase 4 : Whitelist-bypass URL confusion (@ trick, # fragment, ...)\n"
             "Phase 5 : Open-redirect chaining\n"
-            "Phase 6 : Blind SSRF via OOB (interactsh / Burp Collaborator)\n"
+            "Phase 6 : Blind SSRF via OOB (interactsh / Collaborator)\n"
             "Phase 7 : Referer header SSRF\n"
             "Phase 8 : Smart value-aware sweep\n"
             "          (subnet + port scan + path fuzz + protocol swap)\n"
@@ -3713,8 +3713,7 @@ class ScannerTab(QWidget):
         document.getElementById('sc').innerHTML =
           '<span class="err">❌ ' + e.message + '</span>';
         document.getElementById('resp').textContent =
-          'Note: CORS may block cross-origin fetch responses in the browser.\\n' +
-          'Use the Copy URL / right-click menu to send via Burp instead.';
+          'Note: CORS may block cross-origin fetch responses in the browser.'
       }}
     }}
     send();
@@ -3759,7 +3758,7 @@ class ScannerTab(QWidget):
 
         entry = self.traffic_entries[row]
 
-        # Raw HTTP request — Burp-compatible, no decorators
+        # Raw HTTP request 
         self.request_text.setPlainText(_format_request(entry))
         self.response_text.setPlainText(_format_response(entry))
 

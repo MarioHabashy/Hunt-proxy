@@ -2849,14 +2849,14 @@ class _CustomPayloadsDialog(QDialog):
 # Main window
 # ─────────────────────────────────────────────────────────────────────────────
 
-class HuntBurpGUI(
+class HuntGUI(
     QMainWindow,
     HTTPHistoryTab,
     DecoderTab,
     PayloadsTab,
     ComparerTab,
 ):
-    """Main application window – Burp Suite style, now fully standalone."""
+    """Main application window – fully standalone."""
 
     def __init__(self, project_slug: str = "", project_domain: str = "",
                  project_subdomain: str = ""):
@@ -3477,8 +3477,7 @@ class HuntBurpGUI(
         self._update_banner()
         self._update_notes_scope_domains()  # re-colour scope URLs in notes
 
-        # With Burp-style scope rules, the proxy addon auto-reloads scope_rules.json
-        # via its file watcher — so we DON'T need a full proxy restart on every scope change.
+        # Scope rules are auto-reloaded by the addon        # via its file watcher — so we DON'T need a full proxy restart on every scope change.
         # We only restart if the proxy isn't running yet, or if HUNT_SCOPE_RULES_FILE wasn't
         # passed (i.e., the proxy was started without the rules file env var).
         if self.proxy_running:
@@ -4120,7 +4119,7 @@ class HuntBurpGUI(
         )
         env["HUNT_SCOPE_HOSTS"] = json.dumps(scope_hosts)
 
-        # Burp-style scope rules file (preferred — auto-reloaded by addon without proxy restart)
+        # Scope rules file (preferred — auto-reloaded by addon without proxy restart)
         if self._project_paths:
             scope_rules_file = pm.get_project_paths(self._project_slug).get("scope_rules_file", "")
             if scope_rules_file:
@@ -4811,11 +4810,11 @@ class HuntBurpGUI(
 
 
     def apply_dark_theme(self):
-        """Apply Burp Suite inspired dark theme"""
+        """Apply inspired dark theme"""
         self.setStyleSheet(
             f"""
             /* ========================================
-            MAIN WINDOW - Burp Suite Inspired
+            MAIN WINDOW 
             ======================================== */
             QMainWindow {{
                 background-color: {COLOR_BACKGROUND};
@@ -4832,7 +4831,7 @@ class HuntBurpGUI(
             }}
             
             /* ========================================
-            TAB WIDGET - Professional Burp Style
+            TAB WIDGET 
             ======================================== */
             QTabWidget::pane {{
                 border: 1px solid {COLOR_BORDER};
@@ -4879,7 +4878,7 @@ class HuntBurpGUI(
             }}
             
             /* ========================================
-            TABLE WIDGET - Burp Grid Style
+            TABLE WIDGET 
             ======================================== */
             QTableWidget {{
                 background-color: {COLOR_DARK_BG};
@@ -4912,7 +4911,7 @@ class HuntBurpGUI(
             }}
             
             /* ========================================
-            HEADER VIEW - Burp Header Style
+            HEADER VIEW 
             ======================================== */
             QHeaderView::section {{
                 background-color: {COLOR_ELEVATED_BG};
@@ -4979,7 +4978,7 @@ class HuntBurpGUI(
             }}
             
             /* ========================================
-            PUSH BUTTON - Burp Button Style
+            PUSH BUTTON 
             ======================================== */
             QPushButton {{
                 background-color: {COLOR_ELEVATED_BG};
@@ -5069,7 +5068,7 @@ class HuntBurpGUI(
             }}
             
             /* ========================================
-            TREE WIDGET - Burp Tree Style
+            TREE WIDGET 
             ======================================== */
             QTreeWidget {{
                 background-color: {COLOR_DARK_BG};
@@ -7352,7 +7351,7 @@ class HuntBurpGUI(
         # Info label
         info_label = QLabel(
             "• Proxy will auto-restart to make changes will take effect.\n\n"
-            "• Upstream proxy is typically Burp Suite (127.0.0.1:8080)\n"
+            "• Upstream proxy is typically (127.0.0.1:8080)\n"
             "• The script file should be the mitmproxy addon script (e.g., hunt_script.py)"
         )
         info_label.setWordWrap(True)
@@ -7940,7 +7939,7 @@ def main():
     )
     app.processEvents()
 
-    window = HuntBurpGUI(project_slug=slug)
+    window = HuntGUI(project_slug=slug)
 
     # Make the window fully painted before dismissing the splash
     window.show()

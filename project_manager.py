@@ -8,7 +8,7 @@ Structure:
         projects.json           <- index of all programs
         <program_slug>/
             project.json        <- program meta + domains + subdomains
-            scope_rules.json    <- Burp-style include/exclude scope rules
+            scope_rules.json    <- include/exclude scope rules
             hunt.jsonl          <- captured traffic
             requests/           <- raw request files
             responses/          <- raw response files
@@ -300,7 +300,7 @@ def bulk_add_subdomains(slug: str, domain: str, subdomains: List[str]):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Burp-Style Scope Rules
+#  Scope Rules
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _scope_rules_path(slug: str) -> str:
@@ -476,7 +476,7 @@ def _port_matches(port: str, rule_port: str) -> bool:
 
 def is_in_scope(slug: str, url: str) -> bool:
     """
-    Burp-style scope check: a URL is in scope if:
+    Scope check: a URL is in scope if:
       1. At least one INCLUDE rule matches
       2. No EXCLUDE rule matches
     If no include rules exist at all, everything is in scope (capture all).

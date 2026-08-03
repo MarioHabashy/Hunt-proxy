@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-repeater_tab.py  –  Burp Suite-style Repeater Tab for Hunt GUI
+repeater_tab.py 
 Enhanced with true parallel race condition testing and professional tab naming
 """
 
@@ -1829,7 +1829,6 @@ class _JWTAttackDialog(QDialog):
                 return
 
         # Normalise: strip leading/trailing whitespace then add exactly one
-        # trailing newline so the output matches Burp's "Copy Public Key as PEM".
         pem = pem.strip() + "\n"
         # Base64-encode the raw PEM bytes → this is the symmetric-key k value.
         # Decoding k later gives the same bytes used as the HMAC-SHA256 secret.
@@ -6615,7 +6614,7 @@ class RepeaterInstance(QWidget):
         # ── algorithm confusion ───────────────────────────────────────────
         elif attack_name == "RS256→HS256 (pubkey as secret)":
             # Keep as-is (with trailing newline) so the secret bytes match
-            # base64-decode(k) exactly — identical to Burp JWT Editor behaviour.
+            # base64-decode(k) exactly 
             pub_key = extra_params.get('pubkey', '')
             if not pub_key.strip():
                 self.status_bar.setText("⚠ RS256→HS256: no public key provided")
@@ -9365,7 +9364,7 @@ class GroupSendThread(QThread):
 
 class RepeaterTab(QWidget):
     """
-    Burp-style Repeater with inline group headers in the tab bar.
+    Repeater with inline group headers in the tab bar.
 
     All tabs live in one flat QTabWidget:
       [ 📁 Group 1 ] [ Tab 1 ] [ Tab 2 ] [ ＋ ] [ 📁 Group 2 ] [ Tab 3 ] …
@@ -9506,7 +9505,7 @@ class RepeaterTab(QWidget):
         return _GROUP_COLORS[color_idx % len(_GROUP_COLORS)]
 
     def _apply_group_header_style(self, tab_idx: int, color_idx: int, name: str):
-        """Style the tab at tab_idx as a group header with Burp-style colored background."""
+        """Style the tab at tab_idx as a group header with colored background."""
         bg, fg = self._color_for_group(color_idx)
         bar = self.tabs.tabBar()
         bar.setTabText(tab_idx, f"⬡ {name}")
@@ -10171,7 +10170,7 @@ class WSSendThread(QThread):
 
 class WSRepeaterInstance(QWidget):
     """
-    Burp-style WS repeater pane – lives as a proper tab inside RepeaterTab.
+    WS repeater pane – lives as a proper tab inside RepeaterTab.
 
     ┌─ URL ─────────────────────────────────────────────────────────────────┐
     ├─ Headers ─────────────────────────────────────────────────────────────┤

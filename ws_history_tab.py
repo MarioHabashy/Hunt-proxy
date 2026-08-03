@@ -2,7 +2,7 @@
 ws_history_tab.py – WebSocket History Tab for Hunt GUI
 
 Monitors a JSONL file written by hunt_addon.py (websocket_message hook) and
-displays every captured WebSocket message in a Burp-style table.
+displays every captured WebSocket message in a table.
 
 Layout:
   ┌─ toolbar ─────────────────────────────────────────────────────────────────┐
@@ -152,7 +152,7 @@ class WSHistoryTab(QWidget):
     WebSocket History tab.
 
     Automatically starts/stops monitoring based on the path set via
-    set_ws_jsonl_path().  The parent (HuntBurpGUI) calls this method
+    set_ws_jsonl_path().  The parent (HuntGUI) calls this method
     after building proxy env vars so the path is always project-specific.
     """
 

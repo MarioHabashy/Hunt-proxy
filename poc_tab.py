@@ -10504,7 +10504,7 @@ Port:       {info.port}
 
 def add_poc_tab(parent):
     """
-    Call in HuntBurpGUI._setup_tabs() after Bypass tab, before API Keys:
+    Call in HuntGUI._setup_tabs() after Bypass tab, before API Keys:
 
         from poc_tab import add_poc_tab
         add_poc_tab(self)

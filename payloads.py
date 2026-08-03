@@ -3856,11 +3856,7 @@ ws.onmessage = function(e){console.log(e.data);}
 Close:
 ws.close();
 
-TOOLS:
-- Burp Suite (WebSocket History)
-- WS-Attacker
-- wscat
-- websocat"""
+"""
 
 
 def generate_api_security():
@@ -4344,11 +4340,6 @@ Common patterns:
 
 TOOLS:
 
-Burp Suite:
-- Intercept request
-- Add parameters
-- Forward
-
 Param Miner:
 - Discover hidden parameters
 - Test mass assignment
@@ -4404,12 +4395,6 @@ Password reset:
 3. Request reset again simultaneously
 4. Both tokens valid
 
-EXPLOITATION:
-
-Burp Suite:
-1. Send to Repeater
-2. Create 20 tabs (Ctrl+D)
-3. Send group in parallel
 
 Python script:
 import requests

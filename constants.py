@@ -45,7 +45,7 @@ PRETTIFY_SIZE_LIMIT = 50000
 MAX_ACTIVITY_LOG_LINES = 10000
 
 # ============================================================================
-# COLOR PALETTE - Burp Suite Style
+# COLOR PALETTE 
 # ============================================================================
 
 # Ultra-Premium Color Palette (Maximum Clarity & Professionalism)
@@ -57,23 +57,23 @@ COLOR_URL_BASE_SELECTED = "#00D9FF"  # Bright cyan for base URL (selected)
 COLOR_URL_PARAM = "#6A8759"  # Green for parameters (normal)
 COLOR_URL_PARAM_SELECTED = "#FFD700"  # Gold for parameters (selected)
 
-# Premium UI Colors (Burp Suite Dark Theme Inspired)
-COLOR_BACKGROUND = "#2B2B2B"  # Burp's main background
+# Premium UI Colors 
+COLOR_BACKGROUND = "#2B2B2B"  # main background
 COLOR_DARK_BG = "#1E1E1E"  # Darker panels
 COLOR_DARKER_BG = "#1A1A1A"  # Even darker panels
 COLOR_LIGHTER_BG = "#323232"  # Elevated surfaces
 COLOR_CARD_BG = "#252525"  # Card backgrounds
 COLOR_ELEVATED_BG = "#2D2D2D"  # Elevated elements
-COLOR_BORDER = "#3C3F41"  # Burp's border color
+COLOR_BORDER = "#3C3F41"  # border color
 COLOR_BORDER_BRIGHT = "#4E5254"  # Brighter border
-COLOR_TEXT = "#BBBBBB"  # Burp's primary text
+COLOR_TEXT = "#BBBBBB"  # primary text
 COLOR_TEXT_BRIGHT = "#FFFFFF"  # Pure White
 COLOR_TEXT_MUTED = "#888888"  # Muted text
-COLOR_ACCENT = "#6A8759"  # Burp's green accent
+COLOR_ACCENT = "#6A8759"  # green accent
 COLOR_ACCENT_SECONDARY = "#9876AA"  # Purple accent (like in Intruder)
 COLOR_HOVER = "#3C3F41"  # Hover state
 
-# Burp-style Severity Colors
+# Severity Colors
 COLOR_CRITICAL = "#FF6B6B"  # Red for critical
 COLOR_HIGH = "#FFA726"  # Orange for high
 COLOR_MEDIUM = "#FFEE58"  # Yellow for medium
@@ -81,7 +81,7 @@ COLOR_LOW = "#64B5F6"  # Blue for low
 COLOR_INFO = "#81C784"  # Green for info
 COLOR_WARNING = "#ce9178"
 
-# Severity Backgrounds with Burp's subtle transparency
+# Severity Backgrounds with subtle transparency
 COLOR_CRITICAL_BG = "rgba(255, 107, 107, 0.15)"
 COLOR_HIGH_BG = "rgba(255, 167, 38, 0.15)"
 COLOR_MEDIUM_BG = "rgba(255, 238, 88, 0.15)"
@@ -169,7 +169,7 @@ class SitemapIcons:
     HAS_PARAMS = "?"  # Question mark for params
     HAS_ISSUES = "!"  # Exclamation for issues
     
-    # HTTP method colors (Burp Suite style)
+    # HTTP method colors 
     METHOD_COLORS = {
         "GET": COLOR_SUCCESS,      # Green
         "POST": COLOR_MEDIUM,      # Yellow/Orange
