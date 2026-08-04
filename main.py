@@ -14,6 +14,7 @@ import subprocess
 import signal
 import queue
 import atexit
+import shutil
 from datetime import datetime
 from collections import deque
 from typing import Dict, Any, List, Set, Tuple, Optional
@@ -2844,6 +2845,422 @@ class _CustomPayloadsDialog(QDialog):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Install Tools Dialog
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Each entry:
+#   name        - display name / key
+#   commands    - list of shell command strings, run in order inside `tools_dir`
+#   check_bins  - binary names checked with `shutil.which()`
+#   check_dirs  - sub-directory names checked inside `tools_dir`
+#   check_files - file names checked directly inside `tools_dir`
+#
+# NOTE: the "wpscan" and "linkfinder.py" entries in the original request text
+# were garbled/unusable, so their standard, commonly-used install commands are
+# used here instead.
+TOOLS_CATALOG = [
+    {"name": "curl", "commands": ["sudo apt install -y curl"],
+     "check_bins": ["curl"]},
+    {"name": "ipinfo", "commands": [
+        "curl -Ls https://github.com/ipinfo/cli/releases/download/ipinfo-3.3.2/deb.sh | sh"],
+     "check_bins": ["ipinfo"]},
+    {"name": "wad", "commands": ["pip3 install wad --break-system-packages"],
+     "check_bins": ["wad"]},
+    {"name": "wafw00f", "commands": ["pip3 install wafw00f --break-system-packages"],
+     "check_bins": ["wafw00f"]},
+    {"name": "cmseek", "commands": ["sudo apt install -y cmseek"],
+     "check_bins": ["cmseek"]},
+    {"name": "nmap", "commands": ["sudo apt install -y nmap"],
+     "check_bins": ["nmap"]},
+    {"name": "waybackurls", "commands": ["go install github.com/tomnomnom/waybackurls@latest"],
+     "check_bins": ["waybackurls"]},
+    {"name": "waymore", "commands": ["pip3 install waymore --break-system-packages"],
+     "check_bins": ["waymore"]},
+    {"name": "gau", "commands": ["go install github.com/bp0lr/gauplus@latest"],
+     "check_bins": ["gau"]},
+    {"name": "gauplus", "commands": ["go install github.com/bp0lr/gauplus@latest"],
+     "check_bins": ["gauplus"]},
+    {"name": "github-endpoints", "commands": ["go install github.com/gwen001/github-endpoints@latest"],
+     "check_bins": ["github-endpoints"]},
+    {"name": "httpx", "commands": ["go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest"],
+     "check_bins": ["httpx"]},
+    {"name": "wordlists", "commands": [
+        "git clone https://github.com/MarioHabashy/Wordlists.git"],
+     "check_dirs": ["Wordlists"]},
+    {"name": "seclists", "commands": [
+        "git clone --depth 1 https://github.com/danielmiessler/SecLists.git"],
+     "check_dirs": ["SecLists"]},
+    {"name": "feroxbuster", "commands": [
+        "wget -O feroxbuster_2.13.1-0kali3_amd64.deb "
+        "https://kali.download/kali/pool/main/f/feroxbuster/feroxbuster_2.13.1-0kali3_amd64.deb",
+        "sudo apt install -y ./feroxbuster_2.13.1-0kali3_amd64.deb"],
+     "check_bins": ["feroxbuster"]},
+    {"name": "nuclei", "commands": ["go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"],
+     "check_bins": ["nuclei"]},
+    {"name": "nikto", "commands": ["sudo apt install -y nikto"],
+     "check_bins": ["nikto"]},
+    {"name": "wpscan", "commands": ["sudo apt install -y wpscan"],
+     "check_bins": ["wpscan"]},
+    {"name": "joomscan", "commands": ["git clone https://github.com/rezasp/joomscan.git"],
+     "check_bins": ["joomscan"]},
+    {"name": "droopescan", "commands": ["pip3 install droopescan --break-system-packages"],
+     "check_bins": ["droopescan"]},
+    {"name": "amass", "commands": ["go install github.com/owasp-amass/amass/v4/...@master"],
+     "check_bins": ["amass"]},
+    {"name": "subfinder", "commands": [
+        "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"],
+     "check_bins": ["subfinder"]},
+    {"name": "findomain", "commands": [
+        "curl -LO https://github.com/findomain/findomain/releases/latest/download/findomain-linux-i386.zip",
+        "unzip -o findomain-linux-i386.zip",
+        "chmod +x findomain"],
+     "check_bins": ["findomain"], "check_files": ["findomain"]},
+    {"name": "github-subdomains", "commands": ["go install github.com/gwen001/github-subdomains@latest"],
+     "check_bins": ["github-subdomains"]},
+    {"name": "whois", "commands": ["sudo apt install -y whois"],
+     "check_bins": ["whois"]},
+    {"name": "dorks_hunter.py", "commands": [
+        "git clone https://github.com/six2dez/dorks_hunter",
+        "cd dorks_hunter && pip3 install -r requirements.txt --break-system-packages"],
+     "check_dirs": ["dorks_hunter"]},
+    {"name": "gitdorks_go", "commands": ["go install -v github.com/damit5/gitdorks_go@latest"],
+     "check_bins": ["gitdorks_go"]},
+    {"name": "trufflehog", "commands": [
+        "wget -O trufflehog_3.94.3-0kali1_amd64.deb "
+        "https://kali.download/kali/pool/main/t/trufflehog/trufflehog_3.94.3-0kali1_amd64.deb",
+        "sudo apt install -y ./trufflehog_3.94.3-0kali1_amd64.deb"],
+     "check_bins": ["trufflehog"]},
+    {"name": "emailfinder", "commands": ["pip3 install emailfinder --break-system-packages"],
+     "check_bins": ["emailfinder"]},
+    {"name": "metafinder", "commands": ["pip3 install metafinder --break-system-packages"],
+     "check_bins": ["metafinder"]},
+    {"name": "gobuster", "commands": ["go install github.com/OJ/gobuster/v3@latest"],
+     "check_bins": ["gobuster"]},
+    {"name": "altdns", "commands": ["pip3 install py-altdns==1.0.2 --break-system-packages"],
+     "check_bins": ["altdns"]},
+    {"name": "ffuf", "commands": ["sudo apt install -y ffuf"],
+     "check_bins": ["ffuf"]},
+    {"name": "byp4xx", "commands": ["go install -v github.com/lobuhi/byp4xx@latest"],
+     "check_bins": ["byp4xx"]},
+    {"name": "subjack", "commands": ["go install github.com/haccer/subjack@latest"],
+     "check_bins": ["subjack"]},
+    {"name": "smap", "commands": ["go install -v github.com/s0md3v/smap/cmd/smap@latest"],
+     "check_bins": ["smap"]},
+    {"name": "cloud_enum", "commands": ["sudo apt install -y cloud-enum"],
+     "check_bins": ["cloud_enum", "cloud-enum"]},
+    {"name": "eyewitness", "commands": ["sudo apt install -y eyewitness"],
+     "check_bins": ["eyewitness", "EyeWitness"]},
+    {"name": "gospider", "commands": ["GO111MODULE=on go install github.com/jaeles-project/gospider@latest"],
+     "check_bins": ["gospider"]},
+    {"name": "cariddi", "commands": ["go install -v github.com/edoardottt/cariddi/cmd/cariddi@latest"],
+     "check_bins": ["cariddi"]},
+    {"name": "linkfinder.py", "commands": [
+        "git clone https://github.com/GerbenJavado/LinkFinder.git",
+        "cd LinkFinder && pip3 install -r requirements.txt --break-system-packages"],
+     "check_dirs": ["LinkFinder"]},
+    {"name": "paramspider", "commands": [
+        "git clone https://github.com/devanshbatham/paramspider",
+        "cd paramspider && pip3 install . --break-system-packages"],
+     "check_bins": ["paramspider"]},
+    {"name": "katana", "commands": ["CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest"],
+     "check_bins": ["katana"]},
+    {"name": "hakrawler", "commands": ["go install github.com/hakluke/hakrawler@latest"],
+     "check_bins": ["hakrawler"]},
+    {"name": "roboxtractor", "commands": ["go install -v github.com/Josue87/roboxtractor@latest"],
+     "check_bins": ["roboxtractor"]},
+    {"name": "uro", "commands": ["pipx install uro"],
+     "check_bins": ["uro"]},
+]
+
+
+def _tool_is_installed(tool: dict, tools_dir: str, seclists_dir: str = "") -> bool:
+    """Best-effort detection of whether a catalog tool is already installed."""
+    for b in tool.get("check_bins", []):
+        if shutil.which(b):
+            return True
+    for d in tool.get("check_dirs", []):
+        if tools_dir and os.path.isdir(os.path.join(tools_dir, d)):
+            return True
+    for f in tool.get("check_files", []):
+        if tools_dir and os.path.isfile(os.path.join(tools_dir, f)):
+            return True
+    if tool["name"] == "seclists" and seclists_dir and os.path.isdir(seclists_dir):
+        return True
+    return False
+
+
+class _ToolInstallWorker(QThread):
+    """Runs the install commands for a list of selected tools, one at a time,
+    streaming combined stdout/stderr back to the UI thread."""
+
+    line_output   = pyqtSignal(str)
+    tool_started  = pyqtSignal(str)
+    tool_finished = pyqtSignal(str, bool)   # name, success
+    all_finished  = pyqtSignal()
+
+    def __init__(self, tools: list, tools_dir: str, parent=None):
+        super().__init__(parent)
+        self.tools = tools
+        self.tools_dir = tools_dir
+        self._stop_requested = False
+
+    def stop(self):
+        self._stop_requested = True
+
+    def run(self):
+        try:
+            os.makedirs(self.tools_dir, exist_ok=True)
+        except Exception as e:
+            self.line_output.emit(f"⚠ Could not create tools directory: {e}")
+
+        for tool in self.tools:
+            if self._stop_requested:
+                break
+            name = tool["name"]
+            self.tool_started.emit(name)
+            self.line_output.emit(f"\n───── Installing {name} ─────")
+            success = True
+            for cmd in tool["commands"]:
+                if self._stop_requested:
+                    success = False
+                    break
+                self.line_output.emit(f"$ {cmd}")
+                try:
+                    proc = subprocess.Popen(
+                        cmd, shell=True, cwd=self.tools_dir,
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        text=True, bufsize=1,
+                    )
+                    for line in iter(proc.stdout.readline, ''):
+                        if self._stop_requested:
+                            try:
+                                proc.terminate()
+                            except Exception:
+                                pass
+                            break
+                        if line:
+                            self.line_output.emit(line.rstrip())
+                    proc.wait()
+                    if proc.returncode != 0:
+                        success = False
+                        self.line_output.emit(f"⚠ Command exited with code {proc.returncode}")
+                except Exception as e:
+                    success = False
+                    self.line_output.emit(f"⚠ Error: {e}")
+            self.tool_finished.emit(name, success)
+
+        self.all_finished.emit()
+
+
+class InstallToolsDialog(QDialog):
+    """Lists every tool in TOOLS_CATALOG, shows install status, and lets the
+    user select and batch-install missing tools."""
+
+    def __init__(self, settings: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Install Tools")
+        self.setMinimumSize(640, 580)
+        self.setModal(True)
+        self._settings = settings
+        self._tools_dir = settings.get("tools_dir") or os.path.expanduser("~/tools")
+        self._seclists_dir = settings.get("seclists_dir", "")
+        self._worker = None
+        self._row_widgets = {}   # name -> (checkbox, status_label)
+
+        self.setStyleSheet(f"QDialog {{ background-color: {COLOR_BACKGROUND}; color: {COLOR_TEXT}; }}")
+
+        root = QVBoxLayout(self)
+        root.setSpacing(8)
+
+        info = QLabel(
+            f"Detects and installs recon / pentest tools into:\n{self._tools_dir}\n"
+            "Tools already found on your system are marked Installed and locked."
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11px;")
+        root.addWidget(info)
+
+        # Master "select all uninstalled" checkbox — always the first item.
+        self.select_all_cb = QCheckBox("Select all uninstalled tools")
+        self.select_all_cb.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT}; font-weight: bold;")
+        self.select_all_cb.stateChanged.connect(self._on_select_all_toggled)
+        root.addWidget(self.select_all_cb)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet(f"color: {COLOR_BORDER};")
+        root.addWidget(sep)
+
+        # Scrollable list of tools, each with its own checkbox + status.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet(
+            f"QScrollArea {{ border: 1px solid {COLOR_BORDER}; background: {COLOR_ELEVATED_BG}; }}"
+        )
+        list_container = QWidget()
+        list_container.setStyleSheet(f"background: {COLOR_ELEVATED_BG};")
+        self.list_layout = QVBoxLayout(list_container)
+        self.list_layout.setContentsMargins(6, 6, 6, 6)
+        self.list_layout.setSpacing(2)
+
+        for tool in TOOLS_CATALOG:
+            self._add_tool_row(tool)
+
+        self.list_layout.addStretch()
+        scroll.setWidget(list_container)
+        root.addWidget(scroll, 1)
+
+        # Install log (hidden until an install is running).
+        self.log = QPlainTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setMaximumHeight(160)
+        self.log.setStyleSheet(
+            f"background: {COLOR_DARK_BG}; color: {COLOR_TEXT}; "
+            f"border: 1px solid {COLOR_BORDER}; font-family: monospace; font-size: 11px;"
+        )
+        self.log.hide()
+        root.addWidget(self.log)
+
+        # Buttons
+        btn_row = QHBoxLayout()
+        self.refresh_btn = QPushButton(" Re-check")
+        self.refresh_btn.setStyleSheet(
+            f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
+            f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 12px;"
+        )
+        self.refresh_btn.clicked.connect(self._refresh_status)
+        btn_row.addWidget(self.refresh_btn)
+        btn_row.addStretch()
+
+        self.install_btn = QPushButton("⬇ Install Selected")
+        self.install_btn.setStyleSheet(
+            f"background-color: {COLOR_ACCENT}; color: white; padding: 6px 16px; "
+            f"border-radius: 4px; font-weight: bold;"
+        )
+        self.install_btn.clicked.connect(self._install_selected)
+        btn_row.addWidget(self.install_btn)
+
+        self.close_btn = QPushButton("Close")
+        self.close_btn.setStyleSheet(
+            f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
+            f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 16px;"
+        )
+        self.close_btn.clicked.connect(self.close)
+        btn_row.addWidget(self.close_btn)
+
+        root.addLayout(btn_row)
+
+        self._refresh_status()
+
+    # ── Row construction ────────────────────────────────────────────────
+    def _add_tool_row(self, tool: dict):
+        row = QWidget()
+        row_lay = QHBoxLayout(row)
+        row_lay.setContentsMargins(4, 2, 4, 2)
+
+        cb = QCheckBox(tool["name"])
+        cb.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT};")
+        row_lay.addWidget(cb)
+        row_lay.addStretch()
+
+        status = QLabel("checking…")
+        status.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11px;")
+        row_lay.addWidget(status)
+
+        self.list_layout.addWidget(row)
+        self._row_widgets[tool["name"]] = (cb, status)
+
+    # ── Status refresh ──────────────────────────────────────────────────
+    def _refresh_status(self):
+        self._tools_dir = self._settings.get("tools_dir") or self._tools_dir
+        self._seclists_dir = self._settings.get("seclists_dir", self._seclists_dir)
+        for tool in TOOLS_CATALOG:
+            cb, status = self._row_widgets[tool["name"]]
+            installed = _tool_is_installed(tool, self._tools_dir, self._seclists_dir)
+            if installed:
+                status.setText("✅ Installed")
+                status.setStyleSheet(f"color: {COLOR_SUCCESS}; font-size: 11px;")
+                cb.setChecked(False)
+                cb.setEnabled(False)
+            else:
+                status.setText("❌ Not installed")
+                status.setStyleSheet(f"color: {COLOR_CRITICAL}; font-size: 11px;")
+                cb.setEnabled(True)
+        self.select_all_cb.blockSignals(True)
+        self.select_all_cb.setChecked(False)
+        self.select_all_cb.blockSignals(False)
+
+    # ── Select-all handling ─────────────────────────────────────────────
+    def _on_select_all_toggled(self, state):
+        checked = state == Qt.Checked
+        for tool in TOOLS_CATALOG:
+            cb, _ = self._row_widgets[tool["name"]]
+            if cb.isEnabled():
+                cb.setChecked(checked)
+
+    # ── Install ──────────────────────────────────────────────────────────
+    def _install_selected(self):
+        if self._worker is not None:
+            QMessageBox.information(self, "Install in progress",
+                                     "Please wait for the current install to finish.")
+            return
+
+        selected = [t for t in TOOLS_CATALOG
+                    if self._row_widgets[t["name"]][0].isEnabled()
+                    and self._row_widgets[t["name"]][0].isChecked()]
+        if not selected:
+            QMessageBox.information(self, "Nothing selected", "Select at least one tool to install.")
+            return
+
+        self.log.show()
+        self.log.clear()
+        self.install_btn.setEnabled(False)
+        self.install_btn.setText("Installing…")
+        self.close_btn.setEnabled(False)
+        self.select_all_cb.setEnabled(False)
+
+        self._worker = _ToolInstallWorker(selected, self._tools_dir, self)
+        self._worker.line_output.connect(self._append_log)
+        self._worker.tool_finished.connect(self._on_tool_finished)
+        self._worker.all_finished.connect(self._on_all_finished)
+        self._worker.start()
+
+    def _append_log(self, text: str):
+        self.log.appendPlainText(text)
+        self.log.verticalScrollBar().setValue(self.log.verticalScrollBar().maximum())
+
+    def _on_tool_finished(self, name: str, success: bool):
+        row = self._row_widgets.get(name)
+        if row is None:
+            return
+        cb, status = row
+        if success:
+            status.setText("✅ Installed")
+            status.setStyleSheet(f"color: {COLOR_SUCCESS}; font-size: 11px;")
+            cb.setChecked(False)
+            cb.setEnabled(False)
+        else:
+            status.setText("⚠ Failed")
+            status.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 11px;")
+
+    def _on_all_finished(self):
+        self._append_log("\n✅ Done.")
+        self.install_btn.setEnabled(True)
+        self.install_btn.setText("⬇ Install Selected")
+        self.close_btn.setEnabled(True)
+        self.select_all_cb.setEnabled(True)
+        self._worker = None
+
+    def closeEvent(self, event):
+        if self._worker is not None and self._worker.isRunning():
+            QMessageBox.warning(self, "Install running",
+                                 "Please wait for the current install to finish before closing.")
+            event.ignore()
+            return
+        event.accept()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main window
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -2940,6 +3357,11 @@ class HuntGUI(
             _save_global_settings(self._global_settings)
             self.status_label.setText("✅ Global settings saved.")
             QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
+
+    def _open_install_tools_dialog(self):
+        """Open the Install Tools dialog (check installed status / batch install)."""
+        dlg = InstallToolsDialog(self._global_settings, self)
+        dlg.exec_()
 
     def _open_custom_payloads_dialog(self):
         """Open the Custom Payloads manager dialog."""
@@ -5417,6 +5839,15 @@ class HuntGUI(
 
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
+
+        install_tools_action = QAction(" Install Tools", self)
+        install_tools_action.setToolTip(
+            "Check which recon/pentest tools are installed and install the missing ones"
+        )
+        install_tools_action.triggered.connect(self._open_install_tools_dialog)
+        tools_menu.addAction(install_tools_action)
+        tools_menu.addSeparator()
+
         settings_menu = tools_menu.addMenu("⚙️  Settings")
 
         tokens_action = QAction("  Tokens  (GitHub, Ngrok)", self)
