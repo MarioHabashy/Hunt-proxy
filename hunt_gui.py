@@ -243,7 +243,7 @@ except AttributeError:
 # GLOBAL SETTINGS
 # ========================================================================
 
-HUNT_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "HuntProxy")
+HUNT_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".config", "hunt-proxy")
 HUNT_SETTINGS_FILE = os.path.join(HUNT_CONFIG_DIR, "settings.json")
 
 def _load_global_settings() -> dict:
@@ -5380,7 +5380,7 @@ class HuntGUI(
 
         view_menu.addSeparator()
 
-        self.url_view_action = QAction("🔗 Switch to URL column view", self)
+        self.url_view_action = QAction(" Switch to URL column view", self)
         self.url_view_action.triggered.connect(self._switch_url_view_mode)
         view_menu.addAction(self.url_view_action)
         
@@ -7584,7 +7584,7 @@ class HuntGUI(
         """Show about dialog"""
         QMessageBox.about(
             self,
-            "About Hunt",
+            "About Hunt Proxy",
             "Hunt Proxy - Security Testing Dashboard\n\n"
             "GUI for real-time vulnerability detection.\n\n"
             f"Monitoring: {HUNT_JSONL}\n\n"
