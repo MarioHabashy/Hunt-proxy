@@ -2949,7 +2949,7 @@ class RepeaterInstance(QWidget):
         splitter.addWidget(self._inspector_side_frame)
         splitter.setStretchFactor(2, 0)
         self._inspector_is_open = False
-        self._inspector_side_frame.setMaximumWidth(34)  # collapsed: only the toggle strip
+        self._inspector_side_frame.setFixedWidth(34)
         splitter.setSizes([500, 500, 34])
         self._main_splitter = splitter
 
@@ -4390,7 +4390,7 @@ class RepeaterInstance(QWidget):
         tb.setContentsMargins(8, 2, 6, 2)
         tb.setSpacing(6)
 
-        title_lbl = QLabel("\U0001f52c Response Selection Inspector")
+        title_lbl = QLabel(" Response Selection Inspector")
         title_lbl.setStyleSheet(
             f"color:{COLOR_SUCCESS};font-weight:700;font-size:11px;background:transparent;"
         )
@@ -4404,9 +4404,9 @@ class RepeaterInstance(QWidget):
         tb.addStretch()
 
         for label, tooltip, slot, accent in [
-            ("\U0001f4cb Copy", "Copy raw selected text",
+            (" Copy", "Copy raw selected text",
              lambda: QApplication.clipboard().setText(self._respsel_current_text), False),
-            ("\U0001f510 Decoder", "Send to Decoder tab",
+            (" Decoder", "Send to Decoder tab",
              lambda: self._send_repeater_sel_to_decoder("response"), True),
         ]:
             btn = QPushButton(label)
