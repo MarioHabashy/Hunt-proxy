@@ -37,7 +37,7 @@ import logging
 import urllib.parse
 import html as _html_module
 from typing import Dict, Optional, List
-from inspector_card import (
+from modules.inspector_card import (
     _InspectorCard,
     analyze_selection as _analyze_selection_cards,
     reencode_decoded_value,
@@ -60,7 +60,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 try:
-    from constants import (
+    from modules.constants import (
         COLOR_BACKGROUND, COLOR_DARK_BG, COLOR_CARD_BG, COLOR_ELEVATED_BG,
         COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_TEXT_MUTED,
         COLOR_BORDER, COLOR_ACCENT, COLOR_SUCCESS, COLOR_CRITICAL, HttpSyntaxHighlighter,

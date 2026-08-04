@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl
 from PyQt5.QtGui import QColor, QBrush, QFont, QTextCharFormat, QTextCursor, QDesktopServices
 
-from constants import (
+from modules.constants import (
     COLOR_ELEVATED_BG, COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_BORDER,
     COLOR_ACCENT, COLOR_SUCCESS, COLOR_HIGH, COLOR_CRITICAL,
     COLOR_TEXT_MUTED, FONT_SIZE_NORMAL, HttpSyntaxHighlighter
@@ -51,7 +51,7 @@ from scans import (
     OpenRedirectScanMixin,
     SstiScanMixin,
 )
-from payloads_dialog import PayloadsDialog
+from modules.payloads_dialog import PayloadsDialog
 
 
 
@@ -2087,7 +2087,7 @@ class ScanWorker(
         if not self.ai_settings:
             return []
         try:
-            from ai_client import suggest_bypass_payloads
+            from modules.ai_client import suggest_bypass_payloads
             self.scan_progress.emit(
                 f"  🤖 AI Payload Suggester: analysing probe response for '{param_name}' "
                 f"[{scan_type}] (filter: {waf_fingerprint or 'none'}) …"

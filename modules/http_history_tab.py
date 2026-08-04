@@ -21,11 +21,11 @@ from PyQt5.QtCore import (
 from PyQt5.QtGui import (
     QColor, QFont, QPen, QBrush, QTextCursor, QTextCharFormat, QTextDocument, QKeySequence
 )
-from analysis_tab import AnalysisTabMixin, AIChatPanel as _AIChatPanel, _AI_TRAFFIC_AVAILABLE as _AI_TRAFFIC_AVAILABLE
-import project_manager as pm
-from inspector_card import _InspectorCard, analyze_selection as _analyze_selection_shared
+from modules.analysis_tab import AnalysisTabMixin, AIChatPanel as _AIChatPanel, _AI_TRAFFIC_AVAILABLE as _AI_TRAFFIC_AVAILABLE
+from . import project_manager as pm
+from modules.inspector_card import _InspectorCard, analyze_selection as _analyze_selection_shared
 
-from constants import (
+from modules.constants import (
     HUNT_JSONL,
     COLOR_ELEVATED_BG, COLOR_URL_BASE_SELECTED, COLOR_URL_PARAM_SELECTED,
     COLOR_URL_BASE, COLOR_URL_PARAM, COLOR_DARK_BG, COLOR_TEXT,
@@ -2565,7 +2565,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         self.resp_gql_splitter.setSizes(sizes)
 
     def update_scope_hosts(self, slug: str, domain: str, subdomain: str):
-        import project_manager as pm
+        from . import project_manager as pm
 
         self._scope_slug = slug
         self._scope_domain = domain
@@ -3566,7 +3566,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
             return
 
         try:
-            from dashboard_tab import TaskInputDialog
+            from modules.dashboard_tab import TaskInputDialog
         except ImportError:
             QMessageBox.warning(self, "Content Bruteforce",
                                 "Could not load task configuration dialog.")

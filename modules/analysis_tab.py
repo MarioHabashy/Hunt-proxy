@@ -39,7 +39,7 @@ warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 from collections import deque
 
 try:
-    from http_history_tab import SearchHighlighter
+    from modules.http_history_tab import SearchHighlighter
 except ImportError:
     # Fallback if not available
     class SearchHighlighter:
@@ -53,17 +53,17 @@ except ImportError:
 
 # ── Recording manager (auto-save detections to project dir) ──────────────────
 try:
-    from analysis_recordings import RecordingManager
+    from modules.analysis_recordings import RecordingManager
 except ImportError:
     RecordingManager = None  # Graceful fallback if file not present
 
 # ── AI traffic analysis worker ─────────────────────────────────────────────────
 try:
-    from ai_client import AITrafficWorker as _AITrafficWorker
-    from ai_client import AISourceCodeWorker as _AISourceCodeWorker
-    from ai_client import AIChatWorker as _AIChatWorker
-    from ai_client import _AI_CHAT_SYSTEM_TMPL as _AI_CHAT_SYSTEM_TMPL
-    from ai_client import _GENERAL_CHAT_SYSTEM as _GENERAL_CHAT_SYSTEM
+    from modules.ai_client import AITrafficWorker as _AITrafficWorker
+    from modules.ai_client import AISourceCodeWorker as _AISourceCodeWorker
+    from modules.ai_client import AIChatWorker as _AIChatWorker
+    from modules.ai_client import _AI_CHAT_SYSTEM_TMPL as _AI_CHAT_SYSTEM_TMPL
+    from modules.ai_client import _GENERAL_CHAT_SYSTEM as _GENERAL_CHAT_SYSTEM
     _AI_TRAFFIC_AVAILABLE = True
 except ImportError:
     _AITrafficWorker = None
@@ -79,7 +79,7 @@ except ImportError:
 
 # Import constants from constants.py if available
 try:
-    from constants import COLORS
+    from modules.constants import COLORS
 except ImportError:
     # Fallback colors
     COLORS = {
@@ -10140,20 +10140,13 @@ class AITrafficDialog(QDialog):
 
 # ── AI Security Chat Panel ────────────────────────────────────────────────────
 # Moved to ai_chatbox.py to keep this analysis engine file focused.
-from ai_chatbox import AIChatPanel, _md_to_html, _inline_md  # noqa: F401
+from modules.ai_chatbox import AIChatPanel, _md_to_html, _inline_md  # noqa: F401
 
 
 class AnalysisTabMixin:
     """
     Complete Analysis Tab with Parameter Markers and Auto-Highlighting.
     This class is designed to be used as a mixin in HTTPHistoryTab.
-    
-    Used by http_history_tab.py via:
-        from analysis_tab import AnalysisTabMixin
-        class HTTPHistoryTab(AnalysisTabMixin):
-            def create_http_history_tab(self):
-                ...
-                self.create_analysis_tab_in_rr_tabs()  # Creates the Analysis tab
     """
     
     def create_analysis_tab_in_rr_tabs(self):

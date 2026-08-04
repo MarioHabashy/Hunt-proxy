@@ -1189,7 +1189,7 @@ class XxeScanMixin:
         # corrupted binary data.  Text fields are sent as-is; the target
         # file field is replaced with our malicious SVG.
         try:
-            from scanner_tab import _parse_request_components as _prc
+            from modules.scanner_tab import _parse_request_components as _prc
             _, _, _, _, _, body_params, _ = _prc(self.request_data)
         except Exception:
             body_params = {}
@@ -1646,7 +1646,7 @@ class XxeScanMixin:
 
         if "multipart/form-data" in ct_lower:
             try:
-                from scanner_tab import _parse_request_components as _prc
+                from modules.scanner_tab import _parse_request_components as _prc
                 _, _, _, _, _, body_params, _ = _prc(self.request_data)
                 if body_params:
                     files_dict = {}

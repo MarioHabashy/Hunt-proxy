@@ -5,9 +5,9 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
-from constants import *
+from modules.constants import *
 try:
-    from payloads import get_all_payloads
+    from modules.payloads import get_all_payloads
 except ImportError:
     print("❌ Error: payloads.py not found!")
     print("Please ensure payloads.py is in the same directory as hunt_gui.py")

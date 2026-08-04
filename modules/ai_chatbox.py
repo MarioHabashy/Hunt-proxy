@@ -19,9 +19,9 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent
 
 try:
-    from ai_client import AIChatWorker as _AIChatWorker
-    from ai_client import _AI_CHAT_SYSTEM_TMPL as _AI_CHAT_SYSTEM_TMPL
-    from ai_client import _GENERAL_CHAT_SYSTEM as _GENERAL_CHAT_SYSTEM
+    from modules.ai_client import AIChatWorker as _AIChatWorker
+    from modules.ai_client import _AI_CHAT_SYSTEM_TMPL as _AI_CHAT_SYSTEM_TMPL
+    from modules.ai_client import _GENERAL_CHAT_SYSTEM as _GENERAL_CHAT_SYSTEM
 except ImportError:
     _AIChatWorker = None
     _AI_CHAT_SYSTEM_TMPL = ""
@@ -32,7 +32,7 @@ except ImportError:
     )
 
 try:
-    from constants import COLORS
+    from modules.constants import COLORS
 except ImportError:
     COLORS = {
         'bg_darker': '#1E1E1E',

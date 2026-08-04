@@ -44,7 +44,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QThread, pyqtSlot, QSize
 from PyQt5.QtGui import QColor, QBrush, QFont, QTextCursor, QTextCharFormat, QSyntaxHighlighter
 
-from constants import (
+from modules.constants import (
     COLOR_ELEVATED_BG, COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_BORDER,
     COLOR_ACCENT, COLOR_SUCCESS, COLOR_HIGH, COLOR_CRITICAL,
     COLOR_TEXT_MUTED, COLOR_DARK_BG, COLOR_CARD_BG, COLOR_BACKGROUND,
@@ -3645,7 +3645,7 @@ class JWTTab(QWidget):
         _needs_sign2n = (_enabled.get("sign2n") and _GMPY2_AVAILABLE and _t1 and _t2)
 
         if _needs_sign2n:
-            from repeater_tab import _Sign2nComputeThread
+            from modules.repeater_tab import _Sign2nComputeThread
             self._attack_results.clear()
             self.results_table.setRowCount(0)
             self.run_all_btn.setEnabled(False)

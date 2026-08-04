@@ -35,14 +35,14 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl, QSize, QRegularExpression
 from PyQt5.QtGui import QFont, QColor, QTextCursor, QSyntaxHighlighter, QTextCharFormat, QTextDocument, QKeySequence, QPainter
 
-from constants import (
+from modules.constants import (
     COLOR_BACKGROUND, COLOR_DARK_BG, COLOR_CARD_BG, COLOR_ELEVATED_BG,
     COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_TEXT_MUTED, COLOR_BORDER,
     COLOR_ACCENT, COLOR_SUCCESS, COLOR_CRITICAL, COLOR_HOVER,
     FONT_FAMILY_MONO, FONT_SIZE_NORMAL, FONT_SIZE_SMALL,
     HttpSyntaxHighlighter, GQLSyntaxHighlighter, JSONSyntaxHighlighter
 )
-from inspector_card import (
+from modules.inspector_card import (
     _InspectorCard,
     analyze_selection as _analyze_selection_cards,
     reencode_decoded_value,
@@ -1026,7 +1026,7 @@ class HttpSendThread(QThread):
 def _analyze_selection_for_inspector(text: str):
     """Delegates to InterceptTab._analyze_selection_html (self is unused in that method)."""
     try:
-        from intercept_tab import InterceptTab as _IT
+        from modules.intercept_tab import InterceptTab as _IT
         return _IT._analyze_selection_html(None, text)
     except Exception:
         return (
@@ -1222,7 +1222,7 @@ class _AiPayloadSuggestThread(QThread):
 
     def run(self):
         try:
-            from ai_client import suggest_bypass_payloads
+            from modules.ai_client import suggest_bypass_payloads
             payloads = suggest_bypass_payloads(
                 self._settings,
                 param_name       = self._param_name,
@@ -6298,7 +6298,7 @@ class RepeaterInstance(QWidget):
         Returns list of tuples: (display_name, token, description).
         """
         try:
-            from jwt_tab import JWTEngine
+            from modules.jwt_tab import JWTEngine
         except Exception:
             return []
 

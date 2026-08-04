@@ -44,7 +44,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QColor, QBrush, QFont, QTextCursor, QTextDocument, QSyntaxHighlighter, QTextCharFormat, QPalette, QKeySequence
 
-from constants import (
+from modules.constants import (
     COLOR_BACKGROUND, COLOR_DARK_BG, COLOR_CARD_BG, COLOR_ELEVATED_BG,
     COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_TEXT_MUTED, COLOR_BORDER,
     COLOR_ACCENT, COLOR_SUCCESS, COLOR_CRITICAL, COLOR_HOVER,

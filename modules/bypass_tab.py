@@ -48,7 +48,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QBrush, QFont, QTextCursor
 
-from constants import (
+from modules.constants import (
     COLOR_ELEVATED_BG, COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_BORDER,
     COLOR_ACCENT, COLOR_SUCCESS, COLOR_HIGH, COLOR_CRITICAL,
     COLOR_TEXT_MUTED, COLOR_DARK_BG, COLOR_CARD_BG,
@@ -3508,10 +3508,6 @@ class BypassTab(QWidget):
 def add_bypass_tab(parent):
     """
     Call in HuntGUI._setup_tabs() after JS Miner, before API Keys:
-
-        from bypass_tab import add_bypass_tab
-        add_bypass_tab(self)
-        self.waf_bypass_ref = self.bypass_tab
     """
     tab = BypassTab(parent)
     parent.tab_widget.addTab(tab, "🛡 Bypass")

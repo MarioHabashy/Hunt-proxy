@@ -18,7 +18,7 @@ from PyQt5.QtGui import *
 
 # Import constants - these should match your theme
 try:
-    from constants import *
+    from modules.constants import *
     # Ensure COLOR_WARNING exists even if constants.py doesn't export it
     try:
         COLOR_WARNING
@@ -45,7 +45,7 @@ except ImportError:
 
 # ── Recorded tab (auto-saved analysis detections) ─────────────────────────────
 try:
-    from finding_tab import RecordedTab
+    from modules.finding_tab import RecordedTab
 except ImportError:
     RecordedTab = None  # Graceful fallback if file not present
 

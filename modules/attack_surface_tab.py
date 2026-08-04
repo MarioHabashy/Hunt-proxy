@@ -46,7 +46,7 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
 from PyQt5.QtGui import QColor, QFont, QIcon, QBrush, QKeySequence
 
 try:
-    from constants import (
+    from modules.constants import (
         COLOR_BACKGROUND, COLOR_ELEVATED_BG, COLOR_CARD_BG,
         COLOR_DARK_BG, COLOR_BORDER, COLOR_TEXT, COLOR_TEXT_BRIGHT,
         COLOR_TEXT_MUTED, COLOR_ACCENT, COLOR_SUCCESS, COLOR_WARNING,

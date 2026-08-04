@@ -39,7 +39,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QMutex, QMutexLocker
 from PyQt5.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat, QBrush, QTextCursor
 
 try:
-    from constants import *
+    from modules.constants import *
 except ImportError:
     COLOR_BACKGROUND   = "#1e1e1e"
     COLOR_ELEVATED_BG  = "#252525"
@@ -88,7 +88,7 @@ except NameError:
     COLOR_DARK_BG = "#181818"
 
 try:
-    from analysis_tab import JavaScriptAnalyzer, FrameworkDetector
+    from modules.analysis_tab import JavaScriptAnalyzer, FrameworkDetector
 except ImportError:
     JavaScriptAnalyzer = None
     FrameworkDetector  = None
@@ -399,7 +399,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
     cats: dict = defaultdict(list)
 
     try:
-        from analysis_tab import JavaScriptAnalyzer, SecurityAnalyzer
+        from modules.analysis_tab import JavaScriptAnalyzer, SecurityAnalyzer
     except ImportError:
         return {"categories": cats}
     if JavaScriptAnalyzer is None:
@@ -552,7 +552,7 @@ def _mp_run_js_wholefile(url: str, js: str, existing_cache: dict = None) -> dict
         _NPM_REGISTRY_CACHE.update(existing_cache)
 
     try:
-        from analysis_tab import FrameworkDetector
+        from modules.analysis_tab import FrameworkDetector
     except ImportError:
         FrameworkDetector = None
 
@@ -789,7 +789,7 @@ class JSAnalysisWorker(QThread):
 
         # Hardcoded secrets via SecurityAnalyzer — entropy filtered
         try:
-            from analysis_tab import SecurityAnalyzer
+            from modules.analysis_tab import SecurityAnalyzer
             for s in SecurityAnalyzer._detect_javascript_secrets(js):
                 value = s.get("value", "")[:120]
                 stype = s.get("type", "GENERIC_SECRET")
@@ -824,7 +824,7 @@ class JSAnalysisWorker(QThread):
 
         # 4. DOM XSS Sinks
         try:
-            from analysis_tab import SecurityAnalyzer
+            from modules.analysis_tab import SecurityAnalyzer
             for sink in SecurityAnalyzer._detect_dom_xss_sinks(js):
                 cats["💥 DOM XSS Sinks"].append({
                     "sev": sink["severity"],

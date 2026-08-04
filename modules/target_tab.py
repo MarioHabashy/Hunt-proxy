@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from typing import Dict
-from constants import *
+from modules.constants import *
 
 class TargetTab:
 

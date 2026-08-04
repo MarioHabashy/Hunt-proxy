@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
 )
 
 try:
-    from constants import (
+    from modules.constants import (
         COLOR_BACKGROUND, COLOR_DARK_BG, COLOR_TEXT, COLOR_TEXT_BRIGHT,
         COLOR_TEXT_MUTED, COLOR_BORDER, COLOR_ELEVATED_BG, COLOR_ACCENT,
         COLOR_SUCCESS, COLOR_CRITICAL, COLOR_CARD_BG, COLOR_BORDER_BRIGHT,

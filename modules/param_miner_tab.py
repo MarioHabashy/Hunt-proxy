@@ -32,7 +32,7 @@ from PyQt5.QtGui  import QColor, QFont, QBrush, QTextCharFormat, QTextCursor
 
 # ── Colour palette ──────────────────────────────────────────────────────────────
 try:
-    from constants import (
+    from modules.constants import (
         COLOR_DARK_BG, COLOR_ELEVATED_BG, COLOR_BORDER, COLOR_ACCENT,
         COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_TEXT_MUTED, COLOR_SUCCESS,
         COLOR_CRITICAL, COLOR_HIGH, COLOR_MEDIUM, COLOR_LOW,

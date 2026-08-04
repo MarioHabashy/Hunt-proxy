@@ -36,7 +36,7 @@ except ImportError:
     _HAS_SVG = False
 
 try:
-    from constants import (
+    from modules.constants import (
         COLOR_BACKGROUND, COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_TEXT_MUTED,
         COLOR_BORDER, COLOR_ACCENT, COLOR_SUCCESS, COLOR_CRITICAL,
         COLOR_HIGH, COLOR_MEDIUM, COLOR_LOW, COLOR_DARK_BG, COLOR_ELEVATED_BG,
@@ -1454,7 +1454,7 @@ class TaskWorker(QThread):
         """Run gospider and return list of discovered URLs."""
         cookie = validate_cookie(cookie)
         try:
-            from tool_runners import GospiderRunner
+            from modules.tool_runners import GospiderRunner
             runner = GospiderRunner()
             cmd = runner.build_command(domain, output_dir, cookie, proxy)
             if extra_headers:
@@ -1503,7 +1503,7 @@ class TaskWorker(QThread):
         """Run cariddi (headless SPA crawl) and return discovered URLs."""
         cookie = validate_cookie(cookie)
         try:
-            from tool_runners import CariddiRunner
+            from modules.tool_runners import CariddiRunner
             runner = CariddiRunner()
             cmd = runner.build_command(domain, output_file, cookie, proxy)
             if extra_headers:
@@ -1544,7 +1544,7 @@ class TaskWorker(QThread):
     def _run_linkfinder_tool(self, js_urls: List[str], tools_dir: str,
                               domain: str) -> List[str]:
         """Run linkfinder on each .js URL and return discovered endpoint strings."""
-        from tool_runners import LinkFinderRunner
+        from modules.tool_runners import LinkFinderRunner
         runner = LinkFinderRunner()
         endpoints: set = set()
         for js_url in js_urls[:50]:   # cap at 50 JS files to avoid runaway
@@ -1577,7 +1577,7 @@ class TaskWorker(QThread):
     def _run_paramspider_tool(self, domain: str, output_file: str) -> List[str]:
         """Run paramspider and return discovered parameterised URLs."""
         try:
-            from tool_runners import ParamSpiderRunner
+            from modules.tool_runners import ParamSpiderRunner
             runner = ParamSpiderRunner()
             cmd = runner.build_command(domain, output_file)
             proc = subprocess.Popen(
@@ -2051,7 +2051,7 @@ class TaskWorker(QThread):
 
         # ── httpx live check ──────────────────────────────────────────────────
         self._emit(f"[*] Checking {len(deduped_lines)} subdomains with httpx…")
-        from tool_runners import HttpxLiveRunner
+        from modules.tool_runners import HttpxLiveRunner
         runner = HttpxLiveRunner()
         httpx_cmd = runner.build_command(combined_file, live_file)
         self._run_cmd_to_file(httpx_cmd, live_file + ".log", timeout=1800)
@@ -2913,7 +2913,7 @@ class TaskWorker(QThread):
 
     def _run_whois(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import WhoisRunner
+        from modules.tool_runners import WhoisRunner
         runner = WhoisRunner()
         self._status("running", "Running whois…")
         cmd = runner.build_command(domain)
@@ -2930,7 +2930,7 @@ class TaskWorker(QThread):
 
     def _run_google_dorks(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import GoogleDorksRunner
+        from modules.tool_runners import GoogleDorksRunner
         runner = GoogleDorksRunner()
         self._status("running", "Running Google dorks…")
         # dorks_hunter writes directly to output_file
@@ -2951,7 +2951,7 @@ class TaskWorker(QThread):
     def _run_github_dorks(self, output_file: str):
         domain = self.task_data["domain"]
         github_token = self.task_data.get("github_token", "")
-        from tool_runners import GithubDorksRunner
+        from modules.tool_runners import GithubDorksRunner
         runner = GithubDorksRunner()
         self._status("running", "Running GitHub dorks…")
         if not github_token:
@@ -2980,7 +2980,7 @@ class TaskWorker(QThread):
     def _run_github_secrets(self, output_file: str):
         domain = self.task_data["domain"]
         github_token = self.task_data.get("github_token", "")
-        from tool_runners import TrufflehogRunner
+        from modules.tool_runners import TrufflehogRunner
         runner = TrufflehogRunner()
         self._status("running", "Scanning GitHub secrets (trufflehog)…")
         if not github_token:
@@ -3003,7 +3003,7 @@ class TaskWorker(QThread):
 
     def _run_emails(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import EmailfinderRunner
+        from modules.tool_runners import EmailfinderRunner
         runner = EmailfinderRunner()
         self._status("running", "Discovering emails…")
         cmd = runner.build_command(domain)
@@ -3021,7 +3021,7 @@ class TaskWorker(QThread):
 
     def _run_metadata(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import MetafinderRunner
+        from modules.tool_runners import MetafinderRunner
         runner = MetafinderRunner()
         self._status("running", "Extracting metadata…")
         meta_dir = os.path.join(self.task_dir, "metadata")
@@ -3039,7 +3039,7 @@ class TaskWorker(QThread):
         github_token = self.task_data.get("github_token", "")
         censys_id = self.task_data.get("censys_id", "")
         censys_secret = self.task_data.get("censys_secret", "")
-        from tool_runners import PassiveSubdomainsRunner
+        from modules.tool_runners import PassiveSubdomainsRunner
         runner = PassiveSubdomainsRunner()
         self._status("running", "Passive subdomain enumeration…")
 
@@ -3144,7 +3144,7 @@ class TaskWorker(QThread):
         domain = self.task_data["domain"]
         extra_wordlist = self.task_data.get("wordlist", "").strip()
 
-        from tool_runners import ActiveSubdomainsRunner
+        from modules.tool_runners import ActiveSubdomainsRunner
         runner = ActiveSubdomainsRunner()
         self._status("running", "Brute-forcing subdomains (gobuster dns)…")
 
@@ -3226,7 +3226,7 @@ class TaskWorker(QThread):
 
     def _run_guess_subdomains(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import AltdnsRunner
+        from modules.tool_runners import AltdnsRunner
         runner = AltdnsRunner()
         self._status("running", "Guessing subdomains (altdns)…")
         # Need a base subdomain list from a previous passive/active task
@@ -3254,7 +3254,7 @@ class TaskWorker(QThread):
 
     def _run_live_subdomains(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import HttpxLiveRunner
+        from modules.tool_runners import HttpxLiveRunner
         runner = HttpxLiveRunner()
         self._status("running", "Checking live subdomains (httpx)…")
         # Find best available subdomain list
@@ -3286,7 +3286,7 @@ class TaskWorker(QThread):
             if seclists and os.path.exists(seclists):
                 wordlist = os.path.join(seclists, "Discovery/DNS/subdomains-top1million-5000.txt")
 
-        from tool_runners import VhostRunner
+        from modules.tool_runners import VhostRunner
         runner = VhostRunner()
         self._status("running", "VHost discovery (ffuf)…")
         # Resolve IP first
@@ -3308,7 +3308,7 @@ class TaskWorker(QThread):
 
     def _run_bypass_40x(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import Byp4xxRunner
+        from modules.tool_runners import Byp4xxRunner
         runner = Byp4xxRunner()
         self._status("running", "Running 40x bypass (byp4xx)…")
         live_out = self._find_best_subdomain_list(domain)
@@ -3344,7 +3344,7 @@ class TaskWorker(QThread):
 
     def _run_takeover(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import SubjackRunner
+        from modules.tool_runners import SubjackRunner
         runner = SubjackRunner()
         self._status("running", "Scanning for subdomain takeovers (subjack)…")
         live_out = self._find_final_subdomain_list(domain)
@@ -3367,7 +3367,7 @@ class TaskWorker(QThread):
 
     def _run_service_scan(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import SmapRunner
+        from modules.tool_runners import SmapRunner
         runner = SmapRunner()
         self._status("running", "Port scanning all subdomains (smap)…")
         live_out = self._find_final_subdomain_list(domain)
@@ -3393,7 +3393,7 @@ class TaskWorker(QThread):
 
     def _run_cloud_enum(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import CloudEnumRunner
+        from modules.tool_runners import CloudEnumRunner
         runner = CloudEnumRunner()
         self._status("running", "Enumerating cloud assets (cloud_enum)…")
         cmd = runner.build_command(domain, output_file + ".raw")
@@ -3409,7 +3409,7 @@ class TaskWorker(QThread):
 
     def _run_screenshot(self, output_file: str):
         domain = self.task_data["domain"]
-        from tool_runners import EyewitnessRunner
+        from modules.tool_runners import EyewitnessRunner
         runner = EyewitnessRunner()
         self._status("running", "Taking screenshots (eyewitness)…")
         live_out = self._find_final_subdomain_list(domain)
@@ -4476,7 +4476,7 @@ class TaskInputDialog(QDialog):
         # ── Known Technologies (bruteforce only) ─────────────────────────────
         self._tech_checkboxes: Dict[str, QCheckBox] = {}
         if tool_lc == "bruteforce":
-            from tool_runners import BruteforceRunner as _BFR
+            from modules.tool_runners import BruteforceRunner as _BFR
             tech_group = QGroupBox("Known Technologies (optional — adds tech-specific wordlists)")
             tech_group.setStyleSheet(f"QGroupBox {{ color:{COLOR_ACCENT}; }}")
             tech_layout = QVBoxLayout(tech_group)
@@ -4670,7 +4670,7 @@ class TaskInputDialog(QDialog):
 
         # Build scope host set: the task domain + all other in-scope hosts
         # because cookies are often set on auth.example.com and used everywhere
-        import project_manager as pm
+        from . import project_manager as pm
         scope_hosts: set = set()
         if self.main_window:
             slug = getattr(self.main_window, "_project_slug", "")
@@ -6296,7 +6296,7 @@ class DashboardTab(QWidget):
 
         # Update project_dir to match the new slug
         if slug:
-            import project_manager as pm
+            from . import project_manager as pm
             pm.ensure_project_dirs(slug)
             paths = pm.get_project_paths(slug)
             self.project_dir = paths["project_dir"]
@@ -6311,7 +6311,7 @@ class DashboardTab(QWidget):
             self._set_status("No project selected.")
             return
 
-        import project_manager as pm
+        from . import project_manager as pm
 
         # Logic 1: Program as target (slug set, domain="", subdomain="")
         if slug and not domain and not subdomain:
@@ -6458,7 +6458,7 @@ class DashboardTab(QWidget):
 
     def _is_host_in_current_scope(self, host: str) -> bool:
         """Check if host matches both project scope rules AND current view selection."""
-        import project_manager as pm
+        from . import project_manager as pm
         
         # 1. Check global project scope rules (includes/excludes)
         if not pm.is_host_in_scope(self._current_slug, host):
@@ -6490,7 +6490,7 @@ class DashboardTab(QWidget):
         if not hasattr(pw, "findings") or not pw.findings:
             return
 
-        import project_manager as pm
+        from . import project_manager as pm
         # Get list of defined domains in the project to categorize correctly
         project_domains = set(pm.list_domains(self._current_slug))
 
@@ -6864,7 +6864,7 @@ class DashboardTab(QWidget):
         # Don't spawn a new thread if the previous one is still running
         if hasattr(self, "_detector") and self._detector and self._detector.isRunning():
             return
-        import project_manager as pm
+        from . import project_manager as pm
         scope_hosts = pm.get_scope_hosts(
             self._current_slug, self._current_domain, self._current_subdomain
         )
@@ -6888,7 +6888,7 @@ class DashboardTab(QWidget):
         if not pw or not hasattr(pw, "findings") or not pw.findings:
             QMessageBox.information(self, "No History", "No requests in HTTP History yet.")
             return
-        import project_manager as pm
+        from . import project_manager as pm
         scope_hosts = pm.get_scope_hosts(
             self._current_slug, self._current_domain, self._current_subdomain
         )
@@ -7013,7 +7013,7 @@ class DashboardTab(QWidget):
             return
 
         # Get scope definition to filter tasks
-        import project_manager as pm
+        from . import project_manager as pm
         scope_hosts = pm.get_scope_hosts(
             self._current_slug, self._current_domain, self._current_subdomain
         )

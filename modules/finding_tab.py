@@ -41,7 +41,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QFont, QIcon
 
 try:
-    from constants import (
+    from modules.constants import (
         COLOR_BACKGROUND, COLOR_ELEVATED_BG, COLOR_CARD_BG,
         COLOR_DARK_BG, COLOR_BORDER, COLOR_TEXT, COLOR_TEXT_BRIGHT,
         COLOR_TEXT_MUTED, COLOR_ACCENT, COLOR_SUCCESS, COLOR_WARNING,
@@ -65,7 +65,7 @@ except ImportError:
     COLOR_INFO        = "#48dbfb"
     COLOR_HOVER       = "#2a2d2e"
 
-from analysis_recordings import RecordingManager, CATEGORIES
+from modules.analysis_recordings import RecordingManager, CATEGORIES
 
 # ── Severity palette ────────────────────────────────────────────────────────
 SEV_COLOR = {
@@ -545,7 +545,7 @@ class RecordedTab(QWidget):
             flat = data.get(category, [])
 
         # Sort: most severe first, then newest first
-        from analysis_recordings import _severity_order
+        from modules.analysis_recordings import _severity_order
         flat.sort(
             key=lambda e: (
                 _severity_order(e.get("severity", "LOW")),

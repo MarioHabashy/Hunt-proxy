@@ -37,7 +37,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QColor, QFont, QIcon
 
-from constants import (
+from modules.constants import (
     COLOR_BACKGROUND, COLOR_DARK_BG, COLOR_ELEVATED_BG, COLOR_CARD_BG,
     COLOR_BORDER, COLOR_TEXT, COLOR_TEXT_BRIGHT, COLOR_TEXT_MUTED,
     COLOR_ACCENT, COLOR_CRITICAL, COLOR_HIGH, COLOR_MEDIUM, COLOR_LOW,
@@ -46,7 +46,7 @@ from constants import (
 )
 
 try:
-    from ai_client import AIWorker
+    from modules.ai_client import AIWorker
     _AI_AVAILABLE = True
 except ImportError:
     _AI_AVAILABLE = False
@@ -1215,7 +1215,7 @@ class ReportTab(QWidget):
             return pg._global_settings
         # Fallback: load directly from config file
         try:
-            from hunt_gui import _load_global_settings
+            from ..main import _load_global_settings
             return _load_global_settings()
         except Exception:
             return {}

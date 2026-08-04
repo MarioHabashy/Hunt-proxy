@@ -1060,32 +1060,30 @@ class ProxyOptionsDialog(QDialog):
 logger = logging.getLogger(__name__)
 
 # ── Modular imports ──────────────────────────────────────────────────────────
-from constants import *
-from http_history_tab import FileMonitorThread, SearchHighlighter, HTTPHistoryTab
-from decoder_tab import DecoderTab
-from payloads_tab import PayloadsTab
-from comparer_tab import ComparerTab
-from mapping_tab import MappingTabPro as MappingTab
-from js_miner_tab import JSMinerTab
-from scanner_tab import add_scanner_tab as add_active_scanner_tab
-from param_miner_tab import ParamMinerTab
-from api_key_tab import add_api_key_tab
-
-# ── New modules ──────────────────────────────────────────────────────────────
-import project_manager as pm
-from launch_dialog import LaunchDialog
-from scope_tab import ScopeTab
-from intercept_tab import InterceptTab
-from repeater_tab import RepeaterTab
-from intruder_tab import IntruderTab
-from dashboard_tab import add_dashboard_tab
-from attack_surface_tab import AttackSurfaceTab
-from report_tab import ReportTab
-from ws_history_tab import WSHistoryTab
+from modules.constants import *
+from modules.http_history_tab import FileMonitorThread, SearchHighlighter, HTTPHistoryTab
+from modules.decoder_tab import DecoderTab
+from modules.payloads_tab import PayloadsTab
+from modules.comparer_tab import ComparerTab
+from modules.mapping_tab import MappingTabPro as MappingTab
+from modules.js_miner_tab import JSMinerTab
+from modules.scanner_tab import add_scanner_tab as add_active_scanner_tab
+from modules.param_miner_tab import ParamMinerTab
+from modules.api_key_tab import add_api_key_tab
+from modules import project_manager as pm
+from modules.launch_dialog import LaunchDialog
+from modules.scope_tab import ScopeTab
+from modules.intercept_tab import InterceptTab
+from modules.repeater_tab import RepeaterTab
+from modules.intruder_tab import IntruderTab
+from modules.dashboard_tab import add_dashboard_tab
+from modules.attack_surface_tab import AttackSurfaceTab
+from modules.report_tab import ReportTab
+from modules.ws_history_tab import WSHistoryTab
 
 # ── Path to the dedicated mitmproxy addon script (no PyQt5 deps) ────────────
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-INLINE_ADDON_SCRIPT = os.path.join(_THIS_DIR, "hunt_addon.py")
+INLINE_ADDON_SCRIPT = os.path.join(_THIS_DIR, "modules" ,"hunt_addon.py")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3053,7 +3051,7 @@ class HuntGUI(
             self.js_miner_tab.set_project_dir(self._project_paths["project_dir"])
             self.param_miner.set_project_dir(self._project_paths["project_dir"])
 
-        from bypass_tab import add_bypass_tab
+        from modules.bypass_tab import add_bypass_tab
         add_bypass_tab(self)
         self.bypass_ref = self.bypass_tab
 
@@ -3147,7 +3145,7 @@ class HuntGUI(
 
         # Sub-tab 4 : PoC
         try:
-            from poc_tab import POCTab
+            from modules.poc_tab import POCTab
             self.poc_tab = POCTab(self)
             idx = self.tools_sub_tabs.count()
             self.tools_sub_tabs.addTab(self.poc_tab, "PoC Generator")
@@ -3159,7 +3157,7 @@ class HuntGUI(
 
         # Sub-tab 5 : JWT Analyzer
         try:
-            from jwt_tab import JWTTab
+            from modules.jwt_tab import JWTTab
             self.jwt_tab = JWTTab(self)
             idx = self.tools_sub_tabs.count()
             self.tools_sub_tabs.addTab(self.jwt_tab, " JWT")
@@ -3383,7 +3381,7 @@ class HuntGUI(
 
     def _switch_project(self):
         """Show project selection dialog and relaunch with the chosen project."""
-        from launch_dialog import LaunchDialog
+        from modules.launch_dialog import LaunchDialog
         dlg = LaunchDialog(self)
         if dlg.exec_() != QDialog.Accepted:
             return
@@ -3498,7 +3496,7 @@ class HuntGUI(
 
         # Update attack surface tab project dir when project changes
         if slug and hasattr(self, "attack_surface_tab"):
-            import project_manager as _pm
+            from modules import project_manager as _pm
             paths = _pm.get_project_paths(slug)
             if paths:
                 self.attack_surface_tab.set_project_dir(paths["project_dir"])
@@ -4139,7 +4137,7 @@ class HuntGUI(
                     QMessageBox.critical(
                         self, "Addon Script Not Found",
                         f"Cannot find proxy addon script:\n{self.proxy_script_file}\n\n"
-                        "Make sure hunt_addon.py is in the same directory as hunt_gui.py."
+                        "Make sure hunt_addon.py is inside modules dir which is in the same directory as main.py."
                     )
                     return
 
@@ -4556,7 +4554,7 @@ class HuntGUI(
 
     def show_import_endpoints_dialog(self):
         """Open the Import Endpoints dialog."""
-        from import_endpoints_dialog import ImportEndpointsDialog
+        from modules.import_endpoints_dialog import ImportEndpointsDialog
         dialog = ImportEndpointsDialog(
             project_paths=getattr(self, '_project_paths', None),
             parent=self,
@@ -5737,7 +5735,7 @@ class HuntGUI(
         """Open a popup dialog to add/edit the note for the selected request."""
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel
         from PyQt5.QtGui import QColor
-        from constants import COLOR_ACCENT, COLOR_DARK_BG, COLOR_TEXT, COLOR_BORDER, COLOR_ELEVATED_BG, COLOR_TEXT_BRIGHT
+        from modules.constants import COLOR_ACCENT, COLOR_DARK_BG, COLOR_TEXT, COLOR_BORDER, COLOR_ELEVATED_BG, COLOR_TEXT_BRIGHT
 
         # Use seq as the stable persistence key (survives JSONL re-reads across restarts)
         finding = self.findings[finding_index] if finding_index < len(self.findings) else {}
