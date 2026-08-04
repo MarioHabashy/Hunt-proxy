@@ -1,0 +1,1 @@
+wget -O- https://raw.githubusercontent.com/MarioHabashy/Hunt-proxy/main/install_hunt_gui_dependencies.sh | bash
