@@ -2864,9 +2864,9 @@ TOOLS_CATALOG = [
     {"name": "ipinfo", "commands": [
         "curl -Ls https://github.com/ipinfo/cli/releases/download/ipinfo-3.3.2/deb.sh | sh"],
      "check_bins": ["ipinfo"], "implicit_sudo": True},
-    {"name": "wad", "commands": ["sudo pip3 install wad"],
+    {"name": "wad", "commands": ["sudo pip3 install wad --break-system-packages"],
      "check_bins": ["wad"]},
-    {"name": "wafw00f", "commands": ["sudo pip3 install wafw00f"],
+    {"name": "wafw00f", "commands": ["sudo pip3 install wafw00f --break-system-packages"],
      "check_bins": ["wafw00f"]},
     {"name": "cmseek", "commands": ["sudo apt install -y cmseek"],
      "check_bins": ["cmseek"]},
@@ -2877,7 +2877,7 @@ TOOLS_CATALOG = [
         "sudo cp ~/go/bin/waybackurls /usr/bin/"
      ],
      "check_bins": ["waybackurls"]},
-    {"name": "waymore", "commands": ["sudo pip3 install waymore"],
+    {"name": "waymore", "commands": ["sudo pip3 install waymore --break-system-packages"],
      "check_bins": ["waymore"]},
     {"name": "gau", "commands": [
         "go install github.com/lc/gau/v2/cmd/gau@latest",
@@ -2924,7 +2924,7 @@ TOOLS_CATALOG = [
         "https://kali.download/kali/pool/main/j/joomscan/joomscan_0.0.7-0kali2_all.deb",
         "sudo apt install -y ./joomscan_0.0.7-0kali2_all.deb"],
      "check_bins": ["joomscan"]},
-    {"name": "droopescan", "commands": ["sudo pip3 install droopescan"],
+    {"name": "droopescan", "commands": ["sudo pip3 install droopescan --break-system-packages"],
      "check_bins": ["droopescan"]},
     {"name": "amass", "commands": [
         "go install github.com/owasp-amass/amass/v4/...@master",
@@ -2952,7 +2952,7 @@ TOOLS_CATALOG = [
      "check_bins": ["whois"]},
     {"name": "dorks_hunter.py", "commands": [
         "git clone https://github.com/six2dez/dorks_hunter",
-        "cd dorks_hunter && sudo pip3 install -r requirements.txt"],
+        "cd dorks_hunter && sudo pip3 install -r requirements.txt --break-system-packages"],
      "check_dirs": ["dorks_hunter"]},
     {"name": "gitdorks_go", "commands": [
         "go install -v github.com/damit5/gitdorks_go@latest",
@@ -2964,16 +2964,16 @@ TOOLS_CATALOG = [
         "https://kali.download/kali/pool/main/t/trufflehog/trufflehog_3.94.3-0kali1_amd64.deb",
         "sudo apt install -y ./trufflehog_3.94.3-0kali1_amd64.deb"],
      "check_bins": ["trufflehog"]},
-    {"name": "emailfinder", "commands": ["sudo pip3 install emailfinder"],
+    {"name": "emailfinder", "commands": ["sudo pip3 install emailfinder --break-system-packages"],
      "check_bins": ["emailfinder"]},
-    {"name": "metafinder", "commands": ["sudo pip3 install metafinder"],
+    {"name": "metafinder", "commands": ["sudo pip3 install metafinder --break-system-packages"],
      "check_bins": ["metafinder"]},
     {"name": "gobuster", "commands": [
         "go install github.com/OJ/gobuster/v3@latest",
         "sudo cp ~/go/bin/gobuster /usr/bin/"
      ],
      "check_bins": ["gobuster"]},
-    {"name": "altdns", "commands": ["sudo pip3 install py-altdns==1.0.2"],
+    {"name": "altdns", "commands": ["sudo pip3 install py-altdns==1.0.2 --break-system-packages"],
      "check_bins": ["altdns"]},
     {"name": "ffuf", "commands": ["sudo apt install -y ffuf"],
      "check_bins": ["ffuf"]},
@@ -3008,7 +3008,7 @@ TOOLS_CATALOG = [
      "check_bins": ["cariddi"]},
     {"name": "linkfinder.py", "commands": [
         "git clone https://github.com/GerbenJavado/LinkFinder.git",
-        "cd LinkFinder && sudo pip3 install -r requirements.txt"],
+        "cd LinkFinder && sudo pip3 install -r requirements.txt --break-system-packages"],
      "check_dirs": ["LinkFinder"]},
     {"name": "paramspider", "commands": [
         "wget -O paramspider_1.0.1-3_all.deb "
@@ -3030,35 +3030,9 @@ TOOLS_CATALOG = [
         "sudo cp ~/go/bin/roboxtractor /usr/bin/"
      ],
      "check_bins": ["roboxtractor"]},
-    {"name": "uro", "commands": ["sudo pipx install uro"],
+    {"name": "uro", "commands": ["sudo pipx install uro --break-system-packages"],
      "check_bins": ["uro"]},
 ]
-
-# Import section
-import shutil
-import subprocess
-import os
-import re
-import sys
-import time
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                            QCheckBox, QPushButton, QScrollArea, QWidget,
-                            QPlainTextEdit, QFrame, QMessageBox, QInputDialog,
-                            QLineEdit)
-
-# Color constants (define these based on your theme)
-COLOR_BACKGROUND = "#1e1e1e"
-COLOR_TEXT = "#d4d4d4"
-COLOR_TEXT_BRIGHT = "#ffffff"
-COLOR_TEXT_MUTED = "#858585"
-COLOR_ELEVATED_BG = "#2d2d2d"
-COLOR_DARK_BG = "#1a1a1a"
-COLOR_BORDER = "#404040"
-COLOR_ACCENT = "#007acc"
-COLOR_SUCCESS = "#4ec9b0"
-COLOR_WARNING = "#dcdcaa"
-COLOR_CRITICAL = "#f44747"
 
 
 def _tool_is_installed(tool: dict, tools_dir: str, seclists_dir: str = "") -> bool:
