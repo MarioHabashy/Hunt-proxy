@@ -2989,23 +2989,124 @@ def _tool_is_installed(tool: dict, tools_dir: str, seclists_dir: str = "") -> bo
     return False
 
 
+_SUDO_RE = re.compile(r'(^|\s)sudo(\s|$)')
+
+
 class _ToolInstallWorker(QThread):
     """Runs the install commands for a list of selected tools, one at a time,
-    streaming combined stdout/stderr back to the UI thread."""
+    streaming combined stdout/stderr back to the UI thread.
+
+    Handles two extra requirements:
+      - 'sudo apt …' commands are fed the sudo password over stdin so they
+        don't hang waiting for interactive input.
+      - Tools whose install command uses 'go install …' get the Go toolchain
+        installed automatically first if it isn't already on PATH.
+    """
 
     line_output   = pyqtSignal(str)
     tool_started  = pyqtSignal(str)
     tool_finished = pyqtSignal(str, bool)   # name, success
     all_finished  = pyqtSignal()
 
-    def __init__(self, tools: list, tools_dir: str, parent=None):
+    def __init__(self, tools: list, tools_dir: str, sudo_password: str = "", parent=None):
         super().__init__(parent)
         self.tools = tools
         self.tools_dir = tools_dir
+        self.sudo_password = sudo_password or ""
         self._stop_requested = False
 
     def stop(self):
         self._stop_requested = True
+
+    # ── single-command execution, sudo-password aware ────────────────────
+    def _run_cmd(self, cmd: str) -> bool:
+        if self._stop_requested:
+            return False
+
+        exec_cmd = cmd
+        needs_pw = False
+        if _SUDO_RE.search(cmd) and ' -S ' not in cmd:
+            # Inject -S so sudo reads the password from stdin instead of the
+            # (nonexistent) TTY, and -p '' to suppress the "[sudo] password
+            # for user:" prompt text from mixing into our output.
+            exec_cmd = _SUDO_RE.sub(r'\1sudo -S -p ""\2', cmd, count=1)
+            needs_pw = True
+
+        self.line_output.emit(f"$ {cmd}")
+        try:
+            proc = subprocess.Popen(
+                exec_cmd, shell=True, cwd=self.tools_dir,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, env=os.environ.copy(),
+            )
+            if needs_pw:
+                try:
+                    proc.stdin.write(self.sudo_password + "\n")
+                    proc.stdin.flush()
+                except Exception:
+                    pass
+            try:
+                proc.stdin.close()
+            except Exception:
+                pass
+
+            for line in iter(proc.stdout.readline, ''):
+                if self._stop_requested:
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        pass
+                    break
+                if line:
+                    self.line_output.emit(line.rstrip())
+            proc.wait()
+
+            if proc.returncode != 0:
+                if needs_pw:
+                    self.line_output.emit(
+                        f"⚠ Command exited with code {proc.returncode} "
+                        f"(check your sudo password)"
+                    )
+                else:
+                    self.line_output.emit(f"⚠ Command exited with code {proc.returncode}")
+                return False
+            return True
+        except Exception as e:
+            self.line_output.emit(f"⚠ Error: {e}")
+            return False
+
+    # ── ensure the Go toolchain is present before any 'go install' cmd ───
+    def _ensure_go(self) -> bool:
+        if shutil.which("go"):
+            return True
+        self.line_output.emit("\n───── Go toolchain not found — installing Go ─────")
+        self._run_cmd("sudo apt update")
+        if not self._run_cmd("sudo apt install -y golang-go"):
+            self.line_output.emit(
+                "⚠ Failed to install Go via apt. Install it manually from "
+                "https://go.dev/dl/ and try again."
+            )
+            return False
+
+        gopath_bin = os.path.expanduser("~/go/bin")
+        os.makedirs(gopath_bin, exist_ok=True)
+        if gopath_bin not in os.environ.get("PATH", "").split(os.pathsep):
+            os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + gopath_bin
+
+        # Persist ~/go/bin on PATH for future shells/sessions too.
+        self._run_cmd(
+            "grep -qxF 'export PATH=$PATH:$HOME/go/bin' ~/.bashrc || "
+            "echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc"
+        )
+
+        if shutil.which("go"):
+            self.line_output.emit("✅ Go installed successfully.")
+            return True
+        self.line_output.emit(
+            "⚠ Go was installed but isn't on PATH yet — you may need to restart the app."
+        )
+        return False
 
     def run(self):
         try:
@@ -3013,40 +3114,31 @@ class _ToolInstallWorker(QThread):
         except Exception as e:
             self.line_output.emit(f"⚠ Could not create tools directory: {e}")
 
+        needs_go = any("go install" in c for t in self.tools for c in t["commands"])
+        go_ready = shutil.which("go") is not None
+        if needs_go and not go_ready and not self._stop_requested:
+            go_ready = self._ensure_go()
+
         for tool in self.tools:
             if self._stop_requested:
                 break
             name = tool["name"]
             self.tool_started.emit(name)
             self.line_output.emit(f"\n───── Installing {name} ─────")
+
+            tool_needs_go = any("go install" in c for c in tool["commands"])
+            if tool_needs_go and not go_ready:
+                self.line_output.emit("⚠ Skipped — Go toolchain is not available.")
+                self.tool_finished.emit(name, False)
+                continue
+
             success = True
             for cmd in tool["commands"]:
                 if self._stop_requested:
                     success = False
                     break
-                self.line_output.emit(f"$ {cmd}")
-                try:
-                    proc = subprocess.Popen(
-                        cmd, shell=True, cwd=self.tools_dir,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        text=True, bufsize=1,
-                    )
-                    for line in iter(proc.stdout.readline, ''):
-                        if self._stop_requested:
-                            try:
-                                proc.terminate()
-                            except Exception:
-                                pass
-                            break
-                        if line:
-                            self.line_output.emit(line.rstrip())
-                    proc.wait()
-                    if proc.returncode != 0:
-                        success = False
-                        self.line_output.emit(f"⚠ Command exited with code {proc.returncode}")
-                except Exception as e:
+                if not self._run_cmd(cmd):
                     success = False
-                    self.line_output.emit(f"⚠ Error: {e}")
             self.tool_finished.emit(name, success)
 
         self.all_finished.emit()
@@ -3123,7 +3215,7 @@ class InstallToolsDialog(QDialog):
 
         # Buttons
         btn_row = QHBoxLayout()
-        self.refresh_btn = QPushButton(" Re-check")
+        self.refresh_btn = QPushButton("🔄 Re-check")
         self.refresh_btn.setStyleSheet(
             f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
             f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 12px;"
@@ -3212,6 +3304,29 @@ class InstallToolsDialog(QDialog):
             QMessageBox.information(self, "Nothing selected", "Select at least one tool to install.")
             return
 
+        # Does anything we're about to run need sudo? That includes the
+        # tools' own commands, and — implicitly — installing the Go
+        # toolchain (via apt) if a selected tool needs 'go install' and Go
+        # isn't already present.
+        needs_go = (any("go install" in c for t in selected for c in t["commands"])
+                    and shutil.which("go") is None)
+        needs_sudo = needs_go or any(
+            _SUDO_RE.search(c) for t in selected for c in t["commands"]
+        )
+
+        sudo_password = ""
+        if needs_sudo:
+            pwd, ok = QInputDialog.getText(
+                self, "Sudo Password",
+                "One or more selected tools need 'sudo' to install"
+                + (" (installing the Go toolchain also needs it)." if needs_go else ".")
+                + "\nEnter your sudo password:",
+                QLineEdit.Password,
+            )
+            if not ok:
+                return
+            sudo_password = pwd
+
         self.log.show()
         self.log.clear()
         self.install_btn.setEnabled(False)
@@ -3219,7 +3334,7 @@ class InstallToolsDialog(QDialog):
         self.close_btn.setEnabled(False)
         self.select_all_cb.setEnabled(False)
 
-        self._worker = _ToolInstallWorker(selected, self._tools_dir, self)
+        self._worker = _ToolInstallWorker(selected, self._tools_dir, sudo_password, self)
         self._worker.line_output.connect(self._append_log)
         self._worker.tool_finished.connect(self._on_tool_finished)
         self._worker.all_finished.connect(self._on_all_finished)
@@ -5840,7 +5955,7 @@ class HuntGUI(
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
 
-        install_tools_action = QAction(" Install Tools", self)
+        install_tools_action = QAction("🧰 Install Tools", self)
         install_tools_action.setToolTip(
             "Check which recon/pentest tools are installed and install the missing ones"
         )
