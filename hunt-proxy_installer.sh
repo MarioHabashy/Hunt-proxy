@@ -234,7 +234,7 @@ create_launcher_script() {
   cat > /tmp/hunt-proxy <<EOF
 #!/bin/bash
 source "${VENV_DIR}/bin/activate"
-python3 "${INSTALL_DIR}/hunt_gui.py" "\$@"
+python3 "${INSTALL_DIR}/main.py" "\$@"
 EOF
 
   run_with_sudo mv /tmp/hunt-proxy "${launcher}"
@@ -303,9 +303,6 @@ Desktop Launcher: Hunt-Proxy (available in application menu)
 To run Hunt-Proxy:
   1. From terminal: hunt-proxy
   2. From desktop: Search for "Hunt-Proxy" in applications
-
-To uninstall: sudo ${INSTALL_DIR}/uninstall.sh
-
 EOF
 }
 
