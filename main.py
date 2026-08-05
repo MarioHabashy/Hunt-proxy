@@ -2864,43 +2864,28 @@ TOOLS_CATALOG = [
     {"name": "ipinfo", "commands": [
         "curl -Ls https://github.com/ipinfo/cli/releases/download/ipinfo-3.3.2/deb.sh | sh"],
      "check_bins": ["ipinfo"], "implicit_sudo": True},
-    {"name": "wad", "commands": ["sudo pip3 install wad --break-system-packages"],
+    {"name": "wad", "commands": ["pip3 install wad --user --break-system-packages"],
      "check_bins": ["wad"]},
-    {"name": "wafw00f", "commands": ["sudo pip3 install wafw00f --break-system-packages"],
+    {"name": "wafw00f", "commands": ["pip3 install wafw00f --user --break-system-packages"],
      "check_bins": ["wafw00f"]},
     {"name": "cmseek", "commands": ["sudo apt install -y cmseek"],
      "check_bins": ["cmseek"]},
     {"name": "nmap", "commands": ["sudo apt install -y nmap"],
      "check_bins": ["nmap"]},
-    {"name": "waybackurls", "commands": [
-        "go install github.com/tomnomnom/waybackurls@latest",
-        "sudo cp ~/go/bin/waybackurls /usr/bin/"
-     ],
+    {"name": "waybackurls", "commands": ["go install github.com/tomnomnom/waybackurls@latest"],
      "check_bins": ["waybackurls"]},
-    {"name": "waymore", "commands": ["sudo pip3 install waymore --break-system-packages"],
+    {"name": "waymore", "commands": ["pip3 install waymore --user --break-system-packages"],
      "check_bins": ["waymore"]},
-    {"name": "gau", "commands": [
-        "go install github.com/lc/gau/v2/cmd/gau@latest",
-        "sudo cp ~/go/bin/gau /usr/bin/"
-     ],
+    {"name": "gau", "commands": ["go install github.com/lc/gau/v2/cmd/gau@latest"],
      "check_bins": ["gau"]},
-    {"name": "gauplus", "commands": [
-        "go install github.com/bp0lr/gauplus@latest",
-        "sudo cp ~/go/bin/gauplus /usr/bin/"
-     ],
+    {"name": "gauplus", "commands": ["go install github.com/bp0lr/gauplus@latest"],
      "check_bins": ["gauplus"]},
-    {"name": "github-endpoints", "commands": [
-        "go install github.com/gwen001/github-endpoints@latest",
-        "sudo cp ~/go/bin/github-endpoints /usr/bin/"
-     ],
+    {"name": "github-endpoints", "commands": ["go install github.com/gwen001/github-endpoints@latest"],
      "check_bins": ["github-endpoints"]},
-    {"name": "httpx", "commands": [
-        "go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest",
-        "sudo cp ~/go/bin/httpx /usr/bin/"
-     ],
+    {"name": "httpx", "commands": ["go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest"],
      "check_bins": ["httpx"]},
     {"name": "wordlists", "commands": [
-        "git clone https://github.com/MarioHabashy/Wordlists.git"],
+        "git clone https://github.com/MarioHabashy/Wordlists"],
      "check_dirs": ["Wordlists"]},
     {"name": "seclists", "commands": [
         "git clone --depth 1 https://github.com/danielmiessler/SecLists.git"],
@@ -2910,10 +2895,7 @@ TOOLS_CATALOG = [
         "https://kali.download/kali/pool/main/f/feroxbuster/feroxbuster_2.13.1-0kali3_amd64.deb",
         "sudo apt install -y ./feroxbuster_2.13.1-0kali3_amd64.deb"],
      "check_bins": ["feroxbuster"]},
-    {"name": "nuclei", "commands": [
-        "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest",
-        "sudo cp ~/go/bin/nuclei /usr/bin/"
-     ],
+    {"name": "nuclei", "commands": ["go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"],
      "check_bins": ["nuclei"]},
     {"name": "nikto", "commands": ["sudo apt install -y nikto"],
      "check_bins": ["nikto"]},
@@ -2924,139 +2906,90 @@ TOOLS_CATALOG = [
         "https://kali.download/kali/pool/main/j/joomscan/joomscan_0.0.7-0kali2_all.deb",
         "sudo apt install -y ./joomscan_0.0.7-0kali2_all.deb"],
      "check_bins": ["joomscan"]},
-    {"name": "droopescan", "commands": ["sudo pip3 install droopescan --break-system-packages"],
+    {"name": "droopescan", "commands": ["pip3 install droopescan --user --break-system-packages"],
      "check_bins": ["droopescan"]},
-    {"name": "amass", "commands": [
-        "go install github.com/owasp-amass/amass/v4/...@master",
-        "sudo cp ~/go/bin/amass /usr/bin/"
-     ],
+    {"name": "amass", "commands": ["go install github.com/owasp-amass/amass/v4/...@master"],
      "check_bins": ["amass"]},
     {"name": "subfinder", "commands": [
-        "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
-        "sudo cp ~/go/bin/subfinder /usr/bin/"
-     ],
+        "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"],
      "check_bins": ["subfinder"]},
     {"name": "findomain", "commands": [
         "curl -LO https://github.com/findomain/findomain/releases/latest/download/findomain-linux-i386.zip",
         "unzip -o findomain-linux-i386.zip",
-        "chmod +x findomain",
-        "sudo mv findomain /usr/bin/"
-     ],
+        "chmod +x findomain"],
      "check_bins": ["findomain"], "check_files": ["findomain"]},
-    {"name": "github-subdomains", "commands": [
-        "go install github.com/gwen001/github-subdomains@latest",
-        "sudo cp ~/go/bin/github-subdomains /usr/bin/"
-     ],
+    {"name": "github-subdomains", "commands": ["go install github.com/gwen001/github-subdomains@latest"],
      "check_bins": ["github-subdomains"]},
     {"name": "whois", "commands": ["sudo apt install -y whois"],
      "check_bins": ["whois"]},
     {"name": "dorks_hunter.py", "commands": [
         "git clone https://github.com/six2dez/dorks_hunter",
-        "cd dorks_hunter && sudo pip3 install -r requirements.txt --break-system-packages"],
+        "cd dorks_hunter && pip3 install -r requirements.txt --user --break-system-packages"],
      "check_dirs": ["dorks_hunter"]},
-    {"name": "gitdorks_go", "commands": [
-        "go install -v github.com/damit5/gitdorks_go@latest",
-        "sudo cp ~/go/bin/gitdorks_go /usr/bin/"
-     ],
+    {"name": "gitdorks_go", "commands": ["go install -v github.com/damit5/gitdorks_go@latest"],
      "check_bins": ["gitdorks_go"]},
     {"name": "trufflehog", "commands": [
         "wget -O trufflehog_3.94.3-0kali1_amd64.deb "
         "https://kali.download/kali/pool/main/t/trufflehog/trufflehog_3.94.3-0kali1_amd64.deb",
         "sudo apt install -y ./trufflehog_3.94.3-0kali1_amd64.deb"],
      "check_bins": ["trufflehog"]},
-    {"name": "emailfinder", "commands": ["sudo pip3 install emailfinder --break-system-packages"],
+    {"name": "emailfinder", "commands": ["pip3 install emailfinder --user --break-system-packages"],
      "check_bins": ["emailfinder"]},
-    {"name": "metafinder", "commands": ["sudo pip3 install metafinder --break-system-packages"],
+    {"name": "metafinder", "commands": ["pip3 install metafinder --user --break-system-packages"],
      "check_bins": ["metafinder"]},
-    {"name": "gobuster", "commands": [
-        "go install github.com/OJ/gobuster/v3@latest",
-        "sudo cp ~/go/bin/gobuster /usr/bin/"
-     ],
+    {"name": "gobuster", "commands": ["go install github.com/OJ/gobuster/v3@latest"],
      "check_bins": ["gobuster"]},
-    {"name": "altdns", "commands": ["sudo pip3 install py-altdns==1.0.2 --break-system-packages"],
+    {"name": "altdns", "commands": ["pip3 install py-altdns==1.0.2 --user --break-system-packages"],
      "check_bins": ["altdns"]},
     {"name": "ffuf", "commands": ["sudo apt install -y ffuf"],
      "check_bins": ["ffuf"]},
-    {"name": "byp4xx", "commands": [
-        "go install -v github.com/lobuhi/byp4xx@latest",
-        "sudo cp ~/go/bin/byp4xx /usr/bin/"
-     ],
+    {"name": "byp4xx", "commands": ["go install -v github.com/lobuhi/byp4xx@latest"],
      "check_bins": ["byp4xx"]},
-    {"name": "subjack", "commands": [
-        "go install github.com/haccer/subjack@latest",
-        "sudo cp ~/go/bin/subjack /usr/bin/"
-     ],
+    {"name": "subjack", "commands": ["go install github.com/haccer/subjack@latest"],
      "check_bins": ["subjack"]},
-    {"name": "smap", "commands": [
-        "go install -v github.com/s0md3v/smap/cmd/smap@latest",
-        "sudo cp ~/go/bin/smap /usr/bin/"
-     ],
+    {"name": "smap", "commands": ["go install -v github.com/s0md3v/smap/cmd/smap@latest"],
      "check_bins": ["smap"]},
     {"name": "cloud_enum", "commands": ["sudo apt install -y cloud-enum"],
      "check_bins": ["cloud_enum", "cloud-enum"]},
     {"name": "eyewitness", "commands": ["sudo apt install -y eyewitness"],
      "check_bins": ["eyewitness", "EyeWitness"]},
-    {"name": "gospider", "commands": [
-        "GO111MODULE=on go install github.com/jaeles-project/gospider@latest",
-        "sudo cp ~/go/bin/gospider /usr/bin/"
-     ],
+    {"name": "gospider", "commands": ["GO111MODULE=on go install github.com/jaeles-project/gospider@latest"],
      "check_bins": ["gospider"]},
-    {"name": "cariddi", "commands": [
-        "go install -v github.com/edoardottt/cariddi/cmd/cariddi@latest",
-        "sudo cp ~/go/bin/cariddi /usr/bin/"
-     ],
+    {"name": "cariddi", "commands": ["go install -v github.com/edoardottt/cariddi/cmd/cariddi@latest"],
      "check_bins": ["cariddi"]},
     {"name": "linkfinder.py", "commands": [
         "git clone https://github.com/GerbenJavado/LinkFinder.git",
-        "cd LinkFinder && sudo pip3 install -r requirements.txt --break-system-packages"],
+        "cd LinkFinder && pip3 install -r requirements.txt --user --break-system-packages"],
      "check_dirs": ["LinkFinder"]},
     {"name": "paramspider", "commands": [
         "wget -O paramspider_1.0.1-3_all.deb "
         "https://kali.download/kali/pool/main/p/paramspider/paramspider_1.0.1-3_all.deb",
         "sudo apt install -y ./paramspider_1.0.1-3_all.deb"],
      "check_bins": ["paramspider"]},
-    {"name": "katana", "commands": [
-        "CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest",
-        "sudo cp ~/go/bin/katana /usr/bin/"
-     ],
+    {"name": "katana", "commands": ["CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest"],
      "check_bins": ["katana"]},
-    {"name": "hakrawler", "commands": [
-        "go install github.com/hakluke/hakrawler@latest",
-        "sudo cp ~/go/bin/hakrawler /usr/bin/"
-     ],
+    {"name": "hakrawler", "commands": ["go install github.com/hakluke/hakrawler@latest"],
      "check_bins": ["hakrawler"]},
-    {"name": "roboxtractor", "commands": [
-        "go install -v github.com/Josue87/roboxtractor@latest",
-        "sudo cp ~/go/bin/roboxtractor /usr/bin/"
-     ],
+    {"name": "roboxtractor", "commands": ["go install -v github.com/Josue87/roboxtractor@latest"],
      "check_bins": ["roboxtractor"]},
-    {"name": "uro", "commands": ["sudo pipx install uro --break-system-packages"],
+    {"name": "uro", "commands": ["pipx install uro"],
      "check_bins": ["uro"]},
 ]
 
 
 def _tool_is_installed(tool: dict, tools_dir: str, seclists_dir: str = "") -> bool:
     """Best-effort detection of whether a catalog tool is already installed."""
-    # First check system-wide locations (/usr/bin)
     for b in tool.get("check_bins", []):
-        if os.path.isfile(f"/usr/bin/{b}"):
-            return True
         if shutil.which(b):
             return True
-    
-    # Then check tools directory
     for d in tool.get("check_dirs", []):
         if tools_dir and os.path.isdir(os.path.join(tools_dir, d)):
             return True
-    
     for f in tool.get("check_files", []):
         if tools_dir and os.path.isfile(os.path.join(tools_dir, f)):
             return True
-    
-    # Special case for seclists
     if tool["name"] == "seclists" and seclists_dir and os.path.isdir(seclists_dir):
         return True
-    
     return False
 
 
@@ -3102,16 +3035,6 @@ class _ToolInstallWorker(QThread):
                 self._run_cmd(f"grep -qxF '{line}' {rc} || echo '{line}' >> {rc}")
 
     def _ensure_common_paths(self):
-        # Override PATH to prioritize /usr/bin
-        os.environ["PATH"] = "/usr/bin:" + os.environ.get("PATH", "")
-        
-        # Remove virtual environment from PATH
-        venv_path = "/usr/share/hunt-proxy/.venv/bin"
-        if venv_path in os.environ.get("PATH", ""):
-            paths = os.environ["PATH"].split(os.pathsep)
-            paths = [p for p in paths if p != venv_path]
-            os.environ["PATH"] = os.pathsep.join(paths)
-        
         for d in (os.path.expanduser("~/.local/bin"), os.path.expanduser("~/go/bin")):
             try:
                 os.makedirs(d, exist_ok=True)
@@ -3122,6 +3045,32 @@ class _ToolInstallWorker(QThread):
             self._persist_path_dir(d)
 
     # ── single-command execution, sudo-password aware ────────────────────
+    # ── build a subprocess environment with the app's OWN virtualenv
+    #    stripped out, so 'pip3'/'python3'/etc. resolve to the system
+    #    versions instead of installing into this app's private venv ──────
+    def _clean_env(self) -> dict:
+        env = os.environ.copy()
+        exclude_dirs = set()
+
+        venv = env.pop("VIRTUAL_ENV", None)
+        if venv:
+            exclude_dirs.add(os.path.abspath(os.path.join(venv, "bin")))
+
+        # Covers the case where the app was launched directly via the
+        # venv's python (no VIRTUAL_ENV var set, e.g. '.venv/bin/python3
+        # main.py') by comparing the running interpreter's prefix to its
+        # base prefix.
+        if getattr(sys, "base_prefix", sys.prefix) != sys.prefix:
+            exclude_dirs.add(os.path.abspath(os.path.join(sys.prefix, "bin")))
+
+        parts = [p for p in env.get("PATH", "").split(os.pathsep)
+                 if p and os.path.abspath(p) not in exclude_dirs]
+        if parts:
+            env["PATH"] = os.pathsep.join(parts)
+
+        env["DEBIAN_FRONTEND"] = "noninteractive"
+        return env
+
     def _run_cmd(self, cmd: str) -> bool:
         if self._stop_requested:
             return False
@@ -3137,8 +3086,7 @@ class _ToolInstallWorker(QThread):
 
         self.line_output.emit(f"$ {cmd}")
         try:
-            env = os.environ.copy()
-            env["DEBIAN_FRONTEND"] = "noninteractive"
+            env = self._clean_env()
             proc = subprocess.Popen(
                 exec_cmd, shell=True, cwd=self.tools_dir,
                 stdin=subprocess.PIPE,
@@ -3149,9 +3097,6 @@ class _ToolInstallWorker(QThread):
                 try:
                     proc.stdin.write(self.sudo_password + "\n")
                     proc.stdin.flush()
-                except BrokenPipeError:
-                    self.line_output.emit("⚠ Failed to send sudo password")
-                    return False
                 except Exception:
                     pass
             try:
@@ -3219,96 +3164,33 @@ class _ToolInstallWorker(QThread):
         self.line_output.emit("\n───── Caching sudo credentials ─────")
         self._run_cmd("sudo -v")
 
-    # ── copy every Go-installed binary from ~/go/bin into /usr/bin so the
-    #    tools are on PATH system-wide, not just for this shell ────────────
-    def _sync_go_bin_to_usr_bin(self):
-        gopath_bin = os.path.expanduser("~/go/bin")
-        if not os.path.isdir(gopath_bin):
-            return
-        try:
-            entries = [f for f in os.listdir(gopath_bin)
-                       if os.path.isfile(os.path.join(gopath_bin, f))]
-        except Exception:
-            entries = []
-        if not entries:
-            return
+    # ── copy every user-installed binary (Go's ~/go/bin, pip's
+    #    ~/.local/bin) into /usr/bin so tools are on PATH system-wide,
+    #    not just for this shell / after a PATH-rc reload ─────────────────
+    def _sync_user_bins_to_usr_bin(self):
+        for label, src_dir in (("Go", os.path.expanduser("~/go/bin")),
+                                ("pip --user", os.path.expanduser("~/.local/bin"))):
+            if not os.path.isdir(src_dir):
+                continue
+            try:
+                entries = [f for f in os.listdir(src_dir)
+                           if os.path.isfile(os.path.join(src_dir, f))]
+            except Exception:
+                entries = []
+            if not entries:
+                continue
 
-        self.line_output.emit(f"\n───── Copying {len(entries)} Go tool binaries to /usr/bin ─────")
-        if not self.sudo_password:
             self.line_output.emit(
-                "⚠ Skipped — copying to /usr/bin needs sudo and no password was provided."
+                f"\n───── Copying {len(entries)} {label} binaries to /usr/bin ─────"
             )
-            return
-        self._run_cmd(f'sudo cp -f "{gopath_bin}"/* /usr/bin/')
-        self._run_cmd("sudo chmod +x /usr/bin/* 2>/dev/null")
-
-    def _install_to_system(self, tool: dict) -> bool:
-        """Install tool to system location (/usr/bin)"""
-        commands = tool["commands"].copy()
-        name = tool["name"]
-        
-        # Check if tool is already in /usr/bin
-        for bin_name in tool.get("check_bins", []):
-            if os.path.isfile(f"/usr/bin/{bin_name}"):
-                self.line_output.emit(f"✅ {name} already installed in /usr/bin")
-                return True
-        
-        self.line_output.emit(f"\n───── Installing {name} to /usr/bin ─────")
-        
-        # Run the installation commands
-        for cmd in commands:
-            if self._stop_requested:
-                return False
-            if not self._run_cmd(cmd):
-                return False
-        
-        # For Go tools, verify binary was copied to /usr/bin
-        if any("go install" in c for c in tool["commands"]):
-            for bin_name in tool.get("check_bins", []):
-                go_bin_path = os.path.expanduser(f"~/go/bin/{bin_name}")
-                if os.path.isfile(go_bin_path):
-                    # Ensure it's in /usr/bin
-                    if not os.path.isfile(f"/usr/bin/{bin_name}"):
-                        self._run_cmd(f"sudo cp {go_bin_path} /usr/bin/")
-                        self._run_cmd(f"sudo chmod +x /usr/bin/{bin_name}")
-                    break
-        
-        # For git clone tools, try to find and copy executables
-        if any("git clone" in c for c in tool["commands"]):
-            for check in tool.get("check_files", []):
-                src = os.path.join(self.tools_dir, check)
-                if os.path.isfile(src):
-                    self._run_cmd(f"sudo cp {src} /usr/bin/")
-                    self._run_cmd(f"sudo chmod +x /usr/bin/{check}")
-                    break
-        
-        # For pip tools, verify they're in /usr/local/bin or /usr/bin
-        if any("pip" in c for c in tool["commands"]):
-            for bin_name in tool.get("check_bins", []):
-                if shutil.which(bin_name):
-                    bin_path = shutil.which(bin_name)
-                    if bin_path != f"/usr/bin/{bin_name}" and bin_path != f"/usr/local/bin/{bin_name}":
-                        self._run_cmd(f"sudo cp {bin_path} /usr/bin/")
-                    break
-        
-        # Final verification - check if tool is now in /usr/bin
-        for bin_name in tool.get("check_bins", []):
-            if os.path.isfile(f"/usr/bin/{bin_name}") or shutil.which(bin_name):
-                return True
-        
-        return False
+            if not self.sudo_password:
+                self.line_output.emit(
+                    "⚠ Skipped — copying to /usr/bin needs sudo and no password was provided."
+                )
+                continue
+            self._run_cmd(f'sudo cp -f "{src_dir}"/* /usr/bin/')
 
     def run(self):
-        # Override PATH to prioritize /usr/bin
-        os.environ["PATH"] = "/usr/bin:" + os.environ.get("PATH", "")
-        
-        # Remove virtual environment from PATH
-        venv_path = "/usr/share/hunt-proxy/.venv/bin"
-        if venv_path in os.environ.get("PATH", ""):
-            paths = os.environ["PATH"].split(os.pathsep)
-            paths = [p for p in paths if p != venv_path]
-            os.environ["PATH"] = os.pathsep.join(paths)
-
         try:
             os.makedirs(self.tools_dir, exist_ok=True)
         except Exception as e:
@@ -3330,46 +3212,39 @@ class _ToolInstallWorker(QThread):
                 break
             name = tool["name"]
             self.tool_started.emit(name)
-            
+            self.line_output.emit(f"\n───── Installing {name} ─────")
+
             tool_needs_go = any("go install" in c for c in tool["commands"])
             if tool_needs_go and not go_ready:
                 self.line_output.emit("⚠ Skipped — Go toolchain is not available.")
                 self.tool_finished.emit(name, False)
                 continue
 
-            # Install to system location
-            success = self._install_to_system(tool)
+            success = True
+            for cmd in tool["commands"]:
+                if self._stop_requested:
+                    success = False
+                    break
+                if not self._run_cmd(cmd):
+                    success = False
 
-            # Re-verify against the actual system state
+            # Re-verify against the actual system state (fresh PATH) instead
+            # of trusting shell exit codes alone — this catches cases where
+            # the install "succeeded" but the binary still isn't reachable,
+            # and avoids false positives from stale leftovers.
             if success and not self._stop_requested:
-                # Check if tool is now in /usr/bin
-                installed_in_usr = False
-                for bin_name in tool.get("check_bins", []):
-                    if os.path.isfile(f"/usr/bin/{bin_name}"):
-                        installed_in_usr = True
-                        break
-                
-                # If not in /usr/bin, try to find and copy it
-                if not installed_in_usr:
-                    for bin_name in tool.get("check_bins", []):
-                        bin_path = shutil.which(bin_name)
-                        if bin_path and bin_path != f"/usr/bin/{bin_name}":
-                            self._run_cmd(f"sudo cp {bin_path} /usr/bin/")
-                            if os.path.isfile(f"/usr/bin/{bin_name}"):
-                                installed_in_usr = True
-                                break
-                
-                if not installed_in_usr:
+                if not _tool_is_installed(tool, self.tools_dir, self.seclists_dir):
                     success = False
                     self.line_output.emit(
-                        f"⚠ '{name}' ran without error but isn't in /usr/bin yet. "
-                        f"It may need a new terminal session."
+                        f"⚠ '{name}' ran without error but isn't runnable yet "
+                        f"(not found on PATH / expected location). It may need "
+                        f"a new terminal session, or its install command may "
+                        f"need updating."
                     )
-            
             self.tool_finished.emit(name, success)
 
         if not self._stop_requested:
-            self._sync_go_bin_to_usr_bin()
+            self._sync_user_bins_to_usr_bin()
 
         self.all_finished.emit()
 
@@ -3395,7 +3270,7 @@ class InstallToolsDialog(QDialog):
         root.setSpacing(8)
 
         info = QLabel(
-            f"Detects and installs recon / pentest tools into:\n/usr/bin (system-wide)\n"
+            f"Detects and installs recon / pentest tools into:\n{self._tools_dir}\n"
             "Tools already found on your system are marked Installed and locked."
         )
         info.setWordWrap(True)
@@ -3445,7 +3320,7 @@ class InstallToolsDialog(QDialog):
 
         # Buttons
         btn_row = QHBoxLayout()
-        self.refresh_btn = QPushButton("↻ Re-check")
+        self.refresh_btn = QPushButton(" Re-check")
         self.refresh_btn.setStyleSheet(
             f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
             f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 12px;"
@@ -3534,19 +3409,30 @@ class InstallToolsDialog(QDialog):
             QMessageBox.information(self, "Nothing selected", "Select at least one tool to install.")
             return
 
-        # Check if anything needs sudo
+        # Does anything we're about to run need sudo? That includes the
+        # tools' own explicit 'sudo' commands, tools that need it implicitly
+        # (e.g. a piped install script that calls sudo internally), any
+        # selected tool that uses 'go install' or 'pip3 install' (installing
+        # the Go toolchain via apt needs sudo, and so does the final copy of
+        # Go / pip --user binaries into /usr/bin), and Go toolchain
+        # installation itself if Go is missing.
+        any_go_tool = any("go install" in c for t in selected for c in t["commands"])
+        any_pip_tool = any("pip3 install" in c for t in selected for c in t["commands"])
+        needs_go_toolchain = any_go_tool and shutil.which("go") is None
         needs_sudo = (
-            any("sudo" in c for t in selected for c in t["commands"])
-            or any("apt" in c for t in selected for c in t["commands"])
-            or any("pip" in c for t in selected for c in t["commands"])
+            any_go_tool
+            or any_pip_tool
+            or any(t.get("implicit_sudo") for t in selected)
+            or any(_SUDO_RE.search(c) for t in selected for c in t["commands"])
         )
 
         sudo_password = ""
         if needs_sudo:
             pwd, ok = QInputDialog.getText(
                 self, "Sudo Password",
-                "One or more selected tools need 'sudo' to install.\n"
-                "Enter your sudo password:",
+                "One or more selected tools need 'sudo' to install"
+                + (" (installing the Go toolchain also needs it)." if needs_go_toolchain else ".")
+                + "\nEnter your sudo password:",
                 QLineEdit.Password,
             )
             if not ok:
@@ -3595,14 +3481,12 @@ class InstallToolsDialog(QDialog):
 
     def closeEvent(self, event):
         if self._worker is not None and self._worker.isRunning():
-            self._worker.stop()
-            self._worker.wait(5000)  # Wait up to 5 seconds
-            if self._worker.isRunning():
-                self._worker.terminate()
-                self._worker.wait()
-            event.accept()
-        else:
-            event.accept()
+            QMessageBox.warning(self, "Install running",
+                                 "Please wait for the current install to finish before closing.")
+            event.ignore()
+            return
+        event.accept()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main window
