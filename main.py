@@ -2885,7 +2885,7 @@ TOOLS_CATALOG = [
     {"name": "httpx", "commands": ["go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest"],
      "check_bins": ["httpx"]},
     {"name": "wordlists", "commands": [
-        "git clone https://github.com/MarioHabashy/Wordlists"],
+        "git clone https://github.com/MarioHabashy/Wordlists.git"],
      "check_dirs": ["Wordlists"]},
     {"name": "seclists", "commands": [
         "git clone --depth 1 https://github.com/danielmiessler/SecLists.git"],
@@ -3251,18 +3251,24 @@ class _ToolInstallWorker(QThread):
 
 class InstallToolsDialog(QDialog):
     """Lists every tool in TOOLS_CATALOG, shows install status, and lets the
-    user select and batch-install missing tools."""
+    user select and batch-install missing tools.
+
+    Non-modal: shown with .show() as its own top-level window so the rest of
+    the app stays usable (and the install log stays visible) while an
+    install runs in the background."""
 
     def __init__(self, settings: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Install Tools")
-        self.setMinimumSize(640, 580)
-        self.setModal(True)
+        self.setMinimumSize(680, 600)
+        self.setModal(False)
+        self.setWindowFlags(self.windowFlags() | Qt.Window)
         self._settings = settings
         self._tools_dir = settings.get("tools_dir") or os.path.expanduser("~/tools")
         self._seclists_dir = settings.get("seclists_dir", "")
         self._worker = None
         self._row_widgets = {}   # name -> (checkbox, status_label)
+        self._found_state = {}   # name -> bool (already found on system)
 
         self.setStyleSheet(f"QDialog {{ background-color: {COLOR_BACKGROUND}; color: {COLOR_TEXT}; }}")
 
@@ -3271,14 +3277,16 @@ class InstallToolsDialog(QDialog):
 
         info = QLabel(
             f"Detects and installs recon / pentest tools into:\n{self._tools_dir}\n"
-            "Tools already found on your system are marked Installed and locked."
+            "Tools already found on your system are marked 'Found on system' but stay "
+            "selectable — some distros (e.g. Kali) ship a different tool under the same "
+            "name. Hover a tool for its install command(s) to compare."
         )
         info.setWordWrap(True)
         info.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11px;")
         root.addWidget(info)
 
-        # Master "select all uninstalled" checkbox — always the first item.
-        self.select_all_cb = QCheckBox("Select all uninstalled tools")
+        # Master "select all not-found" checkbox — always the first item.
+        self.select_all_cb = QCheckBox("Select all tools not found on this system")
         self.select_all_cb.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT}; font-weight: bold;")
         self.select_all_cb.stateChanged.connect(self._on_select_all_toggled)
         root.addWidget(self.select_all_cb)
@@ -3355,13 +3363,18 @@ class InstallToolsDialog(QDialog):
         row_lay = QHBoxLayout(row)
         row_lay.setContentsMargins(4, 2, 4, 2)
 
+        cmd_preview = "\n".join(f"$ {c}" for c in tool["commands"])
+        tooltip = f"Install command(s) for '{tool['name']}':\n{cmd_preview}"
+
         cb = QCheckBox(tool["name"])
         cb.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT};")
+        cb.setToolTip(tooltip)
         row_lay.addWidget(cb)
         row_lay.addStretch()
 
         status = QLabel("checking…")
         status.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11px;")
+        status.setToolTip(tooltip)
         row_lay.addWidget(status)
 
         self.list_layout.addWidget(row)
@@ -3371,18 +3384,30 @@ class InstallToolsDialog(QDialog):
     def _refresh_status(self):
         self._tools_dir = self._settings.get("tools_dir") or self._tools_dir
         self._seclists_dir = self._settings.get("seclists_dir", self._seclists_dir)
+        self._found_state = {}
         for tool in TOOLS_CATALOG:
             cb, status = self._row_widgets[tool["name"]]
-            installed = _tool_is_installed(tool, self._tools_dir, self._seclists_dir)
-            if installed:
-                status.setText("✅ Installed")
-                status.setStyleSheet(f"color: {COLOR_SUCCESS}; font-size: 11px;")
-                cb.setChecked(False)
-                cb.setEnabled(False)
+            found = _tool_is_installed(tool, self._tools_dir, self._seclists_dir)
+            self._found_state[tool["name"]] = found
+            cb.setEnabled(True)   # never lock — a same-named binary may be a different tool
+            cb.setChecked(False)
+            cmd_preview = "\n".join(f"$ {c}" for c in tool["commands"])
+            if found:
+                status.setText("🟡 Found on system")
+                status.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 11px;")
+                status.setToolTip(
+                    f"A command named '{tool['name']}' already exists on this system.\n"
+                    f"This might be a different tool with the same name (e.g. Kali's own "
+                    f"package) rather than the one below — check it manually "
+                    f"(`which {tool['name']}`, `{tool['name']} --version` / `-h`) before "
+                    f"assuming it's the right one.\n\n"
+                    f"Install command(s) if you want to (re)install this specific tool:\n"
+                    f"{cmd_preview}"
+                )
             else:
-                status.setText("❌ Not installed")
+                status.setText("❌ Not found")
                 status.setStyleSheet(f"color: {COLOR_CRITICAL}; font-size: 11px;")
-                cb.setEnabled(True)
+                status.setToolTip(f"Install command(s):\n{cmd_preview}")
         self.select_all_cb.blockSignals(True)
         self.select_all_cb.setChecked(False)
         self.select_all_cb.blockSignals(False)
@@ -3392,7 +3417,7 @@ class InstallToolsDialog(QDialog):
         checked = state == Qt.Checked
         for tool in TOOLS_CATALOG:
             cb, _ = self._row_widgets[tool["name"]]
-            if cb.isEnabled():
+            if not self._found_state.get(tool["name"], False):
                 cb.setChecked(checked)
 
     # ── Install ──────────────────────────────────────────────────────────
@@ -3467,6 +3492,7 @@ class InstallToolsDialog(QDialog):
             status.setStyleSheet(f"color: {COLOR_SUCCESS}; font-size: 11px;")
             cb.setChecked(False)
             cb.setEnabled(False)
+            self._found_state[name] = True
         else:
             status.setText("⚠ Failed")
             status.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 11px;")
@@ -3587,9 +3613,29 @@ class HuntGUI(
             QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
     def _open_install_tools_dialog(self):
-        """Open the Install Tools dialog (check installed status / batch install)."""
+        """Open the Install Tools window (check installed status / batch
+        install). Non-modal and reused as a singleton so the rest of the
+        app stays usable and re-opening just brings the same window
+        forward instead of stacking duplicates."""
+        dlg = getattr(self, "_install_tools_dialog", None)
+        try:
+            dlg_alive = dlg is not None and dlg.isVisible() is not None
+        except RuntimeError:
+            dlg_alive = False
+            dlg = None
+
+        if dlg_alive:
+            dlg._refresh_status()
+            dlg.show()
+            dlg.raise_()
+            dlg.activateWindow()
+            return
+
         dlg = InstallToolsDialog(self._global_settings, self)
-        dlg.exec_()
+        self._install_tools_dialog = dlg
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def _open_custom_payloads_dialog(self):
         """Open the Custom Payloads manager dialog."""
