@@ -2876,7 +2876,7 @@ TOOLS_CATALOG = [
      "check_bins": ["waybackurls"]},
     {"name": "waymore", "commands": ["pip3 install waymore --break-system-packages"],
      "check_bins": ["waymore"]},
-    {"name": "gau", "commands": ["go install github.com/bp0lr/gauplus@latest"],
+    {"name": "gau", "commands": ["go install github.com/lc/gau/v2/cmd/gau@latest"],
      "check_bins": ["gau"]},
     {"name": "gauplus", "commands": ["go install github.com/bp0lr/gauplus@latest"],
      "check_bins": ["gauplus"]},
@@ -2885,7 +2885,7 @@ TOOLS_CATALOG = [
     {"name": "httpx", "commands": ["go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest"],
      "check_bins": ["httpx"]},
     {"name": "wordlists", "commands": [
-        "git clone https://github.com/MarioHabashy/Wordlists.git"],
+        "git clone https://raw.githubusercontent.com/MarioHabashy/Wordlists"],
      "check_dirs": ["Wordlists"]},
     {"name": "seclists", "commands": [
         "git clone --depth 1 https://github.com/danielmiessler/SecLists.git"],
@@ -2905,7 +2905,7 @@ TOOLS_CATALOG = [
         "wget -O joomscan_0.0.7-0kali2_all.deb "
         "https://kali.download/kali/pool/main/j/joomscan/joomscan_0.0.7-0kali2_all.deb",
         "sudo apt install -y ./joomscan_0.0.7-0kali2_all.deb"],
-     "check_bins": ["joomscan"], "check_dirs": ["joomscan"]},
+     "check_bins": ["joomscan"]},
     {"name": "droopescan", "commands": ["pip3 install droopescan --break-system-packages"],
      "check_bins": ["droopescan"]},
     {"name": "amass", "commands": ["go install github.com/owasp-amass/amass/v4/...@master"],
@@ -3012,15 +3012,37 @@ class _ToolInstallWorker(QThread):
     tool_finished = pyqtSignal(str, bool)   # name, success
     all_finished  = pyqtSignal()
 
-    def __init__(self, tools: list, tools_dir: str, sudo_password: str = "", parent=None):
+    def __init__(self, tools: list, tools_dir: str, sudo_password: str = "",
+                 seclists_dir: str = "", parent=None):
         super().__init__(parent)
         self.tools = tools
         self.tools_dir = tools_dir
         self.sudo_password = sudo_password or ""
+        self.seclists_dir = seclists_dir or ""
         self._stop_requested = False
 
     def stop(self):
         self._stop_requested = True
+
+    # ── make sure user-scoped install locations (pip's ~/.local/bin, Go's
+    #    ~/go/bin) are on PATH now *and* persisted for future terminals ────
+    def _persist_path_dir(self, path_dir: str):
+        line = f'export PATH="$PATH:{path_dir}"'
+        for rc in (os.path.expanduser("~/.bashrc"),
+                   os.path.expanduser("~/.zshrc"),
+                   os.path.expanduser("~/.profile")):
+            if os.path.isfile(rc):
+                self._run_cmd(f"grep -qxF '{line}' {rc} || echo '{line}' >> {rc}")
+
+    def _ensure_common_paths(self):
+        for d in (os.path.expanduser("~/.local/bin"), os.path.expanduser("~/go/bin")):
+            try:
+                os.makedirs(d, exist_ok=True)
+            except Exception:
+                pass
+            if d not in os.environ.get("PATH", "").split(os.pathsep):
+                os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + d
+            self._persist_path_dir(d)
 
     # ── single-command execution, sudo-password aware ────────────────────
     def _run_cmd(self, cmd: str) -> bool:
@@ -3099,12 +3121,7 @@ class _ToolInstallWorker(QThread):
         os.makedirs(gopath_bin, exist_ok=True)
         if gopath_bin not in os.environ.get("PATH", "").split(os.pathsep):
             os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + gopath_bin
-
-        # Persist ~/go/bin on PATH for future shells/sessions too.
-        self._run_cmd(
-            "grep -qxF 'export PATH=$PATH:$HOME/go/bin' ~/.bashrc || "
-            "echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc"
-        )
+        self._persist_path_dir(gopath_bin)
 
         if shutil.which("go"):
             self.line_output.emit("✅ Go installed successfully.")
@@ -3150,6 +3167,10 @@ class _ToolInstallWorker(QThread):
         except Exception as e:
             self.line_output.emit(f"⚠ Could not create tools directory: {e}")
 
+        # Make sure ~/.local/bin (pip) and ~/go/bin (go) are on PATH now and
+        # persisted for future terminals, so 'installed' actually means
+        # runnable — not just visible to this app process.
+        self._ensure_common_paths()
         self._prime_sudo()
 
         needs_go = any("go install" in c for t in self.tools for c in t["commands"])
@@ -3177,6 +3198,20 @@ class _ToolInstallWorker(QThread):
                     break
                 if not self._run_cmd(cmd):
                     success = False
+
+            # Re-verify against the actual system state (fresh PATH) instead
+            # of trusting shell exit codes alone — this catches cases where
+            # the install "succeeded" but the binary still isn't reachable,
+            # and avoids false positives from stale leftovers.
+            if success and not self._stop_requested:
+                if not _tool_is_installed(tool, self.tools_dir, self.seclists_dir):
+                    success = False
+                    self.line_output.emit(
+                        f"⚠ '{name}' ran without error but isn't runnable yet "
+                        f"(not found on PATH / expected location). It may need "
+                        f"a new terminal session, or its install command may "
+                        f"need updating."
+                    )
             self.tool_finished.emit(name, success)
 
         if not self._stop_requested:
@@ -3379,7 +3414,8 @@ class InstallToolsDialog(QDialog):
         self.close_btn.setEnabled(False)
         self.select_all_cb.setEnabled(False)
 
-        self._worker = _ToolInstallWorker(selected, self._tools_dir, sudo_password, self)
+        self._worker = _ToolInstallWorker(selected, self._tools_dir, sudo_password,
+                                           self._seclists_dir, self)
         self._worker.line_output.connect(self._append_log)
         self._worker.tool_finished.connect(self._on_tool_finished)
         self._worker.all_finished.connect(self._on_all_finished)
