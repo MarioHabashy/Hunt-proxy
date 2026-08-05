@@ -29,7 +29,7 @@ import logging
 # APP VERSION & UPDATE CHECK
 # ========================================================================
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.0"
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Files/dirs inside APP_DIR that an update must never touch.
