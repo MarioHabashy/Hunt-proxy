@@ -1651,15 +1651,15 @@ class _NotesEditor(QTextEdit):
             ("{}  Code block",                                _ins_code_block),
             (">   Blockquote",                                lambda: _ins("> ")),
             # ── Severity / Priority ───────────────────────────────────────
-            ("🔴  CRITICAL",                                   lambda: _ins("CRITICAL ")),
-            ("🟠  HIGH",                                       lambda: _ins("HIGH ")),
-            ("🟡  MEDIUM",                                     lambda: _ins("MEDIUM ")),
-            ("🔵  LOW",                                        lambda: _ins("LOW ")),
-            ("ℹ️   INFO",                                      lambda: _ins("INFO ")),
-            ("📌  TODO",                                       lambda: _ins("TODO: ")),
-            ("✅  FIXED",                                      lambda: _ins("FIXED ")),
+            ("Ⓒ  CRITICAL",                                   lambda: _ins("CRITICAL ")),
+            ("Ⓗ  HIGH",                                       lambda: _ins("HIGH ")),
+            ("Ⓜ  MEDIUM",                                     lambda: _ins("MEDIUM ")),
+            ("Ⓛ  LOW",                                        lambda: _ins("LOW ")),
+            ("Ⓘ   INFO",                                      lambda: _ins("INFO ")),
+            ("↧  TODO",                                       lambda: _ins("TODO: ")),
+            ("✓  FIXED",                                      lambda: _ins("FIXED ")),
             # ── Templates ─────────────────────────────────────────────────
-            ("📋  Finding template",  lambda: _ins(
+            ("⌕  Finding template",  lambda: _ins(
                 "## Finding: [Title]\n"
                 "**Severity:** HIGH\n"
                 "**URL:** \n"
@@ -1677,8 +1677,8 @@ class _NotesEditor(QTextEdit):
             {"#", "##", "###", "───"},
             {"•", "1.", "☐"},
             {"**", "*", "`", "{}", ">"},
-            {"🔴", "🟠", "🟡", "🔵", "ℹ️", "📌", "✅"},
-            {"📋"},
+            {"Ⓒ", "Ⓗ", "Ⓜ", "Ⓛ", "Ⓘ", "↧", "✓"},
+            {"🗈"},
         ]
 
         def _section_of(label):
@@ -3168,7 +3168,7 @@ class _ToolInstallWorker(QThread):
         self._persist_path_dir(gopath_bin)
 
         if shutil.which("go"):
-            self.line_output.emit("✅ Go installed successfully.")
+            self.line_output.emit("✓ Go installed successfully.")
             return True
         self.line_output.emit(
             "⚠ Go was installed but isn't on PATH yet — you may need to restart the app."
@@ -3347,7 +3347,7 @@ class InstallToolsDialog(QDialog):
 
         # Buttons
         btn_row = QHBoxLayout()
-        self.refresh_btn = QPushButton(" Re-check")
+        self.refresh_btn = QPushButton("⟳ Re-check")
         self.refresh_btn.setStyleSheet(
             f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
             f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 12px;"
@@ -3390,7 +3390,7 @@ class InstallToolsDialog(QDialog):
         cb.setToolTip(tooltip)
         row_lay.addWidget(cb)
 
-        info_btn = QPushButton("ℹ")
+        info_btn = QPushButton("!")
         info_btn.setFixedSize(20, 20)
         info_btn.setToolTip(f"View install command(s) for '{tool['name']}'")
         info_btn.setStyleSheet(
@@ -3453,7 +3453,7 @@ class InstallToolsDialog(QDialog):
             cb.setChecked(False)
             cmd_preview = "\n".join(f"$ {c}" for c in tool["commands"])
             if found:
-                status.setText("🟡 Found on system")
+                status.setText("✓ Found on system")
                 status.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 11px;")
                 status.setToolTip(
                     f"A command named '{tool['name']}' already exists on this system.\n"
@@ -3465,7 +3465,7 @@ class InstallToolsDialog(QDialog):
                     f"{cmd_preview}"
                 )
             else:
-                status.setText("❌ Not found")
+                status.setText("✘ Not found")
                 status.setStyleSheet(f"color: {COLOR_CRITICAL}; font-size: 11px;")
                 status.setToolTip(f"Install command(s):\n{cmd_preview}")
         self.select_all_cb.blockSignals(True)
@@ -3548,7 +3548,7 @@ class InstallToolsDialog(QDialog):
             return
         cb, status = row
         if success:
-            status.setText("✅ Installed")
+            status.setText("✓ Installed")
             status.setStyleSheet(f"color: {COLOR_SUCCESS}; font-size: 11px;")
             cb.setChecked(False)
             cb.setEnabled(False)
@@ -3558,7 +3558,7 @@ class InstallToolsDialog(QDialog):
             status.setStyleSheet(f"color: {COLOR_WARNING}; font-size: 11px;")
 
     def _on_all_finished(self):
-        self._append_log("\n✅ Done.")
+        self._append_log("\n✓ Done.")
         self.install_btn.setEnabled(True)
         self.install_btn.setText("⬇ Install Selected")
         self.close_btn.setEnabled(True)
@@ -3778,7 +3778,7 @@ class HuntGUI(
                 self.start_proxy()
             except Exception as e:
                 logger.error(f"Auto-start proxy failed: {e}")
-                self.status_label.setText("⚠️ Proxy auto-start failed — start manually")
+                self.status_label.setText("⚠ Proxy auto-start failed — start manually")
 
         QTimer.singleShot(1000, _safe_start_proxy)
         QTimer.singleShot(1500, lambda: self._check_for_updates(silent=True))
@@ -3874,7 +3874,7 @@ class HuntGUI(
             new_settings = dialog.get_settings()
             self._global_settings.update(new_settings)
             _save_global_settings(self._global_settings)
-            self.status_label.setText("✅ Global settings saved.")
+            self.status_label.setText("✓ Global settings saved.")
             QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
     def _open_install_tools_dialog(self):
@@ -4216,7 +4216,7 @@ class HuntGUI(
             forward_btn.setStyleSheet(f"background-color: {COLOR_SUCCESS}; color: black; border: none;")
             forward_btn.clicked.connect(lambda: self._popup_action(dialog, flow_id, "forward", preview))
             
-            drop_btn = QPushButton("✕ Drop")
+            drop_btn = QPushButton("✘ Drop")
             drop_btn.setStyleSheet(f"background-color: {COLOR_CRITICAL}; color: black; border: none;")
             drop_btn.clicked.connect(lambda: self._popup_action(dialog, flow_id, "drop"))
             
@@ -4443,13 +4443,13 @@ class HuntGUI(
             # Check if the proxy was started with scope rules file support
             if not hasattr(self, "_proxy_has_rules_file") or not self._proxy_has_rules_file:
                 # Restart to pick up the rules file env var
-                self.status_label.setText("🔄 Restarting proxy to apply scope rules…")
+                self.status_label.setText("⟳ Restarting proxy to apply scope rules…")
                 self._force_stop_proxy()
                 self._proxy_has_rules_file = True
                 QTimer.singleShot(1500, self.start_proxy)
             else:
                 # Rules will be auto-reloaded by the addon's file watcher
-                self.status_label.setText("✅ Scope updated — rules auto-reloaded by proxy")
+                self.status_label.setText("✓ Scope updated — rules auto-reloaded by proxy")
                 QTimer.singleShot(3000, lambda: self._safe_status(""))
 
         if hasattr(self, "dashboard_tab"):
@@ -5208,7 +5208,7 @@ class HuntGUI(
                     scope_info += "]"
 
                 self.status_label.setText(
-                    f"✅ Proxy started on port {self.proxy_port}{scope_info}"
+                    f"✓ Proxy started on port {self.proxy_port}{scope_info}"
                 )
                 logger.info(f"Proxy started on port {self.proxy_port}{scope_info}")
                 logger.info(f"Proxy log: {log_path}")
@@ -5233,7 +5233,7 @@ class HuntGUI(
         self._proxy_died_handling = True
         try:
             logger.error(f"Proxy died: {reason}")
-            self._safe_status(f"❌ Proxy died: {reason}")
+            self._safe_status(f"✘ Proxy died: {reason}")
             if not self.proxy_running:
                 return
             reply = QMessageBox.question(
@@ -5414,7 +5414,7 @@ class HuntGUI(
             if self.proxy_running:
                 upstream_text = f" → {self.proxy_upstream}" if self.proxy_upstream else ""
                 self.proxy_status_label.setText(
-                    f"🟢 Proxy: :{self.proxy_port}{upstream_text}"
+                    f"◉ Proxy: :{self.proxy_port}{upstream_text}"
                 )
                 self.proxy_status_label.setStyleSheet(
                     f"QLabel {{ color: {COLOR_SUCCESS}; padding: 0 8px; "
@@ -5438,7 +5438,7 @@ class HuntGUI(
             return
         try:
             if enabled:
-                self.intercept_status_label.setText("🟢 Intercept: ON")
+                self.intercept_status_label.setText("◉ Intercept: ON")
                 self.intercept_status_label.setStyleSheet(
                     f"QLabel {{ color: {COLOR_HIGH}; padding: 0 8px; "
                     f"border-left: 1px solid {COLOR_BORDER}; font-weight: 600; }}"
@@ -6363,13 +6363,13 @@ class HuntGUI(
 
         proxy_menu.addSeparator()
 
-        view_proxy_log_action = QAction(" View Proxy Log", self)
+        view_proxy_log_action = QAction("🗊 View Proxy Log", self)
         view_proxy_log_action.triggered.connect(self.show_proxy_log)
         proxy_menu.addAction(view_proxy_log_action)
 
         proxy_menu.addSeparator()
 
-        import_endpoints_action = QAction(" Import Endpoints…", self)
+        import_endpoints_action = QAction("🠋 Import Endpoints…", self)
         import_endpoints_action.setToolTip(
             "Send a list of URLs through the tool and add them to HTTP History"
         )
@@ -6379,7 +6379,7 @@ class HuntGUI(
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
 
-        install_tools_action = QAction(" Install Tools", self)
+        install_tools_action = QAction("↡ Install Tools", self)
         install_tools_action.setToolTip(
             "Check which recon/pentest tools are installed and install the missing ones"
         )
@@ -6408,7 +6408,7 @@ class HuntGUI(
         polyglot_action.triggered.connect(self._open_custom_payloads_dialog)
         tools_menu.addAction(polyglot_action)
 
-        proxy_cert_action = QAction("🔒 Proxy Certificate", self)
+        proxy_cert_action = QAction("⭾ Proxy Certificate", self)
         proxy_cert_action.triggered.connect(self.show_proxy_certificate)
         proxy_menu.addAction(proxy_cert_action)
 
@@ -6419,7 +6419,7 @@ class HuntGUI(
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
-        check_updates_action = QAction(" Check for Updates", self)
+        check_updates_action = QAction("⟳ Check for Updates", self)
         check_updates_action.triggered.connect(lambda: self._check_for_updates(silent=False))
         help_menu.addAction(check_updates_action)
 
@@ -6623,7 +6623,7 @@ class HuntGUI(
         logger.info(f"Initial data load complete: {total_count} findings")
         if self._qt_widgets_alive():
             try:
-                self.status_label.setText(f"✅ Loaded {total_count:,} findings")
+                self.status_label.setText(f"✓ Loaded {total_count:,} findings")
             except RuntimeError:
                 pass
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
@@ -6757,12 +6757,12 @@ class HuntGUI(
         btn_row = QHBoxLayout()
         btn_row.addStretch()
 
-        clear_btn = QPushButton("🗑️ Clear")
+        clear_btn = QPushButton("🗑 Clear")
         clear_btn.setStyleSheet(f"background:#3a3a3a;color:{COLOR_TEXT};border:1px solid {COLOR_BORDER};")
         clear_btn.clicked.connect(editor.clear)
         btn_row.addWidget(clear_btn)
 
-        save_btn = QPushButton("💾 Save")
+        save_btn = QPushButton("🖫 Save")
         save_btn.setStyleSheet(f"background:{COLOR_ACCENT};color:white;border:none;")
         save_btn.setDefault(True)
         btn_row.addWidget(save_btn)
@@ -6784,7 +6784,7 @@ class HuntGUI(
                     notes_item.setForeground(QColor(COLOR_ACCENT))
                     notes_item.setToolTip(note_text)
                 self.save_notes_to_file()
-                self.status_label.setText("✅ Note saved")
+                self.status_label.setText("✓ Note saved")
             else:
                 self.notes_storage.pop(note_key, None)
                 notes_item = self.history_table.item(row, 8)
@@ -6792,7 +6792,7 @@ class HuntGUI(
                     notes_item.setText("")
                     notes_item.setToolTip("")
                 self.save_notes_to_file()
-                self.status_label.setText("🗑️ Note removed")
+                self.status_label.setText("🗑 Note removed")
             QTimer.singleShot(2000, lambda: self._safe_status("Ready"))
             dlg.accept()
 
@@ -7166,7 +7166,7 @@ class HuntGUI(
             )
 
             parts = category_name.split(" ", 1)
-            category_icon = parts[0] if len(parts) > 1 else "📊"
+            category_icon = parts[0] if len(parts) > 1 else ""
             category_text = parts[1] if len(parts) > 1 else category_name
 
             html.append(f"<div class='category-section'>")
@@ -7348,7 +7348,7 @@ class HuntGUI(
             first_category = False
 
             category_name = VulnerabilityCategories.CATEGORY_HEADERS.get(
-                category, f"📊 {category}"
+                category, f" {category}"
             )
             html.append(f"<div class='category-label'>{category_name}</div>")
 
@@ -7471,7 +7471,7 @@ class HuntGUI(
                 continue
 
             header = VulnerabilityCategories.CATEGORY_HEADERS.get(
-                category, f"📊 {category}"
+                category, f" {category}"
             )
 
             html_output.append(f"<div class='category'>{header}</div>")
@@ -7498,7 +7498,7 @@ class HuntGUI(
         for category, params_list in categorized_params.items():
             if category not in VulnerabilityCategories.CATEGORY_ORDER:
                 header = VulnerabilityCategories.CATEGORY_HEADERS.get(
-                    category, f"📊 {category}"
+                    category, f" {category}"
                 )
                 html_output.append(f"<div class='category'>{header}</div>")
 
@@ -7773,7 +7773,7 @@ class HuntGUI(
     def highlight_in_request(self, param_name: str):
         """Highlight parameter in Request tab"""
         if not self.current_request_raw:
-            self.status_label.setText(f"❌ No request loaded")
+            self.status_label.setText(f"✘ No request loaded")
             QTimer.singleShot(2000, lambda: self._safe_status("Ready"))
             return
 
@@ -7806,17 +7806,17 @@ class HuntGUI(
         if self.request_total_matches > 0:
             self.find_in_text(self.request_text, found_pattern)
             self.status_label.setText(
-                f"✅ Found '{param_name}' in Request ({self.request_total_matches} matches)"
+                f"✓ Found '{param_name}' in Request ({self.request_total_matches} matches)"
             )
         else:
-            self.status_label.setText(f"⚠️ '{param_name}' not found in Request")
+            self.status_label.setText(f"⚠ '{param_name}' not found in Request")
 
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
     def highlight_in_response(self, param_name: str):
         """Highlight parameter in Response tab"""
         if not self.current_response_raw:
-            self.status_label.setText(f"❌ No response loaded")
+            self.status_label.setText(f"✘ No response loaded")
             QTimer.singleShot(2000, lambda: self._safe_status("Ready"))
             return
 
@@ -7858,10 +7858,10 @@ class HuntGUI(
         if self.response_total_matches > 0:
             self.find_in_text(self.response_text, found_pattern)
             self.status_label.setText(
-                f"✅ Found '{param_name}' in Response ({self.response_total_matches} matches)"
+                f"✓ Found '{param_name}' in Response ({self.response_total_matches} matches)"
             )
         else:
-            self.status_label.setText(f"⚠️ '{param_name}' not found in Response")
+            self.status_label.setText(f"⚠ '{param_name}' not found in Response")
 
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
@@ -8015,7 +8015,7 @@ class HuntGUI(
 
     def refresh_data(self):
         """Refresh all data and views"""
-        self.status_label.setText("🔄 Refreshing all views...")
+        self.status_label.setText("⟳ Refreshing all views...")
         QApplication.processEvents()
 
         try:
@@ -8052,13 +8052,13 @@ class HuntGUI(
             self.update_sitemap_tree()
 
             total_findings = len(self.findings)
-            self.status_label.setText(f"✅ Refreshed {total_findings} findings")
+            self.status_label.setText(f"✓ Refreshed {total_findings} findings")
             logger.info(f"Refreshed all views with {total_findings} findings")
 
         except Exception as e:
             self._bulk_loading = False
             logger.error(f"Error during refresh: {e}")
-            self.status_label.setText(f"❌ Refresh error: {str(e)[:50]}")
+            self.status_label.setText(f"✘ Refresh error: {str(e)[:50]}")
 
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
 
@@ -8240,7 +8240,7 @@ class HuntGUI(
         """Update proxy status label"""
         if self.proxy_running:
             upstream_text = f" → {self.proxy_upstream}" if self.proxy_upstream else ""
-            self.proxy_status_label.setText(f"🟢 Proxy: {self.proxy_port}{upstream_text}")
+            self.proxy_status_label.setText(f"◉ Proxy: {self.proxy_port}{upstream_text}")
             self.proxy_status_label.setStyleSheet(
                 f"""
                 QLabel {{
@@ -8383,10 +8383,10 @@ class HuntGUI(
         self.proxy_script_file = script_file
         
         if self.proxy_running:
-            self.status_label.setText("🔄 Restarting proxy with new configuration...")
+            self.status_label.setText("⟳ Restarting proxy with new configuration...")
             QTimer.singleShot(100, self._restart_proxy_after_config)
         else:
-            self.status_label.setText("✅ Proxy configuration saved")
+            self.status_label.setText("✓ Proxy configuration saved")
             QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
         
         dialog.accept()
@@ -8399,7 +8399,7 @@ class HuntGUI(
     def _start_proxy_after_stop(self):
         """Helper method to start proxy after stopping"""
         self.start_proxy()
-        self.status_label.setText("✅ Proxy restarted with new configuration")
+        self.status_label.setText("✓ Proxy restarted with new configuration")
         QTimer.singleShot(3000, lambda: self._safe_status("Ready"))
     
     def show_proxy_log(self):
@@ -8418,7 +8418,7 @@ class HuntGUI(
         status_info.append("PROXY STATUS")
         status_info.append("=" * 60)
         status_info.append("")
-        status_info.append(f"Status: {'🟢 Running' if self.proxy_running else ' Stopped'}")
+        status_info.append(f"Status: {'◉ Running' if self.proxy_running else ' Stopped'}")
         status_info.append(f"Port: {self.proxy_port}")
         status_info.append(f"Upstream: {self.proxy_upstream if self.proxy_upstream else 'None'}")
         status_info.append(f"Script: {self.proxy_script_file}")
@@ -8471,7 +8471,7 @@ class HuntGUI(
         cert_info.append("=" * 70)
         cert_info.append("")
         cert_info.append("1. Start the proxy (if not already running)")
-        cert_info.append(f"   Status: {'🟢 Running' if self.proxy_running else ' Stopped'}")
+        cert_info.append(f"   Status: {'◉ Running' if self.proxy_running else ' Stopped'}")
         cert_info.append("")
         cert_info.append("2. Configure your browser to use the proxy")
         cert_info.append(f"   HTTP/HTTPS Proxy: localhost:{self.proxy_port}")
@@ -8519,7 +8519,7 @@ class HuntGUI(
         cert_info.append("  1. Restart your browser")
         cert_info.append("  2. Visit any HTTPS website")
         cert_info.append("  3. Check if you see traffic in Hunt GUI")
-        cert_info.append("  4. No certificate warnings = SUCCESS! ✅")
+        cert_info.append("  4. No certificate warnings = SUCCESS! ✓")
         cert_info.append("")
         cert_info.append("=" * 70)
         cert_info.append("TROUBLESHOOTING")
@@ -8583,8 +8583,8 @@ class HuntGUI(
             "<hr>"
             f"<p><b>Version {APP_VERSION}</b><br>"
             "Developed by MarioHabashy<br>"
-            f"💼 <a href='{GITHUB_LINKEDIN_URL}'>{GITHUB_LINKEDIN_URL}</a><br>"
-            f"🐙 <a href='{GITHUB_REPO_URL}'>{GITHUB_REPO_URL}</a></p>"
+            f"✦ LinkedIn: <a href='{GITHUB_LINKEDIN_URL}'>{GITHUB_LINKEDIN_URL}</a><br>"
+            f"✦ Github: <a href='{GITHUB_REPO_URL}'>{GITHUB_REPO_URL}</a></p>"
         )
 
     def update_status_bar(self):
@@ -8683,7 +8683,7 @@ class HuntGUI(
                 
                 del self._comparer_first_selection
                 
-                self.status_label.setText("✅ Comparison created!")
+                self.status_label.setText("✓ Comparison created!")
                 QTimer.singleShot(2000, lambda: self._safe_status("Ready"))
 
     # ── Tab pop-out ───────────────────────────────────────────────────
