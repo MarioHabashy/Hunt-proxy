@@ -34,6 +34,17 @@ for directory in [REQUESTS_DIR, RESPONSES_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 # ============================================================================
+# REPO
+# ============================================================================
+
+GITHUB_REPO = "MarioHabashy/hunt-proxy"
+GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO}"
+GITHUB_LINKEDIN_URL = "https://linkedin.com/in/mario-ashraf-habashy"
+GITHUB_API_LATEST_RELEASE = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+GITHUB_RAW_MAIN_TMPL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{{branch}}/main.py"
+GITHUB_ARCHIVE_TMPL = f"https://github.com/{GITHUB_REPO}/archive/refs/heads/{{branch}}.tar.gz"
+
+# ============================================================================
 # DISPLAY LIMITS
 # ============================================================================
 

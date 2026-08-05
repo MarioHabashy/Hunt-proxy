@@ -26,6 +26,25 @@ from html import escape as html_escape
 import logging
 
 # ========================================================================
+# APP VERSION & UPDATE CHECK
+# ========================================================================
+
+APP_VERSION = "1.0.0"
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Files/dirs inside APP_DIR that an update must never touch.
+UPDATE_EXCLUDED_NAMES = {".venv", "venv", ".git", ".github", "__pycache__", ".gitignore"}
+
+
+def _version_tuple(v: str):
+    """'1.2.10' -> (1, 2, 10), tolerant of stray text like 'v1.2.10-beta'."""
+    parts = []
+    for p in re.split(r"[.\-+]", v.strip().lstrip("vV")):
+        m = re.match(r"\d+", p)
+        parts.append(int(m.group()) if m else 0)
+    return tuple(parts) if parts else (0,)
+
+# ========================================================================
 # PROXY CLEANUP & CRASH RECOVERY
 # ========================================================================
 
@@ -2885,7 +2904,7 @@ TOOLS_CATALOG = [
     {"name": "httpx", "commands": ["go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest"],
      "check_bins": ["httpx"]},
     {"name": "wordlists", "commands": [
-        "git clone https://github.com/MarioHabashy/Wordlists.git"],
+        "git clone https://raw.githubusercontent.com/MarioHabashy/Wordlists"],
      "check_dirs": ["Wordlists"]},
     {"name": "seclists", "commands": [
         "git clone --depth 1 https://github.com/danielmiessler/SecLists.git"],
@@ -3328,7 +3347,7 @@ class InstallToolsDialog(QDialog):
 
         # Buttons
         btn_row = QHBoxLayout()
-        self.refresh_btn = QPushButton(" Re-check")
+        self.refresh_btn = QPushButton("🔄 Re-check")
         self.refresh_btn.setStyleSheet(
             f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
             f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 12px;"
@@ -3370,6 +3389,18 @@ class InstallToolsDialog(QDialog):
         cb.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT};")
         cb.setToolTip(tooltip)
         row_lay.addWidget(cb)
+
+        info_btn = QPushButton("ℹ")
+        info_btn.setFixedSize(20, 20)
+        info_btn.setToolTip(f"View install command(s) for '{tool['name']}'")
+        info_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
+            f"border: 1px solid {COLOR_BORDER}; border-radius: 10px; font-weight: bold; }}"
+            f"QPushButton:hover {{ background-color: {COLOR_HOVER}; }}"
+        )
+        info_btn.clicked.connect(lambda _checked=False, t=tool: self._show_tool_details(t))
+        row_lay.addWidget(info_btn)
+
         row_lay.addStretch()
 
         status = QLabel("checking…")
@@ -3379,6 +3410,35 @@ class InstallToolsDialog(QDialog):
 
         self.list_layout.addWidget(row)
         self._row_widgets[tool["name"]] = (cb, status)
+
+    # ── "ℹ" details popup — lets the user check whether a same-named
+    #    binary already on their system is actually this tool ────────────
+    def _show_tool_details(self, tool: dict):
+        name = tool["name"]
+        cmd_preview = "\n".join(f"  $ {c}" for c in tool["commands"])
+        found_path = shutil.which(name)
+
+        lines = [f"Install command(s) for '{name}':", "", cmd_preview]
+
+        if found_path:
+            lines += [
+                "",
+                f"A command named '{name}' currently resolves to:",
+                f"  {found_path}",
+                "",
+                "This may or may not be the same tool the command above installs — "
+                "some distros (e.g. Kali) ship their own, different tool under the "
+                "same name. To check, compare:",
+                f"  • {name} --help    (or -h)",
+                f"  • {name} --version (or -V)",
+                "against what the install command's project describes. If it doesn't "
+                "match, tick this tool's checkbox to install the intended one — it will "
+                "overwrite the existing command.",
+            ]
+        else:
+            lines += ["", f"No '{name}' command currently found on this system."]
+
+        QMessageBox.information(self, f"{name} — install details", "\n".join(lines))
 
     # ── Status refresh ──────────────────────────────────────────────────
     def _refresh_status(self):
@@ -3515,6 +3575,126 @@ class InstallToolsDialog(QDialog):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Update check / self-update
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _UpdateCheckWorker(QThread):
+    """Checks GitHub for a newer release than APP_VERSION. Silent on any
+    network failure — an update check should never interrupt startup."""
+
+    result_ready = pyqtSignal(str)   # latest version string (only emitted if newer)
+
+    def run(self):
+        latest = self._latest_from_release() or self._latest_from_raw_main()
+        if latest and _version_tuple(latest) > _version_tuple(APP_VERSION):
+            self.result_ready.emit(latest)
+
+    @staticmethod
+    def _get(url: str, timeout: int = 6) -> Optional[bytes]:
+        import urllib.request
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "hunt-proxy-update-check"}
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except Exception:
+            return None
+
+    def _latest_from_release(self) -> Optional[str]:
+        raw = self._get(GITHUB_API_LATEST_RELEASE)
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw.decode("utf-8", errors="ignore"))
+            tag = (data.get("tag_name") or "").strip()
+            return tag.lstrip("vV") or None
+        except Exception:
+            return None
+
+    def _latest_from_raw_main(self) -> Optional[str]:
+        for branch in ("main", "master"):
+            raw = self._get(GITHUB_RAW_MAIN_TMPL.format(branch=branch))
+            if not raw:
+                continue
+            m = re.search(r'APP_VERSION\s*=\s*["\']([\d.]+)["\']', raw.decode("utf-8", errors="ignore"))
+            if m:
+                return m.group(1)
+        return None
+
+
+class _UpdateApplyWorker(QThread):
+    """Downloads the latest source tarball from GitHub and copies it over
+    APP_DIR, overwriting existing code files but leaving the virtualenv
+    (and anything else in UPDATE_EXCLUDED_NAMES) untouched. No dependency
+    installation is performed — everything needed is assumed to already be
+    installed in the existing .venv."""
+
+    log_line   = pyqtSignal(str)
+    finished_ok = pyqtSignal(bool, str)   # success, message
+
+    def run(self):
+        import tarfile, tempfile, urllib.request
+
+        tmp_dir = None
+        try:
+            tmp_dir = tempfile.mkdtemp(prefix="hunt-proxy-update-")
+            tarball_path = os.path.join(tmp_dir, "update.tar.gz")
+
+            downloaded = False
+            last_err = None
+            for branch in ("main", "master"):
+                url = GITHUB_ARCHIVE_TMPL.format(branch=branch)
+                self.log_line.emit(f"Downloading {url} …")
+                try:
+                    req = urllib.request.Request(
+                        url, headers={"User-Agent": "hunt-proxy-update-check"}
+                    )
+                    with urllib.request.urlopen(req, timeout=30) as resp, \
+                         open(tarball_path, "wb") as f:
+                        f.write(resp.read())
+                    downloaded = True
+                    break
+                except Exception as e:
+                    last_err = e
+                    continue
+
+            if not downloaded:
+                self.finished_ok.emit(False, f"Download failed: {last_err}")
+                return
+
+            self.log_line.emit("Extracting …")
+            with tarfile.open(tarball_path, "r:gz") as tf:
+                tf.extractall(tmp_dir)
+
+            # GitHub archives extract to a single '<repo>-<branch>' folder.
+            subdirs = [d for d in os.listdir(tmp_dir)
+                       if os.path.isdir(os.path.join(tmp_dir, d)) and d != "__MACOSX"]
+            if not subdirs:
+                self.finished_ok.emit(False, "Downloaded archive was empty.")
+                return
+            extracted_root = os.path.join(tmp_dir, subdirs[0])
+
+            self.log_line.emit(f"Installing new files into {APP_DIR} …")
+            for entry in os.listdir(extracted_root):
+                if entry in UPDATE_EXCLUDED_NAMES:
+                    continue
+                src = os.path.join(extracted_root, entry)
+                dest = os.path.join(APP_DIR, entry)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dest, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(src, dest)
+
+            self.finished_ok.emit(True, "Update installed successfully.")
+        except Exception as e:
+            self.finished_ok.emit(False, f"Update failed: {e}")
+        finally:
+            if tmp_dir:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main window
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -3601,6 +3781,91 @@ class HuntGUI(
                 self.status_label.setText("⚠️ Proxy auto-start failed — start manually")
 
         QTimer.singleShot(1000, _safe_start_proxy)
+        QTimer.singleShot(1500, lambda: self._check_for_updates(silent=True))
+
+    def _check_for_updates(self, silent: bool = False):
+        """Kick off a background check against GitHub for a newer release.
+        silent=True (startup): says nothing if already up to date or if the
+        check fails (no network, rate-limited, etc). silent=False (manual
+        'Check for Updates' menu item): always reports the outcome.
+        """
+        if getattr(self, "_update_check_worker", None) is not None:
+            return  # a check is already in flight
+        worker = _UpdateCheckWorker(self)
+        worker.result_ready.connect(self._on_update_available)
+        worker.finished.connect(lambda: setattr(self, "_update_check_worker", None))
+        if not silent:
+            worker.finished.connect(lambda: self._on_manual_update_check_done(worker))
+        self._update_check_worker = worker
+        self._update_check_was_silent = silent
+        self._update_check_found = False
+        worker.start()
+
+    def _on_manual_update_check_done(self, worker):
+        # result_ready fires (and sets a flag) before 'finished'; if it
+        # never fired, we're up to date or the check failed.
+        if not getattr(self, "_update_check_found", False):
+            QMessageBox.information(
+                self, "Check for Updates",
+                f"You're running the latest version (v{APP_VERSION}), or the "
+                f"update check couldn't reach GitHub."
+            )
+
+    def _on_update_available(self, latest_version: str):
+        self._update_check_found = True
+        box = QMessageBox(self)
+        box.setWindowTitle("Update Available")
+        box.setIcon(QMessageBox.Information)
+        box.setText(
+            f"A newer version of Hunt Proxy is available.\n\n"
+            f"Installed version: {APP_VERSION}\n"
+            f"Latest version:    {latest_version}\n\n"
+            f"Update now?"
+        )
+        skip_btn = box.addButton("Skip", QMessageBox.RejectRole)
+        update_btn = box.addButton("Update", QMessageBox.AcceptRole)
+        box.setDefaultButton(update_btn)
+        box.exec_()
+        if box.clickedButton() == update_btn:
+            self._run_update()
+
+    def _run_update(self):
+        """Download the latest source from GitHub and copy it over the
+        existing installation (excluding the virtualenv). No dependency
+        installation is run — the existing .venv is left as-is."""
+        progress = QMessageBox(self)
+        progress.setWindowTitle("Updating…")
+        progress.setIcon(QMessageBox.Information)
+        progress.setText("Downloading and installing the latest version…")
+        progress.setStandardButtons(QMessageBox.NoButton)
+        progress.show()
+
+        worker = _UpdateApplyWorker(self)
+        worker.log_line.connect(lambda line: progress.setInformativeText(line))
+        worker.finished_ok.connect(
+            lambda ok, msg: self._on_update_apply_finished(ok, msg, progress)
+        )
+        self._update_apply_worker = worker
+        worker.start()
+
+    def _on_update_apply_finished(self, success: bool, message: str, progress: QMessageBox):
+        progress.close()
+        if not success:
+            QMessageBox.critical(self, "Update Failed", message)
+            return
+
+        reply = QMessageBox.question(
+            self, "Update Installed",
+            f"{message}\n\nRestart Hunt Proxy now to use the new version?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+        )
+        if reply == QMessageBox.Yes:
+            if self.proxy_running:
+                self._force_stop_proxy()
+            args = [sys.executable] + sys.argv
+            env = os.environ.copy()
+            subprocess.Popen(args, env=env)
+            QApplication.quit()
 
     def show_tools_config_dialog(self, open_tab: int = 0):
         """Show settings dialog, optionally pre-selecting a tab (0=Tokens, 1=AI, 2=Tools)."""
@@ -6114,7 +6379,7 @@ class HuntGUI(
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
 
-        install_tools_action = QAction(" Install Tools", self)
+        install_tools_action = QAction("🧰 Install Tools", self)
         install_tools_action.setToolTip(
             "Check which recon/pentest tools are installed and install the missing ones"
         )
@@ -6153,6 +6418,10 @@ class HuntGUI(
         about_action = QAction("About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+
+        check_updates_action = QAction("🔄 Check for Updates", self)
+        check_updates_action.triggered.connect(lambda: self._check_for_updates(silent=False))
+        help_menu.addAction(check_updates_action)
 
     def create_status_bar(self):
         """Create status bar"""
@@ -8285,12 +8554,37 @@ class HuntGUI(
 
     def show_about(self):
         """Show about dialog"""
+        if getattr(self, "_project_paths", None):
+            jsonl_path = self._project_paths.get("jsonl") or "—"
+        else:
+            jsonl_path = os.environ.get("HUNT_MODE_JSONL", "/tmp/hunt.jsonl")
+
+        tools_dir = self._global_settings.get("tools_dir") or os.path.expanduser("~/tools")
+
         QMessageBox.about(
             self,
             "About Hunt Proxy",
-            "Hunt Proxy - Security Testing Dashboard\n\n"
-            "GUI for real-time vulnerability detection.\n\n"
-            f"Monitoring: {HUNT_JSONL}\n\n"
+            "<h3>Hunt Proxy</h3>"
+            "<p>A real-time security testing dashboard built on mitmproxy — "
+            "intercept traffic, catch vulnerabilities as they happen, and run "
+            "recon/pentest tooling, all from one place.</p>"
+            "<p><b>Features:</b></p>"
+            "<ul>"
+            "<li>Live traffic interception &amp; real-time vulnerability detection</li>"
+            "<li>Built-in recon/pentest tool installer &amp; launcher</li>"
+            "<li>Custom payload management</li>"
+            "<li>Project-based workspaces</li>"
+            "</ul>"
+            f"<p><b>Proxy port:</b> {self.proxy_port}<br>"
+            f"<b>Monitoring:</b> {jsonl_path}<br>"
+            f"<b>Tools directory:</b> {tools_dir}</p>"
+            "<p style='color:gray; font-size:11px;'>For authorized security "
+            "testing and research use only.</p>"
+            "<hr>"
+            f"<p><b>Version {APP_VERSION}</b><br>"
+            "Developed by MarioHabashy<br>"
+            f"💼 <a href='{GITHUB_LINKEDIN_URL}'>{GITHUB_LINKEDIN_URL}</a><br>"
+            f"🐙 <a href='{GITHUB_REPO_URL}'>{GITHUB_REPO_URL}</a></p>"
         )
 
     def update_status_bar(self):
