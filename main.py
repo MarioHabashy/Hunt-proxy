@@ -6315,7 +6315,7 @@ class HuntGUI(
         # Projects menu
         projects_menu = menubar.addMenu("Projects")
 
-        switch_project_action = QAction("Switch Project…", self)
+        switch_project_action = QAction("⟺ Switch Project…", self)
         switch_project_action.setShortcut("Ctrl+Shift+P")
         switch_project_action.triggered.connect(self._switch_project)
         projects_menu.addAction(switch_project_action)
@@ -6329,17 +6329,17 @@ class HuntGUI(
         # View menu
         view_menu = menubar.addMenu("View")
 
-        refresh_action = QAction("Refresh", self)
+        refresh_action = QAction("⭮ Refresh", self)
         refresh_action.triggered.connect(self.refresh_data)
         view_menu.addAction(refresh_action)
 
-        clear_action = QAction("Clear Findings", self)
+        clear_action = QAction("🗑 Clear Findings", self)
         clear_action.triggered.connect(self.clear_findings)
         view_menu.addAction(clear_action)
 
         view_menu.addSeparator()
 
-        self.url_view_action = QAction(" Switch to URL column view", self)
+        self.url_view_action = QAction("⇋ Switch to URL column view", self)
         self.url_view_action.triggered.connect(self._switch_url_view_mode)
         view_menu.addAction(self.url_view_action)
         
@@ -6415,7 +6415,7 @@ class HuntGUI(
         # Help menu
         help_menu = menubar.addMenu("Help")
 
-        about_action = QAction("About", self)
+        about_action = QAction("🛈 About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
