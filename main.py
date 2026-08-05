@@ -3347,7 +3347,7 @@ class InstallToolsDialog(QDialog):
 
         # Buttons
         btn_row = QHBoxLayout()
-        self.refresh_btn = QPushButton("🔄 Re-check")
+        self.refresh_btn = QPushButton(" Re-check")
         self.refresh_btn.setStyleSheet(
             f"background-color: {COLOR_ELEVATED_BG}; color: {COLOR_TEXT_BRIGHT}; "
             f"border: 1px solid {COLOR_BORDER}; border-radius: 3px; padding: 6px 12px;"
@@ -6363,13 +6363,13 @@ class HuntGUI(
 
         proxy_menu.addSeparator()
 
-        view_proxy_log_action = QAction("📋 View Proxy Log", self)
+        view_proxy_log_action = QAction(" View Proxy Log", self)
         view_proxy_log_action.triggered.connect(self.show_proxy_log)
         proxy_menu.addAction(view_proxy_log_action)
 
         proxy_menu.addSeparator()
 
-        import_endpoints_action = QAction("📥 Import Endpoints…", self)
+        import_endpoints_action = QAction(" Import Endpoints…", self)
         import_endpoints_action.setToolTip(
             "Send a list of URLs through the tool and add them to HTTP History"
         )
@@ -6379,7 +6379,7 @@ class HuntGUI(
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
 
-        install_tools_action = QAction("🧰 Install Tools", self)
+        install_tools_action = QAction(" Install Tools", self)
         install_tools_action.setToolTip(
             "Check which recon/pentest tools are installed and install the missing ones"
         )
@@ -6419,7 +6419,7 @@ class HuntGUI(
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
-        check_updates_action = QAction("🔄 Check for Updates", self)
+        check_updates_action = QAction(" Check for Updates", self)
         check_updates_action.triggered.connect(lambda: self._check_for_updates(silent=False))
         help_menu.addAction(check_updates_action)
 
