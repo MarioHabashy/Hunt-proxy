@@ -2863,7 +2863,7 @@ TOOLS_CATALOG = [
      "check_bins": ["curl"]},
     {"name": "ipinfo", "commands": [
         "curl -Ls https://github.com/ipinfo/cli/releases/download/ipinfo-3.3.2/deb.sh | sh"],
-     "check_bins": ["ipinfo"]},
+     "check_bins": ["ipinfo"], "implicit_sudo": True},
     {"name": "wad", "commands": ["pip3 install wad --break-system-packages"],
      "check_bins": ["wad"]},
     {"name": "wafw00f", "commands": ["pip3 install wafw00f --break-system-packages"],
@@ -2901,8 +2901,11 @@ TOOLS_CATALOG = [
      "check_bins": ["nikto"]},
     {"name": "wpscan", "commands": ["sudo apt install -y wpscan"],
      "check_bins": ["wpscan"]},
-    {"name": "joomscan", "commands": ["git clone https://github.com/rezasp/joomscan.git"],
-     "check_bins": ["joomscan"]},
+    {"name": "joomscan", "commands": [
+        "wget -O joomscan_0.0.7-0kali2_all.deb "
+        "https://kali.download/kali/pool/main/j/joomscan/joomscan_0.0.7-0kali2_all.deb",
+        "sudo apt install -y ./joomscan_0.0.7-0kali2_all.deb"],
+     "check_bins": ["joomscan"], "check_dirs": ["joomscan"]},
     {"name": "droopescan", "commands": ["pip3 install droopescan --break-system-packages"],
      "check_bins": ["droopescan"]},
     {"name": "amass", "commands": ["go install github.com/owasp-amass/amass/v4/...@master"],
@@ -2959,8 +2962,9 @@ TOOLS_CATALOG = [
         "cd LinkFinder && pip3 install -r requirements.txt --break-system-packages"],
      "check_dirs": ["LinkFinder"]},
     {"name": "paramspider", "commands": [
-        "git clone https://github.com/devanshbatham/paramspider",
-        "cd paramspider && pip3 install . --break-system-packages"],
+        "wget -O paramspider_1.0.1-3_all.deb "
+        "https://kali.download/kali/pool/main/p/paramspider/paramspider_1.0.1-3_all.deb",
+        "sudo apt install -y ./paramspider_1.0.1-3_all.deb"],
      "check_bins": ["paramspider"]},
     {"name": "katana", "commands": ["CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest"],
      "check_bins": ["katana"]},
@@ -3034,11 +3038,13 @@ class _ToolInstallWorker(QThread):
 
         self.line_output.emit(f"$ {cmd}")
         try:
+            env = os.environ.copy()
+            env["DEBIAN_FRONTEND"] = "noninteractive"
             proc = subprocess.Popen(
                 exec_cmd, shell=True, cwd=self.tools_dir,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1, env=os.environ.copy(),
+                text=True, bufsize=1, env=env,
             )
             if needs_pw:
                 try:
@@ -3108,11 +3114,43 @@ class _ToolInstallWorker(QThread):
         )
         return False
 
+    # ── cache sudo credentials so nested/implicit sudo calls (e.g. inside a
+    #    piped install script) don't fail for lack of a TTY prompt ─────────
+    def _prime_sudo(self):
+        if not self.sudo_password:
+            return
+        self.line_output.emit("\n───── Caching sudo credentials ─────")
+        self._run_cmd("sudo -v")
+
+    # ── copy every Go-installed binary from ~/go/bin into /usr/bin so the
+    #    tools are on PATH system-wide, not just for this shell ────────────
+    def _sync_go_bin_to_usr_bin(self):
+        gopath_bin = os.path.expanduser("~/go/bin")
+        if not os.path.isdir(gopath_bin):
+            return
+        try:
+            entries = [f for f in os.listdir(gopath_bin)
+                       if os.path.isfile(os.path.join(gopath_bin, f))]
+        except Exception:
+            entries = []
+        if not entries:
+            return
+
+        self.line_output.emit(f"\n───── Copying {len(entries)} Go tool binaries to /usr/bin ─────")
+        if not self.sudo_password:
+            self.line_output.emit(
+                "⚠ Skipped — copying to /usr/bin needs sudo and no password was provided."
+            )
+            return
+        self._run_cmd(f'sudo cp -f "{gopath_bin}"/* /usr/bin/')
+
     def run(self):
         try:
             os.makedirs(self.tools_dir, exist_ok=True)
         except Exception as e:
             self.line_output.emit(f"⚠ Could not create tools directory: {e}")
+
+        self._prime_sudo()
 
         needs_go = any("go install" in c for t in self.tools for c in t["commands"])
         go_ready = shutil.which("go") is not None
@@ -3140,6 +3178,9 @@ class _ToolInstallWorker(QThread):
                 if not self._run_cmd(cmd):
                     success = False
             self.tool_finished.emit(name, success)
+
+        if not self._stop_requested:
+            self._sync_go_bin_to_usr_bin()
 
         self.all_finished.emit()
 
@@ -3305,13 +3346,17 @@ class InstallToolsDialog(QDialog):
             return
 
         # Does anything we're about to run need sudo? That includes the
-        # tools' own commands, and — implicitly — installing the Go
-        # toolchain (via apt) if a selected tool needs 'go install' and Go
-        # isn't already present.
-        needs_go = (any("go install" in c for t in selected for c in t["commands"])
-                    and shutil.which("go") is None)
-        needs_sudo = needs_go or any(
-            _SUDO_RE.search(c) for t in selected for c in t["commands"]
+        # tools' own explicit 'sudo' commands, tools that need it implicitly
+        # (e.g. a piped install script that calls sudo internally), any
+        # selected tool that uses 'go install' (installing the Go toolchain
+        # via apt needs sudo, and so does the final copy of Go binaries into
+        # /usr/bin), and Go toolchain installation itself if Go is missing.
+        any_go_tool = any("go install" in c for t in selected for c in t["commands"])
+        needs_go_toolchain = any_go_tool and shutil.which("go") is None
+        needs_sudo = (
+            any_go_tool
+            or any(t.get("implicit_sudo") for t in selected)
+            or any(_SUDO_RE.search(c) for t in selected for c in t["commands"])
         )
 
         sudo_password = ""
@@ -3319,7 +3364,7 @@ class InstallToolsDialog(QDialog):
             pwd, ok = QInputDialog.getText(
                 self, "Sudo Password",
                 "One or more selected tools need 'sudo' to install"
-                + (" (installing the Go toolchain also needs it)." if needs_go else ".")
+                + (" (installing the Go toolchain also needs it)." if needs_go_toolchain else ".")
                 + "\nEnter your sudo password:",
                 QLineEdit.Password,
             )
@@ -5955,7 +6000,7 @@ class HuntGUI(
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
 
-        install_tools_action = QAction("🧰 Install Tools", self)
+        install_tools_action = QAction(" Install Tools", self)
         install_tools_action.setToolTip(
             "Check which recon/pentest tools are installed and install the missing ones"
         )
