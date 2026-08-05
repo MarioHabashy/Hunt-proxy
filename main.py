@@ -2885,7 +2885,7 @@ TOOLS_CATALOG = [
     {"name": "httpx", "commands": ["go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest"],
      "check_bins": ["httpx"]},
     {"name": "wordlists", "commands": [
-        "git clone https://raw.githubusercontent.com/MarioHabashy/Wordlists"],
+        "git clone https://github.com/MarioHabashy/Wordlists.git"],
      "check_dirs": ["Wordlists"]},
     {"name": "seclists", "commands": [
         "git clone --depth 1 https://github.com/danielmiessler/SecLists.git"],
