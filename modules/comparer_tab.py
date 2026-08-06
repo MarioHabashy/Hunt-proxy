@@ -361,7 +361,7 @@ class ComparerTab:
         toolbar_layout.addWidget(add_btn)
         
         # Manual paste button
-        paste_btn = QPushButton("📋 Paste to Compare")
+        paste_btn = QPushButton("🗈 Paste to Compare")
         paste_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {COLOR_HIGH};
@@ -405,7 +405,7 @@ class ComparerTab:
         toolbar_layout.addWidget(quick_compare_btn)
         
         # Clear all comparisons
-        clear_all_btn = QPushButton("🗑️ Clear All")
+        clear_all_btn = QPushButton("🗑 Clear All")
         clear_all_btn.clicked.connect(self.clear_all_comparisons)
         toolbar_layout.addWidget(clear_all_btn)
         
@@ -429,7 +429,7 @@ class ComparerTab:
         toolbar_layout.addWidget(self.comparison_mode)
         
         # Edit mode toggle
-        self.edit_mode_checkbox = QCheckBox("✏️ Edit Mode")
+        self.edit_mode_checkbox = QCheckBox("✎ Edit Mode")
         self.edit_mode_checkbox.setToolTip("Enable editing of comparison texts")
         self.edit_mode_checkbox.stateChanged.connect(self.toggle_edit_mode)
         toolbar_layout.addWidget(self.edit_mode_checkbox)
@@ -490,7 +490,7 @@ class ComparerTab:
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(8, 4, 8, 4)
         
-        title = QLabel("📋 Comparisons")
+        title = QLabel("🗈 Comparisons")
         title.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT}; font-weight: 600;")
         header_layout.addWidget(title)
         
@@ -631,7 +631,7 @@ class ComparerTab:
         layout.setSpacing(5)
         
         # Header
-        header = QLabel("🔒 Security-Relevant Differences")
+        header = QLabel("※ Security-Relevant Differences")
         header.setStyleSheet(f"""
             QLabel {{
                 color: {COLOR_TEXT_BRIGHT};
@@ -682,7 +682,7 @@ class ComparerTab:
         
         # Instructions
         instructions = QLabel(
-            "📋 Paste any text to compare - HTTP requests/responses, JSON, code, logs, etc."
+            "🗈 Paste any text to compare - HTTP requests/responses, JSON, code, logs, etc."
         )
         instructions.setStyleSheet(f"""
             QLabel {{
@@ -704,7 +704,7 @@ class ComparerTab:
         text1_layout = QVBoxLayout(text1_container)
         text1_layout.setContentsMargins(5, 5, 5, 5)
         
-        text1_label = QLabel("📄 First Text/Request/Response:")
+        text1_label = QLabel("🗈 First Text/Request/Response:")
         text1_label.setStyleSheet(f"font-weight: 600; color: {COLOR_TEXT_BRIGHT};")
         text1_layout.addWidget(text1_label)
         
@@ -735,7 +735,7 @@ class ComparerTab:
         text1_layout.addWidget(self.paste_text1)
         
         # Quick paste from clipboard button
-        paste1_btn = QPushButton("📋 Paste from Clipboard")
+        paste1_btn = QPushButton("🗈 Paste from Clipboard")
         paste1_btn.clicked.connect(lambda: self.paste_text1.setText(QApplication.clipboard().text()))
         text1_layout.addWidget(paste1_btn)
         
@@ -746,7 +746,7 @@ class ComparerTab:
         text2_layout = QVBoxLayout(text2_container)
         text2_layout.setContentsMargins(5, 5, 5, 5)
         
-        text2_label = QLabel("📄 Second Text/Request/Response:")
+        text2_label = QLabel("🗈 Second Text/Request/Response:")
         text2_label.setStyleSheet(f"font-weight: 600; color: {COLOR_TEXT_BRIGHT};")
         text2_layout.addWidget(text2_label)
         
@@ -771,7 +771,7 @@ class ComparerTab:
         text2_layout.addWidget(self.paste_text2)
         
         # Quick paste from clipboard button
-        paste2_btn = QPushButton("📋 Paste from Clipboard")
+        paste2_btn = QPushButton("🗈 Paste from Clipboard")
         paste2_btn.clicked.connect(lambda: self.paste_text2.setText(QApplication.clipboard().text()))
         text2_layout.addWidget(paste2_btn)
         
@@ -882,7 +882,7 @@ class ComparerTab:
                     self.tab_widget.setCurrentIndex(i)
                     break
             
-            self.status_label.setText(f"✅ Loaded files: {name1} vs {name2}")
+            self.status_label.setText(f"✓ Loaded files: {name1} vs {name2}")
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
             
         except Exception as e:
@@ -956,7 +956,7 @@ class ComparerTab:
             self.security_findings_text.clear()
             self.stats_text.clear()
             
-            self.status_label.setText("🗑️ All comparisons cleared")
+            self.status_label.setText("🗑 All comparisons cleared")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
     
     def toggle_edit_mode(self, state):
@@ -986,7 +986,7 @@ class ComparerTab:
             
             # Show save button
             if not hasattr(self, 'save_edits_btn'):
-                self.save_edits_btn = QPushButton("💾 Save Edits")
+                self.save_edits_btn = QPushButton("🖫 Save Edits")
                 self.save_edits_btn.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {COLOR_SUCCESS};
@@ -1005,7 +1005,7 @@ class ComparerTab:
                         toolbar_layout.insertWidget(toolbar_layout.count() - 1, self.save_edits_btn)
                     break
             
-            self.status_label.setText("✏️ Edit mode enabled - Modify texts and click 'Save Edits'")
+            self.status_label.setText("✎ Edit mode enabled - Modify texts and click 'Save Edits'")
         else:
             # Disable editing
             self.left_text.setStyleSheet(f"""
@@ -1052,7 +1052,7 @@ class ComparerTab:
         # Refresh comparison view
         self.update_comparison_view()
         
-        self.status_label.setText("💾 Edits saved! Comparison updated.")
+        self.status_label.setText("🖫 Edits saved! Comparison updated.")
         QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
     
     # ========================================================================
@@ -1195,7 +1195,7 @@ class ComparerTab:
         })
         
         # Add to list widget
-        item = QListWidgetItem(f"📊 {name}")
+        item = QListWidgetItem(f"🗠 {name}")
         item.setData(Qt.UserRole, len(self.comparison_items) - 1)
         self.comparison_list.addItem(item)
         
@@ -1323,7 +1323,7 @@ class ComparerTab:
         
         # Update stats
         self.comparison_stats_label.setText(
-            f"➕{stats['additions']} ➖{stats['deletions']} 🔄{stats['changes']} ✓{stats['unchanged']}"
+            f"🞥{stats['additions']} ―{stats['deletions']} ⤮{stats['changes']} ✓{stats['unchanged']}"
         )
     
     def _display_unified_diff(self, text1: str, text2: str):
@@ -1452,12 +1452,12 @@ class ComparerTab:
         <body>
         """]
         
-        html.append("<div class='title'>📊 JSON Structure Comparison</div>")
+        html.append("<div class='title'>🗠 JSON Structure Comparison</div>")
         
         if are_equal:
-            html.append("<div class='equal'>✅ JSON objects are identical</div>")
+            html.append("<div class='equal'>✓ JSON objects are identical</div>")
         else:
-            html.append(f"<div class='different'>❌ Found {len(differences)} difference(s)</div>")
+            html.append(f"<div class='different'>✘ Found {len(differences)} difference(s)</div>")
             html.append("<div style='margin-top: 20px;'>")
             
             for diff in differences:
@@ -1574,7 +1574,7 @@ class ComparerTab:
         if not findings:
             html.append("""
             <div class='no-findings'>
-                ✅ No security-relevant differences detected<br>
+                ✓ No security-relevant differences detected<br>
                 <span style='font-size: 9pt;'>Requests/Responses appear functionally similar from a security perspective</span>
             </div>
             """)
@@ -1757,10 +1757,10 @@ class ComparerTab:
             }}
         """)
         
-        rename_action = menu.addAction("✏️ Rename")
-        export_action = menu.addAction("💾 Export Diff")
+        rename_action = menu.addAction("✎ Rename")
+        export_action = menu.addAction("🖫 Export Diff")
         menu.addSeparator()
-        delete_action = menu.addAction("🗑️ Delete")
+        delete_action = menu.addAction("🗑 Delete")
         
         action = menu.exec_(self.comparison_list.mapToGlobal(position))
         
@@ -1841,7 +1841,7 @@ class ComparerTab:
         
         if ok and new_name:
             self.comparison_items[index]['name'] = new_name
-            item.setText(f"📊 {new_name}")
+            item.setText(f"🗠 {new_name}")
     
     # ========================================================================
     # HELPER: Send to Comparer from other tabs
