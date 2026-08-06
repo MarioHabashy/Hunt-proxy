@@ -806,7 +806,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         header_layout = QHBoxLayout(sitemap_header)
         header_layout.setContentsMargins(8, 4, 8, 4)
 
-        title = QLabel("🗺️ Site Map")
+        title = QLabel(" Site Map")
         title.setStyleSheet(
             f"color: {COLOR_TEXT_BRIGHT}; font-weight: 600; font-size: {FONT_SIZE_NORMAL};"
         )

@@ -79,7 +79,7 @@ class CategoryDefinitions:
     #   icon / risk / hints – display / risk metadata
     RISK_CATEGORIES = {
         "Admin & Management": {
-            "icon": "👑",
+            "icon": "♚",
             "risk": "CRITICAL",
             "path_patterns": [
                 r"(?:^|/)(?:admin|administrator)(?:/|$)",
@@ -97,7 +97,7 @@ class CategoryDefinitions:
             ],
         },
         "Debug & Development": {
-            "icon": "🐛",
+            "icon": "</>",
             "risk": "CRITICAL",
             "path_patterns": [
                 r"(?:^|/)(?:debug|phpinfo|phpdebug|trace|heap[-_]dump|thread[-_]dump)(?:/|$|\?)",
@@ -122,7 +122,7 @@ class CategoryDefinitions:
             ],
         },
         "Commerce & Payment": {
-            "icon": "💳",
+            "icon": "$",
             "risk": "CRITICAL",
             "path_patterns": [
                 r"(?:^|/)(?:payment|payments)(?:/|$)",
@@ -142,7 +142,7 @@ class CategoryDefinitions:
             ],
         },
         "Authentication & Access": {
-            "icon": "🔐",
+            "icon": "⛞",
             "risk": "HIGH",
             "path_patterns": [
                 r"(?:^|/)(?:login|signin|sign[-_]in)(?:/|$|\?|\.\w)",
@@ -167,7 +167,7 @@ class CategoryDefinitions:
             ],
         },
         "IDOR Candidates": {
-            "icon": "🎯",
+            "icon": "⌖",
             "risk": "HIGH",
             "path_patterns": [
                 r"(?:^|/)(?:user|users)/\d[\w\-]*(?:/|$)",
@@ -189,7 +189,7 @@ class CategoryDefinitions:
             ],
         },
         "File Operations": {
-            "icon": "📁",
+            "icon": "🗁",
             "risk": "HIGH",
             "path_patterns": [
                 r"(?:^|/)(?:upload|uploads|uploader)(?:/|$)",
@@ -212,7 +212,7 @@ class CategoryDefinitions:
             ],
         },
         "API Endpoints": {
-            "icon": "🔌",
+            "icon": "🖧",
             "risk": "HIGH",
             "path_patterns": [
                 r"(?:^|/)api(?:/|$)",
@@ -251,7 +251,7 @@ class CategoryDefinitions:
             ],
         },
         "Search & Discovery": {
-            "icon": "🔍",
+            "icon": "⌕",
             "risk": "MEDIUM",
             "path_patterns": [
                 r"(?:^|/)(?:search|find|lookup|discover)(?:/|$)",
@@ -268,7 +268,7 @@ class CategoryDefinitions:
             ],
         },
         "Redirects & Forwards": {
-            "icon": "↪️",
+            "icon": "↬",
             "risk": "MEDIUM",
             "path_patterns": [
                 r"(?:^|/)(?:redirect|forward|goto|out|exit)(?:/|$)",
@@ -285,7 +285,7 @@ class CategoryDefinitions:
             ],
         },
         "Data Export": {
-            "icon": "📤",
+            "icon": "🠉",
             "risk": "MEDIUM",
             "path_patterns": [
                 r"(?:^|/)(?:export|exports)(?:/|$)",
@@ -305,7 +305,7 @@ class CategoryDefinitions:
             ],
         },
         "User Functions": {
-            "icon": "👤",
+            "icon": "𓁷",
             "risk": "MEDIUM",
             "path_patterns": [
                 r"(?:^|/)(?:profile|profiles)(?:/|$)",
@@ -327,7 +327,7 @@ class CategoryDefinitions:
             ],
         },
         "Documentation & Info": {
-            "icon": "📖",
+            "icon": "🗉",
             "risk": "LOW",
             "path_patterns": [
                 r"(?:^|/)(?:docs|documentation)(?:/|$)",
@@ -344,7 +344,7 @@ class CategoryDefinitions:
             ],
         },
         "Static Resources": {
-            "icon": "📦",
+            "icon": "🗛",
             "risk": "LOW",
             "path_patterns": [
                 r"\.(?:css|js|jsx|tsx|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot|map|webp)(?:\?|#|$|\Z)",
@@ -395,7 +395,7 @@ class CategoryDefinitions:
                 if re.search(pat, query, re.IGNORECASE):
                     return cat_name, defn
 
-        return "Uncategorized", {"icon": "📋", "risk": "INFO", "hints": ["Review manually"]}
+        return "Uncategorized", {"icon": "⍰", "risk": "INFO", "hints": ["Review manually"]}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -417,7 +417,7 @@ class FunctionDefinitions:
 
     FUNCTION_MAP = {
         "Admin & Management": {
-            "function_group": "🏛️ Administration",
+            "function_group": "♚ Administration",
             "sub_functions": [
                 "User Management (CRUD)",
                 "Role & Permission Assignment",
@@ -426,13 +426,13 @@ class FunctionDefinitions:
                 "Bulk Operations",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Default / Weak Credentials",        "Try admin:admin, root:root, vendor defaults"),
-                ("🔴 CRITICAL", "Authentication Bypass",              "Try direct object access without session"),
-                ("🔴 CRITICAL", "Privilege Escalation (Vertical)",    "Low-priv token → admin endpoint"),
-                ("🟠 HIGH",     "IDOR on User Management",           "Modify user_id param to target other accounts"),
-                ("🟠 HIGH",     "Mass Assignment / Parameter Pollution","Inject role=admin in update requests"),
-                ("🟡 MEDIUM",   "Audit Log Tampering",               "Test if actions are logged; test log injection"),
-                ("🟡 MEDIUM",   "Insecure Direct Function Reference", "Enumerate functions via JS source"),
+                ("Ⓒ CRITICAL", "Default / Weak Credentials",        "Try admin:admin, root:root, vendor defaults"),
+                ("Ⓒ CRITICAL", "Authentication Bypass",              "Try direct object access without session"),
+                ("Ⓒ CRITICAL", "Privilege Escalation (Vertical)",    "Low-priv token → admin endpoint"),
+                ("Ⓗ HIGH",     "IDOR on User Management",           "Modify user_id param to target other accounts"),
+                ("Ⓗ HIGH",     "Mass Assignment / Parameter Pollution","Inject role=admin in update requests"),
+                ("Ⓜ MEDIUM",   "Audit Log Tampering",               "Test if actions are logged; test log injection"),
+                ("Ⓜ MEDIUM",   "Insecure Direct Function Reference", "Enumerate functions via JS source"),
             ],
             "attack_flows": [
                 "Unauthenticated → /admin → Default creds → Full compromise",
@@ -451,7 +451,7 @@ class FunctionDefinitions:
         },
 
         "Debug & Development": {
-            "function_group": "🐛 Dev/Debug Surface",
+            "function_group": "</> Dev/Debug Surface",
             "sub_functions": [
                 "Error Reporting & Stack Traces",
                 "Debug Endpoints / Feature Flags",
@@ -460,12 +460,12 @@ class FunctionDefinitions:
                 "Version Control Artifacts (.git)",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Exposed .git / .env / .bak",        "Download /.git/HEAD, /.env, /backup.zip"),
-                ("🔴 CRITICAL", "Verbose Error → Stack Trace Leak",   "Trigger 500 errors; look for file paths, DB creds"),
-                ("🟠 HIGH",     "Debug Parameter Activation",         "Append ?debug=1, ?trace=true, X-Debug:1"),
-                ("🟠 HIGH",     "Actuator / Metrics Endpoints",       "Test /actuator/env, /actuator/beans (Spring)"),
-                ("🟠 HIGH",     "PHP Info / Server Status",           "Access /phpinfo.php, /server-status"),
-                ("🟡 MEDIUM",   "Development Backdoors",              "Test /test.php, /dev/login, /_dev"),
+                ("Ⓒ CRITICAL", "Exposed .git / .env / .bak",        "Download /.git/HEAD, /.env, /backup.zip"),
+                ("Ⓒ CRITICAL", "Verbose Error → Stack Trace Leak",   "Trigger 500 errors; look for file paths, DB creds"),
+                ("Ⓗ HIGH",     "Debug Parameter Activation",         "Append ?debug=1, ?trace=true, X-Debug:1"),
+                ("Ⓗ HIGH",     "Actuator / Metrics Endpoints",       "Test /actuator/env, /actuator/beans (Spring)"),
+                ("Ⓗ HIGH",     "PHP Info / Server Status",           "Access /phpinfo.php, /server-status"),
+                ("Ⓜ MEDIUM",   "Development Backdoors",              "Test /test.php, /dev/login, /_dev"),
             ],
             "attack_flows": [
                 "/.git/HEAD → git clone via GitDumper → Full source code",
@@ -484,7 +484,7 @@ class FunctionDefinitions:
         },
 
         "Authentication & Access": {
-            "function_group": "🔐 Identity & Access",
+            "function_group": "⛞ Identity & Access",
             "sub_functions": [
                 "Login / Sign-in Flow",
                 "Registration / Sign-up",
@@ -495,14 +495,14 @@ class FunctionDefinitions:
                 "Token Issuance & Refresh",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Account Takeover via Password Reset", "Weak/guessable token, host header injection"),
-                ("🔴 CRITICAL", "MFA Bypass",                         "Test skip-step, reuse old OTP, brute force OTP"),
-                ("🟠 HIGH",     "SQL Injection in Login",              "' OR 1=1--, admin'--  in username/password"),
-                ("🟠 HIGH",     "User Enumeration",                   "Compare responses for valid vs invalid users"),
-                ("🟠 HIGH",     "Broken Session Management",          "Test session fixation, missing invalidation on logout"),
-                ("🟠 HIGH",     "OAuth State Fixation / Redirect",    "Missing state param, open redirect_uri"),
-                ("🟡 MEDIUM",   "JWT Algorithm Confusion (none/RS→HS)","Change alg to none or RS256→HS256"),
-                ("🟡 MEDIUM",   "Brute Force (No Lockout)",           "Test rate limits on login endpoint"),
+                ("Ⓒ CRITICAL", "Account Takeover via Password Reset", "Weak/guessable token, host header injection"),
+                ("Ⓒ CRITICAL", "MFA Bypass",                         "Test skip-step, reuse old OTP, brute force OTP"),
+                ("Ⓗ HIGH",     "SQL Injection in Login",              "' OR 1=1--, admin'--  in username/password"),
+                ("Ⓗ HIGH",     "User Enumeration",                   "Compare responses for valid vs invalid users"),
+                ("Ⓗ HIGH",     "Broken Session Management",          "Test session fixation, missing invalidation on logout"),
+                ("Ⓗ HIGH",     "OAuth State Fixation / Redirect",    "Missing state param, open redirect_uri"),
+                ("Ⓜ MEDIUM",   "JWT Algorithm Confusion (none/RS→HS)","Change alg to none or RS256→HS256"),
+                ("Ⓜ MEDIUM",   "Brute Force (No Lockout)",           "Test rate limits on login endpoint"),
             ],
             "attack_flows": [
                 "Password reset → Host header injection → Token to attacker → ATO",
@@ -523,7 +523,7 @@ class FunctionDefinitions:
         },
 
         "Commerce & Payment": {
-            "function_group": "💳 Commerce & Payments",
+            "function_group": "$ Commerce & Payments",
             "sub_functions": [
                 "Product Catalog & Pricing",
                 "Shopping Cart Management",
@@ -534,13 +534,13 @@ class FunctionDefinitions:
                 "Subscription Billing",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Price Manipulation",                  "Modify price/amount in request body/cart"),
-                ("🔴 CRITICAL", "Payment Bypass",                      "Skip payment step, set total=0, set paid=true"),
-                ("🔴 CRITICAL", "Race Condition on Coupons/Stock",     "Concurrent requests to apply coupon / checkout"),
-                ("🟠 HIGH",     "Negative Quantity / Amount",          "Set quantity=-1, amount=-100 for refund abuse"),
-                ("🟠 HIGH",     "IDOR on Order/Invoice",               "Access orders of other users via order_id"),
-                ("🟠 HIGH",     "Coupon Code Brute Force",             "Enumerate discount codes via response timing"),
-                ("🟡 MEDIUM",   "Integer Overflow in Cart",            "Very large quantities → overflow to 0 / negative"),
+                ("Ⓒ CRITICAL", "Price Manipulation",                  "Modify price/amount in request body/cart"),
+                ("Ⓒ CRITICAL", "Payment Bypass",                      "Skip payment step, set total=0, set paid=true"),
+                ("Ⓒ CRITICAL", "Race Condition on Coupons/Stock",     "Concurrent requests to apply coupon / checkout"),
+                ("Ⓗ HIGH",     "Negative Quantity / Amount",          "Set quantity=-1, amount=-100 for refund abuse"),
+                ("Ⓗ HIGH",     "IDOR on Order/Invoice",               "Access orders of other users via order_id"),
+                ("Ⓗ HIGH",     "Coupon Code Brute Force",             "Enumerate discount codes via response timing"),
+                ("Ⓜ MEDIUM",   "Integer Overflow in Cart",            "Very large quantities → overflow to 0 / negative"),
             ],
             "attack_flows": [
                 "Add to cart → Intercept checkout → price=0.01 → Free product",
@@ -560,7 +560,7 @@ class FunctionDefinitions:
         },
 
         "API Endpoints": {
-            "function_group": "🔌 API Layer",
+            "function_group": "🖧 API Layer",
             "sub_functions": [
                 "CRUD Operations (GET/POST/PUT/DELETE)",
                 "API Versioning (v1/v2/v3)",
@@ -571,14 +571,14 @@ class FunctionDefinitions:
                 "WebHooks",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "BOLA / IDOR",                        "Change resource ID to access other users' data"),
-                ("🟠 HIGH",     "Mass Assignment",                    "POST extra fields: role, is_admin, verified=true"),
-                ("🟠 HIGH",     "GraphQL Introspection",              "POST {__schema{types{name}}} → schema leak"),
-                ("🟠 HIGH",     "GraphQL Batching / DoS",             "Array of 1000 identical queries in one request"),
-                ("🟠 HIGH",     "Old API Version Bypass",             "v1 endpoint missing auth checks added in v3"),
-                ("🟡 MEDIUM",   "Missing Rate Limiting",              "Rapid-fire requests → DoS or brute force"),
-                ("🟡 MEDIUM",   "HTTP Method Override",               "X-HTTP-Method-Override: DELETE on GET endpoint"),
-                ("🟡 MEDIUM",   "SSRF via webhook URL",               "Register webhook pointing to internal metadata service"),
+                ("Ⓒ CRITICAL", "BOLA / IDOR",                        "Change resource ID to access other users' data"),
+                ("Ⓗ HIGH",     "Mass Assignment",                    "POST extra fields: role, is_admin, verified=true"),
+                ("Ⓗ HIGH",     "GraphQL Introspection",              "POST {__schema{types{name}}} → schema leak"),
+                ("Ⓗ HIGH",     "GraphQL Batching / DoS",             "Array of 1000 identical queries in one request"),
+                ("Ⓗ HIGH",     "Old API Version Bypass",             "v1 endpoint missing auth checks added in v3"),
+                ("Ⓜ MEDIUM",   "Missing Rate Limiting",              "Rapid-fire requests → DoS or brute force"),
+                ("Ⓜ MEDIUM",   "HTTP Method Override",               "X-HTTP-Method-Override: DELETE on GET endpoint"),
+                ("Ⓜ MEDIUM",   "SSRF via webhook URL",               "Register webhook pointing to internal metadata service"),
             ],
             "attack_flows": [
                 "GET /api/v1/users/1 → change to /users/2,3,4 → BOLA mass dump",
@@ -598,7 +598,7 @@ class FunctionDefinitions:
         },
 
         "File Operations": {
-            "function_group": "📁 File Management",
+            "function_group": "🗁 File Management",
             "sub_functions": [
                 "File Upload (single/bulk)",
                 "File Download / Retrieval",
@@ -609,13 +609,13 @@ class FunctionDefinitions:
                 "File Sharing / Permissions",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Unrestricted File Upload → RCE",     "Upload .php/.jsp/.aspx shell; bypass MIME check"),
-                ("🔴 CRITICAL", "Path Traversal on Download",         "filename=../../../../etc/passwd"),
-                ("🟠 HIGH",     "XXE via XML/SVG Upload",              "Upload SVG with XXE payload to read /etc/passwd"),
-                ("🟠 HIGH",     "ZIP Slip",                           "Craft malicious ZIP with ../../ paths"),
-                ("🟠 HIGH",     "IDOR on File Download",              "Change file_id / user_id to access other files"),
-                ("🟡 MEDIUM",   "Client-Side Bypass of Extension",    "Rename shell.php → shell.jpg, double extension"),
-                ("🟡 MEDIUM",   "SSRF via URL-based Import",          "Import-from-URL field pointing to internal services"),
+                ("Ⓒ CRITICAL", "Unrestricted File Upload → RCE",     "Upload .php/.jsp/.aspx shell; bypass MIME check"),
+                ("Ⓒ CRITICAL", "Path Traversal on Download",         "filename=../../../../etc/passwd"),
+                ("Ⓗ HIGH",     "XXE via XML/SVG Upload",              "Upload SVG with XXE payload to read /etc/passwd"),
+                ("Ⓗ HIGH",     "ZIP Slip",                           "Craft malicious ZIP with ../../ paths"),
+                ("Ⓗ HIGH",     "IDOR on File Download",              "Change file_id / user_id to access other files"),
+                ("Ⓜ MEDIUM",   "Client-Side Bypass of Extension",    "Rename shell.php → shell.jpg, double extension"),
+                ("Ⓜ MEDIUM",   "SSRF via URL-based Import",          "Import-from-URL field pointing to internal services"),
             ],
             "attack_flows": [
                 "Upload .php.jpg → Server strips .jpg → Executes PHP → RCE",
@@ -635,7 +635,7 @@ class FunctionDefinitions:
         },
 
         "IDOR Candidates": {
-            "function_group": "🎯 Object Reference",
+            "function_group": "🞋 Object Reference",
             "sub_functions": [
                 "Direct Object Access by ID",
                 "Relationship-based Object Access",
@@ -644,12 +644,12 @@ class FunctionDefinitions:
                 "Indirect Object References",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Horizontal Privilege Escalation",    "User A accesses User B's data via ID change"),
-                ("🟠 HIGH",     "Sequential ID Enumeration",          "id=1001 → 1002 → 1003 → mass data dump"),
-                ("🟠 HIGH",     "Negative / Special Value IDs",       "id=0, id=-1, id=null, id=undefined"),
-                ("🟠 HIGH",     "UUID Predictability",                "v1 UUIDs are time-based and enumerable"),
-                ("🟡 MEDIUM",   "Second-Order IDOR",                  "Store IDOR payload → trigger later in async job"),
-                ("🟡 MEDIUM",   "Parameter Pollution for IDOR",       "id[]=1&id[]=2 or id=1;2 or id=1,2"),
+                ("Ⓒ CRITICAL", "Horizontal Privilege Escalation",    "User A accesses User B's data via ID change"),
+                ("Ⓗ HIGH",     "Sequential ID Enumeration",          "id=1001 → 1002 → 1003 → mass data dump"),
+                ("Ⓗ HIGH",     "Negative / Special Value IDs",       "id=0, id=-1, id=null, id=undefined"),
+                ("Ⓗ HIGH",     "UUID Predictability",                "v1 UUIDs are time-based and enumerable"),
+                ("Ⓜ MEDIUM",   "Second-Order IDOR",                  "Store IDOR payload → trigger later in async job"),
+                ("Ⓜ MEDIUM",   "Parameter Pollution for IDOR",       "id[]=1&id[]=2 or id=1;2 or id=1,2"),
             ],
             "attack_flows": [
                 "GET /api/orders?id=1001 → id=1002 → Competitor order data",
@@ -669,7 +669,7 @@ class FunctionDefinitions:
         },
 
         "User Functions": {
-            "function_group": "👤 User Account",
+            "function_group": "𓁷 User Account",
             "sub_functions": [
                 "Profile View / Edit",
                 "Account Settings",
@@ -680,12 +680,12 @@ class FunctionDefinitions:
                 "Privacy Settings",
             ],
             "vuln_matrix": [
-                ("🔴 CRITICAL", "Account Takeover via Email Change",  "Change email without re-auth → reset password"),
-                ("🟠 HIGH",     "IDOR on Profile Update",             "PUT /user/123/profile with different 123"),
-                ("🟠 HIGH",     "Missing Re-auth on Sensitive Change","No password required to change email/phone"),
-                ("🟡 MEDIUM",   "Stored XSS in Profile Fields",      "Inject <script> in bio/name → reflected to admins"),
-                ("🟡 MEDIUM",   "Mass Assignment on User Update",     "Inject verified=true, role=admin in profile update"),
-                ("🟡 MEDIUM",   "Account Deletion without Confirmation","No email/OTP required → social engineering ATO"),
+                ("Ⓒ CRITICAL", "Account Takeover via Email Change",  "Change email without re-auth → reset password"),
+                ("Ⓗ HIGH",     "IDOR on Profile Update",             "PUT /user/123/profile with different 123"),
+                ("Ⓗ HIGH",     "Missing Re-auth on Sensitive Change","No password required to change email/phone"),
+                ("Ⓜ MEDIUM",   "Stored XSS in Profile Fields",      "Inject <script> in bio/name → reflected to admins"),
+                ("Ⓜ MEDIUM",   "Mass Assignment on User Update",     "Inject verified=true, role=admin in profile update"),
+                ("Ⓜ MEDIUM",   "Account Deletion without Confirmation","No email/OTP required → social engineering ATO"),
             ],
             "attack_flows": [
                 "Change email (no re-auth) → Reset password to new email → ATO",
@@ -702,7 +702,7 @@ class FunctionDefinitions:
         },
 
         "Search & Discovery": {
-            "function_group": "🔍 Search & Query",
+            "function_group": "⌕ Search & Query",
             "sub_functions": [
                 "Full-Text Search",
                 "Filtered / Faceted Search",
@@ -711,13 +711,13 @@ class FunctionDefinitions:
                 "Search History",
             ],
             "vuln_matrix": [
-                ("🟠 HIGH",     "SQL Injection in Search",            "' OR 1=1-- in search/query/filter params"),
-                ("🟠 HIGH",     "NoSQL Injection",                    "{'$gt':''} in JSON search body"),
-                ("🟠 HIGH",     "LDAP Injection",                     ")(|(uid=*) in search if LDAP-backed"),
-                ("🟠 HIGH",     "Reflected XSS in Search Results",   "<script>alert(1)</script> in q= param"),
-                ("🟡 MEDIUM",   "Search-Based IDOR (Data Leak)",      "Search for other users' private data by ID"),
-                ("🟡 MEDIUM",   "ReDoS via Regex Search",             "Long input with repetition: a+a+a+a+$"),
-                ("🟡 MEDIUM",   "Wildcard Injection",                 "* in search to retrieve all records"),
+                ("Ⓗ HIGH",     "SQL Injection in Search",            "' OR 1=1-- in search/query/filter params"),
+                ("Ⓗ HIGH",     "NoSQL Injection",                    "{'$gt':''} in JSON search body"),
+                ("Ⓗ HIGH",     "LDAP Injection",                     ")(|(uid=*) in search if LDAP-backed"),
+                ("Ⓗ HIGH",     "Reflected XSS in Search Results",   "<script>alert(1)</script> in q= param"),
+                ("Ⓜ MEDIUM",   "Search-Based IDOR (Data Leak)",      "Search for other users' private data by ID"),
+                ("Ⓜ MEDIUM",   "ReDoS via Regex Search",             "Long input with repetition: a+a+a+a+$"),
+                ("Ⓜ MEDIUM",   "Wildcard Injection",                 "* in search to retrieve all records"),
             ],
             "attack_flows": [
                 "q=' OR 1=1-- → SQLi → DB dump via search results",
@@ -735,7 +735,7 @@ class FunctionDefinitions:
         },
 
         "Data Export": {
-            "function_group": "📤 Data Export",
+            "function_group": "🠉 Data Export",
             "sub_functions": [
                 "Report Generation (PDF/CSV/XLSX)",
                 "Data Dump / Bulk Export",
@@ -744,12 +744,12 @@ class FunctionDefinitions:
                 "Template-based Export",
             ],
             "vuln_matrix": [
-                ("🟠 HIGH",     "IDOR on Export",                     "Change user_id/report_id to export other data"),
-                ("🟠 HIGH",     "CSV Injection (Formula Injection)",  "=CMD|'/c calc'!A1 in exported field"),
-                ("🟠 HIGH",     "SSRF via Export URL Field",          "Pass internal URL as export source"),
-                ("🟡 MEDIUM",   "Sensitive Data in Export",           "Export contains fields not visible in UI"),
-                ("🟡 MEDIUM",   "Missing Auth on Export Endpoint",    "Direct GET to /export?token=xxx without session"),
-                ("🟡 MEDIUM",   "Async Job IDOR",                     "Poll job_id of other users' export jobs"),
+                ("Ⓗ HIGH",     "IDOR on Export",                     "Change user_id/report_id to export other data"),
+                ("Ⓗ HIGH",     "CSV Injection (Formula Injection)",  "=CMD|'/c calc'!A1 in exported field"),
+                ("Ⓗ HIGH",     "SSRF via Export URL Field",          "Pass internal URL as export source"),
+                ("Ⓜ MEDIUM",   "Sensitive Data in Export",           "Export contains fields not visible in UI"),
+                ("Ⓜ MEDIUM",   "Missing Auth on Export Endpoint",    "Direct GET to /export?token=xxx without session"),
+                ("Ⓜ MEDIUM",   "Async Job IDOR",                     "Poll job_id of other users' export jobs"),
             ],
             "attack_flows": [
                 "POST /export with user_id changed → Download other user's data",
@@ -766,7 +766,7 @@ class FunctionDefinitions:
         },
 
         "Redirects & Forwards": {
-            "function_group": "↪️ Redirects & Navigation",
+            "function_group": "↬ Redirects & Navigation",
             "sub_functions": [
                 "Post-Login Redirect",
                 "External Link Handler",
@@ -774,11 +774,11 @@ class FunctionDefinitions:
                 "API Proxy / Forward",
             ],
             "vuln_matrix": [
-                ("🟠 HIGH",     "Open Redirect",                      "?next=https://evil.com after login"),
-                ("🟠 HIGH",     "SSRF via Redirect Chain",            "redirect=http://169.254.169.254/"),
-                ("🟡 MEDIUM",   "Header Injection via Redirect",      "Inject CRLF in redirect URL"),
-                ("🟡 MEDIUM",   "OAuth Redirect_URI Bypass",          "redirect_uri=https://evil.com/oauth"),
-                ("🟡 MEDIUM",   "Protocol Smuggling",                 "Use file://, gopher://, dict:// in redirect"),
+                ("Ⓗ HIGH",     "Open Redirect",                      "?next=https://evil.com after login"),
+                ("Ⓗ HIGH",     "SSRF via Redirect Chain",            "redirect=http://169.254.169.254/"),
+                ("Ⓜ MEDIUM",   "Header Injection via Redirect",      "Inject CRLF in redirect URL"),
+                ("Ⓜ MEDIUM",   "OAuth Redirect_URI Bypass",          "redirect_uri=https://evil.com/oauth"),
+                ("Ⓜ MEDIUM",   "Protocol Smuggling",                 "Use file://, gopher://, dict:// in redirect"),
             ],
             "attack_flows": [
                 "Login → ?next=https://phishing.com → Trusted redirect → Creds stolen",
@@ -804,12 +804,12 @@ class FunctionDefinitions:
                 "Long Polling",
             ],
             "vuln_matrix": [
-                ("🟠 HIGH",     "Cross-Site WebSocket Hijacking",     "Missing Origin check → attacker page connects"),
-                ("🟠 HIGH",     "WebSocket Auth Bypass",              "Upgrade without session → access WS as unauth"),
-                ("🟠 HIGH",     "Message Injection",                  "Inject commands in WS messages (SQLi, XSS)"),
-                ("🟡 MEDIUM",   "Missing Origin Validation",          "Any origin can connect to WS endpoint"),
-                ("🟡 MEDIUM",   "DoS via Message Flooding",           "Send thousands of WS messages/second"),
-                ("🟡 MEDIUM",   "Privilege Escalation via WS Channel","Switch channel/room to access other users' stream"),
+                ("Ⓗ HIGH",     "Cross-Site WebSocket Hijacking",     "Missing Origin check → attacker page connects"),
+                ("Ⓗ HIGH",     "WebSocket Auth Bypass",              "Upgrade without session → access WS as unauth"),
+                ("Ⓗ HIGH",     "Message Injection",                  "Inject commands in WS messages (SQLi, XSS)"),
+                ("Ⓜ MEDIUM",   "Missing Origin Validation",          "Any origin can connect to WS endpoint"),
+                ("Ⓜ MEDIUM",   "DoS via Message Flooding",           "Send thousands of WS messages/second"),
+                ("Ⓜ MEDIUM",   "Privilege Escalation via WS Channel","Switch channel/room to access other users' stream"),
             ],
             "attack_flows": [
                 "Missing Origin → CSWSH → Attacker reads victim's real-time data",
@@ -826,7 +826,7 @@ class FunctionDefinitions:
         },
 
         "Documentation & Info": {
-            "function_group": "📖 Info Disclosure",
+            "function_group": "🛈 Info Disclosure",
             "sub_functions": [
                 "API Documentation (Swagger/OpenAPI)",
                 "Version / Health Endpoints",
@@ -834,11 +834,11 @@ class FunctionDefinitions:
                 "About / Technology Stack",
             ],
             "vuln_matrix": [
-                ("🟠 HIGH",     "Swagger/OpenAPI Endpoint Enumeration","Parse /swagger.json → full endpoint list"),
-                ("🟡 MEDIUM",   "Technology Stack Disclosure",        "X-Powered-By, Server headers, error messages"),
-                ("🟡 MEDIUM",   "Internal Endpoint Disclosure",       "Docs expose internal /internal/* endpoints"),
-                ("🟡 MEDIUM",   "API Key in Documentation",           "Hard-coded sample keys that may be real"),
-                ("⬜ LOW",      "Version Disclosure",                 "Server version → CVE lookup"),
+                ("Ⓗ HIGH",     "Swagger/OpenAPI Endpoint Enumeration","Parse /swagger.json → full endpoint list"),
+                ("Ⓜ MEDIUM",   "Technology Stack Disclosure",        "X-Powered-By, Server headers, error messages"),
+                ("Ⓜ MEDIUM",   "Internal Endpoint Disclosure",       "Docs expose internal /internal/* endpoints"),
+                ("Ⓜ MEDIUM",   "API Key in Documentation",           "Hard-coded sample keys that may be real"),
+                ("Ⓛ LOW",      "Version Disclosure",                 "Server version → CVE lookup"),
             ],
             "attack_flows": [
                 "/swagger.json → Parse all endpoints → Test each for auth issues",
@@ -855,7 +855,7 @@ class FunctionDefinitions:
         },
 
         "Static Resources": {
-            "function_group": "📦 Static Assets",
+            "function_group": "🗊 Static Assets",
             "sub_functions": [
                 "JavaScript Bundle Analysis",
                 "Source Map Extraction",
@@ -863,11 +863,11 @@ class FunctionDefinitions:
                 "Font / Image Resource Audit",
             ],
             "vuln_matrix": [
-                ("🟠 HIGH",     "Source Map Exposure (.map files)",   "Download .js.map → Reconstruct full source"),
-                ("🟠 HIGH",     "API Keys in JavaScript",             "Search JS bundles for keys/tokens/secrets"),
-                ("🟡 MEDIUM",   "Endpoint Discovery via JS",          "Extract hardcoded API paths from JS bundles"),
-                ("🟡 MEDIUM",   "Subresource Integrity Missing",      "CDN JS without SRI → supply chain risk"),
-                ("⬜ LOW",      "CORS on Static Assets",              "Check CORS headers on CDN resources"),
+                ("Ⓗ HIGH",     "Source Map Exposure (.map files)",   "Download .js.map → Reconstruct full source"),
+                ("Ⓗ HIGH",     "API Keys in JavaScript",             "Search JS bundles for keys/tokens/secrets"),
+                ("Ⓜ MEDIUM",   "Endpoint Discovery via JS",          "Extract hardcoded API paths from JS bundles"),
+                ("Ⓜ MEDIUM",   "Subresource Integrity Missing",      "CDN JS without SRI → supply chain risk"),
+                ("Ⓛ LOW",      "CORS on Static Assets",              "Check CORS headers on CDN resources"),
             ],
             "attack_flows": [
                 "Download main.js.map → Reconstruct source → Find hidden endpoints + API keys",
@@ -886,24 +886,24 @@ class FunctionDefinitions:
 
     # Tech stack signatures for endpoint node annotations
     TECH_STACK_PATTERNS = {
-        "PHP":        (r"\.php[0-9]?$|\.phtml$",     "🐘", "#8892BF"),
-        "ASP.NET":    (r"\.aspx?$|\.ashx$|\.asmx$",  "🪟", "#512BD4"),
-        "Java/JSP":   (r"\.jsp$|\.do$|\.action$",     "☕", "#ED8B00"),
-        "Python":     (r"\.py$|/django/|/flask/",     "🐍", "#3776AB"),
-        "Ruby":       (r"\.rb$|/rails/",              "💎", "#CC342D"),
-        "GraphQL":    (r"graphql|/gql$",              "◈",  "#E535AB"),
-        "REST API":   (r"/api/v[0-9]+/",              "🔌", "#00B4D8"),
-        "WordPress":  (r"/wp-admin|/wp-json|/wp-content","🔵","#21759B"),
-        "Spring":     (r"/actuator|\.spring\.",        "🌱", "#6DB33F"),
-        "Node.js":    (r"/node_modules|\.js$",         "🟩", "#339933"),
+        "PHP":        (r"\.php[0-9]?$|\.phtml$",     "", "#8892BF"),
+        "ASP.NET":    (r"\.aspx?$|\.ashx$|\.asmx$",  "", "#512BD4"),
+        "Java/JSP":   (r"\.jsp$|\.do$|\.action$",     "", "#ED8B00"),
+        "Python":     (r"\.py$|/django/|/flask/",     "", "#3776AB"),
+        "Ruby":       (r"\.rb$|/rails/",              "", "#CC342D"),
+        "GraphQL":    (r"graphql|/gql$",              "",  "#E535AB"),
+        "REST API":   (r"/api/v[0-9]+/",              "", "#00B4D8"),
+        "WordPress":  (r"/wp-admin|/wp-json|/wp-content","", "#21759B"),
+        "Spring":     (r"/actuator|\.spring\.",        "", "#6DB33F"),
+        "Node.js":    (r"/node_modules|\.js$",         "", "#339933"),
     }
 
     @classmethod
     def get_function_info(cls, category: str) -> dict:
         return cls.FUNCTION_MAP.get(category, {
-            "function_group":  f"📋 {category}",
+            "function_group":  f"🗉 {category}",
             "sub_functions":   ["Generic endpoint handling"],
-            "vuln_matrix":     [("🟡 MEDIUM", "Manual Review", "Inspect request/response manually")],
+            "vuln_matrix":     [("Ⓜ MEDIUM", "Manual Review", "Inspect request/response manually")],
             "attack_flows":    ["Inspect manually for business logic flaws"],
             "test_checklist":  ["[ ] Review manually"],
         })
@@ -994,7 +994,7 @@ class CategoryOverrideManager:
         the auto-categorisation done by process_url().
 
       mindmap_custom_categories.json
-        [ {"name": "My Cat", "icon": "🔧", "risk": "HIGH", "hints": [...]}, ... ]
+        [ {"name": "My Cat", "icon": "✦", "risk": "HIGH", "hints": [...]}, ... ]
         Extra categories the user defined. They appear in every category picker.
     """
 
@@ -1051,7 +1051,7 @@ class CategoryOverrideManager:
 
     @staticmethod
     def save_custom_category(project_dir: str, name: str,
-                              icon: str = "🔧", risk: str = "MEDIUM",
+                              icon: str = "✦", risk: str = "MEDIUM",
                               hints: list = None):
         cats = CategoryOverrideManager.load_custom_categories(project_dir)
         if any(c.get("name") == name for c in cats):
@@ -1079,10 +1079,10 @@ class CategoryOverrideManager:
             return CategoryDefinitions.RISK_CATEGORIES[name]
         for c in CategoryOverrideManager.load_custom_categories(project_dir):
             if c.get("name") == name:
-                return {"icon": c.get("icon", "🔧"),
+                return {"icon": c.get("icon", "✦"),
                         "risk": c.get("risk", "MEDIUM"),
                         "hints": c.get("hints", [])}
-        return {"icon": "📋", "risk": "INFO", "hints": []}
+        return {"icon": "🗉", "risk": "INFO", "hints": []}
 
     # ── Manual endpoints ──────────────────────────────────────────────
 
@@ -1163,52 +1163,52 @@ class ExtensionDefinitions:
 
     EXTENSION_GROUPS = {
         "JavaScript": {
-            "icon": "📜", "risk": "HIGH",
+            "icon": "𝒥", "risk": "HIGH",
             "extensions": ["js", "jsx", "ts", "tsx", "mjs", "cjs"],
             "hints": ["Search for hardcoded API keys/secrets", "Extract internal endpoints", "Look for DOM XSS sinks", "Check sensitive comments", "Extract param names for fuzzing"]
         },
         "Backup & Old Files": {
-            "icon": "💾", "risk": "CRITICAL",
+            "icon": "༕", "risk": "CRITICAL",
             "extensions": ["bak", "old", "orig", "backup", "copy", "tmp", "temp", "save", "swp", "swo"],
             "hints": ["Download and inspect for source code", "May contain credentials or config", "Check for database dumps", "Compare with current version", "Look for decommissioned logic"]
         },
         "Config & Environment": {
-            "icon": "⚙️", "risk": "CRITICAL",
+            "icon": "⚙", "risk": "CRITICAL",
             "extensions": ["env", "config", "cfg", "conf", "ini", "yaml", "yml", "toml", "properties"],
             "hints": ["Look for database credentials", "Check for API keys and tokens", "Look for internal hostnames", "Check for encryption keys", "Identify third-party integrations"]
         },
         "Source Code": {
-            "icon": "💻", "risk": "CRITICAL",
+            "icon": "</>", "risk": "CRITICAL",
             "extensions": ["php", "php3", "php4", "php5", "asp", "aspx", "jsp", "py", "rb", "go", "java", "cs", "pl", "cgi"],
             "hints": ["Analyze for injection vulnerabilities", "Look for authentication logic", "Check for file inclusion", "Identify dangerous functions", "Look for hardcoded secrets"]
         },
         "Archives": {
-            "icon": "🗜️", "risk": "HIGH",
+            "icon": "༕", "risk": "HIGH",
             "extensions": ["zip", "tar", "gz", "tgz", "rar", "7z", "war", "jar", "ear"],
             "hints": ["Download and extract for source code", "Look for config files inside", "Check for credential files", "Analyze for path traversal", "Look for sensitive backup data"]
         },
         "Data & Exports": {
-            "icon": "📊", "risk": "HIGH",
+            "icon": "🆥", "risk": "HIGH",
             "extensions": ["json", "xml", "csv", "xls", "xlsx", "sql", "db", "sqlite", "dump"],
             "hints": ["Check for sensitive data exposure", "Look for PII or internal data", "Test for XXE if XML", "Check access controls", "Look for unauthenticated data access"]
         },
         "Logs & Debug": {
-            "icon": "🪵", "risk": "HIGH",
+            "icon": "🗊", "risk": "HIGH",
             "extensions": ["log", "logs", "debug", "err", "error", "trace", "out"],
             "hints": ["Look for stack traces and paths", "Check for credentials in logs", "Identify internal IPs/hostnames", "Look for session tokens", "Extract usernames from auth logs"]
         },
         "Documents": {
-            "icon": "📄", "risk": "MEDIUM",
+            "icon": "🗉", "risk": "MEDIUM",
             "extensions": ["pdf", "doc", "docx", "ppt", "pptx", "txt", "rtf", "odt"],
             "hints": ["Check document metadata", "Look for internal usernames", "Identify internal paths", "Check for sensitive content", "Extract embedded links"]
         },
         "Web & Templates": {
-            "icon": "🌐", "risk": "MEDIUM",
+            "icon": "🕸", "risk": "MEDIUM",
             "extensions": ["html", "htm", "xhtml", "tpl", "tmpl", "twig", "blade", "ejs", "hbs"],
             "hints": ["Check for SSTI", "Look for exposed admin templates", "Check sensitive HTML comments", "Look for debug parameters", "Test XSS in rendered output"]
         },
         "Style & Media": {
-            "icon": "🎨", "risk": "LOW",
+            "icon": "✦", "risk": "LOW",
             "extensions": ["css", "scss", "sass", "less", "map", "jpg", "jpeg", "png", "gif", "svg", "ico", "webp", "woff", "woff2", "ttf", "eot"],
             "hints": ["Check .map files for source code", "Look for sensitive SVG content", "Check image metadata", "Review exposed font paths", "Look for CSS injection"]
         },
@@ -1998,24 +1998,24 @@ class MindMapScene(QGraphicsScene):
         else:
             path_only = item.label
 
-        copy_act = menu.addAction("📋  Copy Path")
+        copy_act = menu.addAction("🗉  Copy Path")
         copy_act.setToolTip(path_only)
 
         menu.addSeparator()
 
         done_act = menu.addAction(
-            "✅  Mark as Done  (fade out)" if not item.state_done
-            else "↩️  Unmark Done  (restore)"
+            "✓  Mark as Done  (fade out)" if not item.state_done
+            else "⮌  Unmark Done  (restore)"
         )
 
         mark_act = menu.addAction(
-            "⭐  Star  (highlight)" if not item.state_marked
+            "★  Star  (highlight)" if not item.state_marked
             else "★  Remove Star"
         )
 
         menu.addSeparator()
 
-        cmt_label = "💬  Add Comment…" if not item.state_comment else "💬  Edit Comment…"
+        cmt_label = "🗟  Add Comment…" if not item.state_comment else "🗟  Edit Comment…"
         comment_act = menu.addAction(cmt_label)
 
         # ── Hybrid: Hunt Checklist + Vuln Matrix for cat/func nodes ──
@@ -2023,8 +2023,8 @@ class MindMapScene(QGraphicsScene):
         vuln_matrix_act = None
         if item.node_type in ("cat", "func"):
             menu.addSeparator()
-            checklist_act   = menu.addAction("📋  Show Hunt Checklist…")
-            vuln_matrix_act = menu.addAction("🎯  Show Vuln Matrix…")
+            checklist_act   = menu.addAction("🗉  Show Hunt Checklist…")
+            vuln_matrix_act = menu.addAction("🞋  Show Vuln Matrix…")
 
         # ── Endpoint actions ───────────────────────────────────────────
         assign_func_act = None
@@ -2036,7 +2036,7 @@ class MindMapScene(QGraphicsScene):
         add_ep_act = None
         if item.node_type == "cat":
             menu.addSeparator()
-            add_ep_act = menu.addAction("➕  Add Endpoint…")
+            add_ep_act = menu.addAction("🞥  Add Endpoint…")
 
         # Snapshot mutable state NOW — the rebuild triggered by "Apply"
         # will delete this item before Python finishes running the handler
@@ -2046,7 +2046,7 @@ class MindMapScene(QGraphicsScene):
         item_comment  = item.state_comment
         item_type     = item.node_type
         item_host     = item.host_name
-        item_label    = item.label      # cat label e.g. "📁 File Operations"
+        item_label    = item.label      # cat label e.g. " File Operations"
 
         act = menu.exec_(screen_pos)
 
@@ -2099,7 +2099,7 @@ class MindMapScene(QGraphicsScene):
 
         elif add_ep_act and act == add_ep_act:
             # item_label is built as f"{icon} {cat_name}" with a SINGLE space.
-            # e.g. "📁 File Operations"  or  "🔌 API Endpoints"
+            # e.g. " File Operations"  or  " API Endpoints"
             # Strip the leading icon character(s) and whitespace to get the raw name.
             raw_cat = item_label.strip()
             # Split on the first space after the icon — the icon is always one
@@ -2279,7 +2279,7 @@ class MindMapScene(QGraphicsScene):
         btn_row.addStretch()
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(dlg.reject)
-        save_btn = QPushButton("💾  Save")
+        save_btn = QPushButton("🖫  Save")
         save_btn.setStyleSheet(
             f"QPushButton {{ background:{COLOR_ACCENT}; color:#fff; border:none; "
             f"border-radius:4px; padding:5px 20px; font-weight:bold; }}"
@@ -2317,7 +2317,7 @@ class MindMapScene(QGraphicsScene):
         attack_flows= func_info.get("attack_flows", [])
 
         dlg = QDialog()
-        dlg.setWindowTitle(f"📋 Hunt Checklist — {func_group}")
+        dlg.setWindowTitle(f"🗉 Hunt Checklist — {func_group}")
         dlg.setMinimumSize(640, 520)
         dlg.setStyleSheet(f"""
             QDialog   {{ background:{COLOR_BACKGROUND}; color:{COLOR_TEXT}; }}
@@ -2361,7 +2361,7 @@ class MindMapScene(QGraphicsScene):
         sep2.setStyleSheet(f"color:{COLOR_BORDER};")
         lay.addWidget(sep2)
 
-        cl_lbl = QLabel("<b style='color:#4ec9b0;'>✅ Ordered Test Checklist (copy to notes)</b>")
+        cl_lbl = QLabel("<b style='color:#4ec9b0;'>✓ Ordered Test Checklist (copy to notes)</b>")
         lay.addWidget(cl_lbl)
 
         cl_text = QTextEdit()
@@ -2369,7 +2369,7 @@ class MindMapScene(QGraphicsScene):
         cl_text.setPlainText("\n".join(checklist))
         lay.addWidget(cl_text)
 
-        copy_btn = QPushButton("📋  Copy Checklist")
+        copy_btn = QPushButton("🗉  Copy Checklist")
         copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(cl_text.toPlainText()))
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(dlg.accept)
@@ -2395,7 +2395,7 @@ class MindMapScene(QGraphicsScene):
         sub_funcs   = func_info.get("sub_functions", [])
 
         dlg = QDialog()
-        dlg.setWindowTitle(f"🎯 Vuln Matrix — {func_group}")
+        dlg.setWindowTitle(f"🞋 Vuln Matrix — {func_group}")
         dlg.setMinimumSize(760, 540)
         dlg.setStyleSheet(f"""
             QDialog   {{ background:{COLOR_BACKGROUND}; color:{COLOR_TEXT}; }}
@@ -2445,10 +2445,10 @@ class MindMapScene(QGraphicsScene):
         tbl.verticalHeader().setVisible(False)
 
         sev_colors = {
-            "🔴 CRITICAL": "#c0392b",
-            "🟠 HIGH":     "#e67e22",
-            "🟡 MEDIUM":   "#f39c12",
-            "⬜ LOW":      "#27ae60",
+            "Ⓒ CRITICAL": "#c0392b",
+            "Ⓗ HIGH":     "#e67e22",
+            "Ⓜ MEDIUM":   "#f39c12",
+            "Ⓛ LOW":      "#27ae60",
         }
         for row, (sev, vuln_name, how_to) in enumerate(vuln_matrix):
             sev_item  = QTableWidgetItem(sev)
@@ -2464,7 +2464,7 @@ class MindMapScene(QGraphicsScene):
         tbl.resizeRowsToContents()
         lay.addWidget(tbl)
 
-        copy_btn = QPushButton("📋  Copy as Text")
+        copy_btn = QPushButton("🗉  Copy as Text")
         def _copy_matrix():
             lines = ["Severity\tVulnerability\tHow to Test"]
             for sev, vuln_name, how_to in vuln_matrix:
@@ -2525,7 +2525,7 @@ class MindMapScene(QGraphicsScene):
         """
 
         dlg = QDialog()
-        dlg.setWindowTitle(f"➕  Add Endpoint  →  {category_name}")
+        dlg.setWindowTitle(f"🞥  Add Endpoint  →  {category_name}")
         dlg.setMinimumWidth(540)
         dlg.setStyleSheet(DLG_STYLE)
 
@@ -2685,7 +2685,7 @@ class MindMapScene(QGraphicsScene):
         layout.addWidget(sep1)
 
         btn_row = QHBoxLayout()
-        add_btn = QPushButton("➕  Add Endpoint")
+        add_btn = QPushButton("🞥  Add Endpoint")
         add_btn.setStyleSheet(
             f"QPushButton {{ background:{COLOR_ACCENT}; color:#fff; border:none; "
             f"border-radius:4px; padding:6px 20px; font-weight:bold; }}"
@@ -2717,7 +2717,7 @@ class MindMapScene(QGraphicsScene):
             )
             if not saved:
                 dup_lbl.setText(
-                    f"⚠️  {method} {display} already exists in {category_name}"
+                    f"⚠  {method} {display} already exists in {category_name}"
                 )
                 return
 
@@ -2830,7 +2830,7 @@ class MindMapWidget(QWidget):
                 selection-background-color:{COLOR_ACCENT};
             }}
         """)
-        self.host_filter_combo.addItem("🌐  All Hosts", "")
+        self.host_filter_combo.addItem("🖧  All Hosts", "")
         self.host_filter_combo.currentIndexChanged.connect(self._apply_filters)
         tb_layout.addWidget(self.host_filter_combo)
 
@@ -2866,7 +2866,7 @@ class MindMapWidget(QWidget):
         tb_layout.addWidget(self.status_filter_combo)
 
         # ── Starred only toggle ───────────────────────────────────────
-        self.starred_only_btn = QPushButton("⭐ Starred Only")
+        self.starred_only_btn = QPushButton("★ Starred Only")
         self.starred_only_btn.setCheckable(True)
         self.starred_only_btn.setChecked(False)
         self.starred_only_btn.setStyleSheet(f"""
@@ -2940,10 +2940,10 @@ class MindMapWidget(QWidget):
         # Legend
         legend_label = QLabel(
             "  Legend: "
-            "<span style='color:#c0392b'>■</span> CRITICAL  "
-            "<span style='color:#e67e22'>■</span> HIGH  "
-            "<span style='color:#f39c12'>■</span> MEDIUM  "
-            "<span style='color:#27ae60'>■</span> LOW  "
+            "<span style='color:#c0392b'>Ⓒ</span> CRITICAL  "
+            "<span style='color:#e67e22'>Ⓗ</span> HIGH  "
+            "<span style='color:#f39c12'>Ⓜ</span> MEDIUM  "
+            "<span style='color:#27ae60'>Ⓛ</span> LOW  "
             "<span style='color:#6c3483'>■</span> Root  "
             "<span style='color:#1a5276'>■</span> Host  "
             "  Method: <span style='color:#27ae60'>■</span>GET "
@@ -2977,7 +2977,7 @@ class MindMapWidget(QWidget):
 
         # ── Placeholder text ──────────────────────────────────────────
         self._placeholder = QGraphicsTextItem(
-            "No data yet.\nStart Mapping in the 🗺️ Mapping tab first,\nthen switch here to see the Mind Map."
+            "No data yet.\nStart Mapping in the Mapping tab first,\nthen switch here to see the Mind Map."
         )
         self._placeholder.setDefaultTextColor(QColor(COLOR_TEXT_MUTED))
         font = QFont("Segoe UI", 14)
@@ -3049,7 +3049,7 @@ class MindMapWidget(QWidget):
         current_host = self.host_filter_combo.currentData() or ""
         self.host_filter_combo.blockSignals(True)
         self.host_filter_combo.clear()
-        self.host_filter_combo.addItem("🌐  All Hosts", "")
+        self.host_filter_combo.addItem("🖧  All Hosts", "")
         for h in data.get("hosts", []):
             label = h.get("label", "")
             self.host_filter_combo.addItem(f"🖥  {label}", label)
@@ -3080,7 +3080,7 @@ class MindMapWidget(QWidget):
             if _cat not in _cat_to_sfs:
                 continue
             _defn = CategoryDefinitions.RISK_CATEGORIES.get(_cat, {})
-            _icon = _defn.get("icon", "📋")
+            _icon = _defn.get("icon", "🗉")
             # Category-level item
             self.func_filter_combo.addItem(f"{_icon} {_cat}", f"cat::{_cat}")
             # Sub-function items indented under the category
@@ -3187,7 +3187,7 @@ class MindMapWidget(QWidget):
                         "method":   mmethod,
                         "status":   mep.get("status", 0),
                         "risk":     defn.get("risk", "INFO"),
-                        "icon":     defn.get("icon", "📂"),
+                        "icon":     defn.get("icon", "🗁"),
                         "hints":    defn.get("hints", []),
                         "analysis": {"param_names": []},
                         "finding":  {},
@@ -3252,11 +3252,11 @@ class MindMapWidget(QWidget):
                 if project_dir:
                     defn = CategoryOverrideManager.get_category_def(project_dir, effective_cat)
                     risk = defn.get("risk", ud.get("risk","INFO"))
-                    icon = defn.get("icon", ud.get("icon","📋"))
+                    icon = defn.get("icon", ud.get("icon","🗉"))
                     hints= defn.get("hints", ud.get("hints",[]))
                 else:
                     risk = ud.get("risk","INFO")
-                    icon = ud.get("icon","📋")
+                    icon = ud.get("icon","🗉")
                     hints= ud.get("hints",[])
 
                 analysis    = ud.get("analysis", {})
@@ -3374,7 +3374,7 @@ class MindMapWidget(QWidget):
                 seg0_risk    = _best_risk(all_seg0_eps)
                 seg0_cat     = _best_cat(all_seg0_eps)
                 seg0_defn    = cat_defs.get(seg0_cat, {})
-                seg0_icon    = seg0_defn.get("icon","📂")
+                seg0_icon    = seg0_defn.get("icon","🗁")
                 seg0_hints   = seg0_defn.get("hints",[])
                 seg0_func    = FunctionDefinitions.get_function_info(seg0_cat)
 
@@ -3402,7 +3402,7 @@ class MindMapWidget(QWidget):
                         "label":     f"/{seg1}",      # SHORT: just /seg1
                         "path":      f"/{seg0}/{seg1}",
                         "risk":      seg1_risk,
-                        "icon":      seg1_defn.get("icon","📂"),
+                        "icon":      seg1_defn.get("icon","🗁"),
                         "hints":     seg1_defn.get("hints",[]),
                         "func_info": seg1_func,
                         "cat_name":  seg1_cat,
@@ -3434,7 +3434,7 @@ class MindMapWidget(QWidget):
                         defn = cat_defs.get(mep_cat, {})
                     all_url_data.append((mep_cat, {
                         "url": murl, "method": mmethod, "status": 0,
-                        "risk": defn.get("risk","INFO"), "icon": defn.get("icon","📂"),
+                        "risk": defn.get("risk","INFO"), "icon": defn.get("icon","🗁"),
                         "hints": defn.get("hints",[]), "analysis": {"param_names":[]},
                     }))
             # Reuse same tree-building logic (simplified single-pass)
@@ -3470,14 +3470,14 @@ class MindMapWidget(QWidget):
                 child_keys = [k for k in subtree if k != "_endpoints"]
                 all_eps    = list(direct_eps) + [e for ck in child_keys for e in subtree[ck]]
                 seg0_node  = {"label": f"/{seg0}", "path": f"/{seg0}",
-                               "risk": _best_risk(all_eps), "icon":"📂", "hints":[],
+                               "risk": _best_risk(all_eps), "icon":"🗁", "hints":[],
                                "func_info": {}, "cat_name": _best_cat(all_eps),
                                "endpoints": direct_eps, "children": []}
                 for seg1 in sorted(child_keys):
                     eps = subtree[seg1]
                     seg0_node["children"].append({
                         "label": f"/{seg1}", "path": f"/{seg0}/{seg1}",
-                        "risk": _best_risk(eps), "icon":"📂", "hints":[],
+                        "risk": _best_risk(eps), "icon":"🗁", "hints":[],
                         "func_info": {}, "cat_name": _best_cat(eps),
                         "endpoints": eps, "children": []})
                 path_nodes.append(seg0_node)
@@ -3554,7 +3554,7 @@ class MappingTabPro(QWidget):
         splitter.setSizes([350, 650])
         mapping_layout.addWidget(splitter)
 
-        self.sub_tabs.addTab(mapping_widget, "🗺️  Mapping")
+        self.sub_tabs.addTab(mapping_widget, "Mapping")
 
         # ── Sub-tab 2: Mind Map ────────────────────────────────────────────
         self.mind_map_widget = MindMapWidget(self)
@@ -3682,7 +3682,7 @@ class MappingTabPro(QWidget):
         layout.addWidget(self.stop_btn)
         
         # Status indicator
-        self.status_label = QLabel("🔴 Mapping Stopped")
+        self.status_label = QLabel("⏸ Mapping Stopped")
         self.status_label.setStyleSheet(f"""
             QLabel {{
                 color: {COLOR_TEXT_MUTED};
@@ -3727,7 +3727,7 @@ class MappingTabPro(QWidget):
         refresh_btn.clicked.connect(self.refresh_display)
         layout.addWidget(refresh_btn)
         
-        export_btn = QPushButton("📤 Export")
+        export_btn = QPushButton("🠉 Export")
         export_btn.setStyleSheet(btn_style)
         export_btn.clicked.connect(self.export_surface)
         layout.addWidget(export_btn)
@@ -3910,7 +3910,7 @@ class MappingTabPro(QWidget):
         sb_layout.setContentsMargins(8, 4, 8, 4)
         sb_layout.setSpacing(8)
 
-        sb_layout.addWidget(QLabel("🔍"))
+        sb_layout.addWidget(QLabel("⌕"))
         self.results_search = QLineEdit()
         self.results_search.setPlaceholderText("Filter results by URL, method, status...")
         self.results_search.setStyleSheet(f"""
@@ -3927,7 +3927,7 @@ class MappingTabPro(QWidget):
         self.results_count_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11px;")
         sb_layout.addWidget(self.results_count_label)
 
-        copy_btn = QPushButton("📋 Copy URLs")
+        copy_btn = QPushButton("🗉 Copy URLs")
         copy_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {COLOR_CARD_BG};
@@ -4006,7 +4006,7 @@ class MappingTabPro(QWidget):
         self.analysis_display = QTextEdit()
         self.analysis_display.setReadOnly(True)
         self.analysis_display.setStyleSheet(f"QTextEdit {{ background-color: {COLOR_BACKGROUND}; border: none; padding: 10px; font-family: 'Consolas', monospace; font-size: 11px; }}")
-        self.detail_tabs.addTab(self.analysis_display, "📊 Analysis")
+        self.detail_tabs.addTab(self.analysis_display, "🗠 Analysis")
 
         results_splitter.addWidget(self.detail_tabs)
         results_splitter.setSizes([400, 200])
@@ -4023,7 +4023,7 @@ class MappingTabPro(QWidget):
         self.mapping_active = True
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.status_label.setText("🟢 Mapping Active")
+        self.status_label.setText("▶ Mapping Active")
         self.status_label.setStyleSheet(f"color: {COLOR_SUCCESS}; font-weight: bold; padding: 0 20px;")
         
         # Map existing URLs
@@ -4035,7 +4035,7 @@ class MappingTabPro(QWidget):
         self.mapping_active = False
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.status_label.setText("🔴 Mapping Stopped")
+        self.status_label.setText("⏸ Mapping Stopped")
         self.status_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-weight: bold; padding: 0 20px;")
     
     def map_existing_urls(self):
@@ -4176,7 +4176,7 @@ class MappingTabPro(QWidget):
             "method":  method,
             "status":  status,
             "risk":    matched_def.get("risk", "INFO") if matched_def else "INFO",
-            "icon":    matched_def.get("icon", "📋") if matched_def else "📋",
+            "icon":    matched_def.get("icon", "🗉") if matched_def else "🗉",
             "hints":   matched_def.get("hints", ["Review manually"]) if matched_def else ["Review manually"],
             "analysis": analysis,
             "finding":  finding,
@@ -4249,15 +4249,15 @@ class MappingTabPro(QWidget):
 
         stats_html = f"""
 <div style='line-height: 1.6;'>
-<h3 style='margin: 0 0 8px 0; color: {COLOR_TEXT_BRIGHT};'>📊 Statistics</h3>
+<h3 style='margin: 0 0 8px 0; color: {COLOR_TEXT_BRIGHT};'>🗠 Statistics</h3>
 <p style='margin: 3px 0 3px 10px;'>• Total URLs: <b>{total_urls}</b></p>
 <p style='margin: 3px 0 3px 10px;'>• Categories: <b>{total_categories}</b></p>
-<p style='margin: 3px 0 3px 10px;'>• 📎 Files w/ Extensions: <b>{ext_total}</b></p>
-<p style='margin: 3px 0 3px 10px; color: {COLOR_CRITICAL};'>• ⚠️ Critical Ext Files: <b>{ext_critical}</b></p>
+<p style='margin: 3px 0 3px 10px;'>• Files w/ Extensions: <b>{ext_total}</b></p>
+<p style='margin: 3px 0 3px 10px; color: {COLOR_CRITICAL};'>• ⚠ Critical Ext Files: <b>{ext_critical}</b></p>
 <p style='margin: 8px 0 4px 0;'><b>Risk Distribution:</b></p>
-<p style='margin: 3px 0 3px 10px; color: {COLOR_CRITICAL};'>🔴 Critical: <b>{critical_count}</b></p>
-<p style='margin: 3px 0 3px 10px; color: {COLOR_HIGH};'>🟠 High: <b>{high_count}</b></p>
-<p style='margin: 3px 0 3px 10px; color: {COLOR_MEDIUM};'>🟡 Medium: <b>{medium_count}</b></p>
+<p style='margin: 3px 0 3px 10px; color: {COLOR_CRITICAL};'>Ⓒ Critical: <b>{critical_count}</b></p>
+<p style='margin: 3px 0 3px 10px; color: {COLOR_HIGH};'>Ⓗ High: <b>{high_count}</b></p>
+<p style='margin: 3px 0 3px 10px; color: {COLOR_MEDIUM};'>Ⓜ Medium: <b>{medium_count}</b></p>
 </div>
         """
         self.stats_card.setText(stats_html)
@@ -4274,7 +4274,7 @@ class MappingTabPro(QWidget):
             total_host_urls = sum(len(urls) for urls in categories.values())
             
             # Create Host Item (Top Level)
-            host_item = QTreeWidgetItem([f"🌐 {host} ({total_host_urls})"])
+            host_item = QTreeWidgetItem([f"🖥 {host} ({total_host_urls})"])
             host_item.setFont(0, QFont("Segoe UI", 10, QFont.Bold))
             host_item.setForeground(0, QColor(COLOR_TEXT_BRIGHT))
             host_item.setData(0, Qt.UserRole, f"HOST:{host}")
@@ -4334,7 +4334,7 @@ class MappingTabPro(QWidget):
             category_name = f"All endpoints — {host}"
             for cat_urls in self.subdomain_map[host].values():
                 urls.extend(cat_urls)
-            hints_html = f"<h3>🌐 {host}</h3><p>Select a specific category to see attack hints.</p>"
+            hints_html = f"<h3>🖥 {host}</h3><p>Select a specific category to see attack hints.</p>"
             analysis_label = category_name
 
         elif data.startswith("CAT:"):
@@ -4346,7 +4346,7 @@ class MappingTabPro(QWidget):
                     "CRITICAL": COLOR_CRITICAL, "HIGH": COLOR_HIGH,
                     "MEDIUM": COLOR_MEDIUM, "LOW": COLOR_INFO
                 }.get(urls[0]["risk"], COLOR_TEXT)
-                hints_html  = f"<h3>💡 {category}</h3>"
+                hints_html  = f"<h3>䷓ {category}</h3>"
                 hints_html += f"<p><b>Risk:</b> <span style='color:{risk_color};'>{urls[0]['risk']}</span></p><br>"
                 hints_html += "<p><b>Recommended Tests:</b></p><ul>"
                 for hint in urls[0]["hints"]:
@@ -4367,7 +4367,7 @@ class MappingTabPro(QWidget):
             groups = self.extension_map[host]
             total  = sum(len(v) for v in groups.values())
 
-            host_item = QTreeWidgetItem([f"🌐 {host} ({total})"])
+            host_item = QTreeWidgetItem([f"🖥 {host} ({total})"])
             host_item.setFont(0, QFont("Segoe UI", 10, QFont.Bold))
             host_item.setForeground(0, QColor(COLOR_TEXT_BRIGHT))
             host_item.setData(0, Qt.UserRole, f"EXTHOST:{host}")
@@ -4382,7 +4382,7 @@ class MappingTabPro(QWidget):
                 if not urls:
                     continue
                 ginfo = ExtensionDefinitions.EXTENSION_GROUPS.get(group_name, {})
-                icon  = ginfo.get("icon", "📎")
+                icon  = ginfo.get("icon", "✦")
                 risk  = ginfo.get("risk", "INFO")
 
                 grp_item = QTreeWidgetItem([f"{icon} {group_name} ({len(urls)})"])
@@ -4421,7 +4421,7 @@ class MappingTabPro(QWidget):
             for gv in self.extension_map[host].values():
                 urls.extend(gv)
             label = f"All extension files — {host}"
-            hints_html = f"<h3>🌐 {host}</h3><p>Select an extension group to see testing hints.</p>"
+            hints_html = f"<h3>🖥 {host}</h3><p>Select an extension group to see testing hints.</p>"
 
         elif data.startswith("EXTCAT:"):
             host, group_name = data.split(":", 1)[1].split("|", 1)
@@ -4528,7 +4528,7 @@ class MappingTabPro(QWidget):
                 urls.append(item.text())
         if urls:
             QApplication.clipboard().setText("\n".join(urls))
-            self.results_count_label.setText(f"✅ Copied {len(urls)} URLs")
+            self.results_count_label.setText(f"✓ Copied {len(urls)} URLs")
             QTimer.singleShot(2000, lambda: self._refilter_results_table())
 
     def _update_analysis(self, urls: list, label: str):
@@ -4581,11 +4581,11 @@ class MappingTabPro(QWidget):
         
         menu = QMenu()
         
-        export_action = QAction("📤 Export Category", self)
+        export_action = QAction("🠉 Export Category", self)
         export_action.triggered.connect(lambda: self.export_category(item))
         menu.addAction(export_action)
         
-        copy_action = QAction("📋 Copy URLs", self)
+        copy_action = QAction("🗉 Copy URLs", self)
         copy_action.triggered.connect(lambda: self.copy_category_urls(item))
         menu.addAction(copy_action)
         
@@ -4680,7 +4680,7 @@ class MappingTabPro(QWidget):
         menu = QMenu(self)
         
         # Add advanced features here
-        info_action = QAction("ℹ️ Advanced features coming soon", self)
+        info_action = QAction("ℹ Advanced features coming soon", self)
         info_action.setEnabled(False)
         menu.addAction(info_action)
         
@@ -4703,15 +4703,15 @@ class MappingTabPro(QWidget):
             
         menu = QMenu()
         
-        copy_url = menu.addAction("📋 Copy URL")
+        copy_url = menu.addAction("🗉 Copy URL")
         copy_url.triggered.connect(lambda: QApplication.clipboard().setText(url_data['url']))
         
         menu.addSeparator()
         
-        view_history = menu.addAction("📜 View in HTTP History")
+        view_history = menu.addAction("🖳 View in HTTP History")
         view_history.triggered.connect(lambda: self.view_in_http_history(url_data))
         
-        send_surface = menu.addAction("🎯 Send to Attack Surface")
+        send_surface = menu.addAction("🞋 Send to Attack Surface")
         send_surface.triggered.connect(lambda: self._send_to_attack_surface(url_data))
         
         menu.exec_(self.urls_table.viewport().mapToGlobal(position))
@@ -4728,7 +4728,7 @@ class MappingTabPro(QWidget):
     def show_url_details_dialog(self, url_data):
         """Show detailed popup for selected URL"""
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"🔬 URL Details")
+        dialog.setWindowTitle(f"🛈 URL Details")
         dialog.setMinimumSize(900, 700)
         
         layout = QVBoxLayout(dialog)
@@ -4773,20 +4773,20 @@ ANALYSIS:
             info_content += f"- Parameter Names: {', '.join(url_data['analysis']['param_names'])}\n"
         
         if url_data['analysis']['potential_injection_points']:
-            info_content += f"\n⚠️ INJECTION POINTS: {', '.join(url_data['analysis']['potential_injection_points'])}\n"
+            info_content += f"\n⚠ INJECTION POINTS: {', '.join(url_data['analysis']['potential_injection_points'])}\n"
         
         if url_data['analysis']['suspicious_params']:
-            info_content += f"\n🚨 SUSPICIOUS PARAMS: {', '.join(url_data['analysis']['suspicious_params'])}\n"
+            info_content += f"\n</> SUSPICIOUS PARAMS: {', '.join(url_data['analysis']['suspicious_params'])}\n"
         
         if url_data['analysis']['numeric_ids']:
-            info_content += f"\n🎯 IDOR CANDIDATES: {', '.join(url_data['analysis']['numeric_ids'])}\n"
+            info_content += f"\n🞋 IDOR CANDIDATES: {', '.join(url_data['analysis']['numeric_ids'])}\n"
         
         info_content += f"\n\nTESTING HINTS:\n"
         for i, hint in enumerate(url_data['hints'], 1):
             info_content += f"{i}. {hint}\n"
         
         info_text.setPlainText(info_content)
-        tabs.addTab(info_text, "📊 Analysis")
+        tabs.addTab(info_text, "🗠 Analysis")
 
         # Tab 2: Request
         req_text = QTextEdit()
@@ -4808,7 +4808,7 @@ ANALYSIS:
             request_content = "[Request file not found]"
             
         req_text.setPlainText(request_content)
-        tabs.addTab(req_text, "📤 Request")
+        tabs.addTab(req_text, "🠉 Request")
 
         # Tab 3: Response
         resp_text = QTextEdit()
@@ -4829,14 +4829,14 @@ ANALYSIS:
             response_content = "[Response file not found]"
             
         resp_text.setPlainText(response_content)
-        tabs.addTab(resp_text, "📥 Response")
+        tabs.addTab(resp_text, "🠉 Response")
 
         layout.addWidget(tabs)
         
         # Buttons
         btn_layout = QHBoxLayout()
         
-        http_history_btn = QPushButton("📜 View in HTTP History")
+        http_history_btn = QPushButton("🖳 View in HTTP History")
         http_history_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {COLOR_ACCENT};
@@ -4851,7 +4851,7 @@ ANALYSIS:
         http_history_btn.clicked.connect(lambda: self.view_in_http_history(url_data, dialog))
         btn_layout.addWidget(http_history_btn)
 
-        surface_btn = QPushButton("🎯 Send to Attack Surface")
+        surface_btn = QPushButton("🞋 Send to Attack Surface")
         surface_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: #5a3ea8;
@@ -4866,7 +4866,7 @@ ANALYSIS:
         surface_btn.clicked.connect(lambda: self._send_to_attack_surface(url_data, dialog))
         btn_layout.addWidget(surface_btn)
         
-        copy_btn = QPushButton("📋 Copy URL")
+        copy_btn = QPushButton("🗉 Copy URL")
         copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(url_data['url']))
         btn_layout.addWidget(copy_btn)
         

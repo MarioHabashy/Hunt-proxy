@@ -7187,5 +7187,5 @@ def add_dashboard_tab(parent):
     """Add dashboard tab to main window."""
     tab = DashboardTab(parent)
     parent.dashboard_tab = tab
-    parent.tab_widget.addTab(tab, "📊 Dashboard")
+    parent.tab_widget.addTab(tab, "Dashboard")
     return tab
