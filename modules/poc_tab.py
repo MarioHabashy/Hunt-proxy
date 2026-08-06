@@ -10511,6 +10511,6 @@ def add_poc_tab(parent):
         self.poc_tab = self.poc_tab_ref
     """
     tab = POCTab(parent)
-    parent.tab_widget.addTab(tab, "🧪 PoC")
+    parent.tab_widget.addTab(tab, " PoC")
     parent.poc_tab = tab
     return tab
