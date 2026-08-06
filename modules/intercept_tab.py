@@ -822,7 +822,7 @@ class InterceptTab(QWidget):
 
         tb_layout.addSpacing(10)
 
-        self.resp_int_lbl = QLabel("📥 Responses: OFF")
+        self.resp_int_lbl = QLabel(" Responses: OFF")
         self.resp_int_lbl.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-weight: bold;")
         tb_layout.addWidget(self.resp_int_lbl)
 
@@ -1103,7 +1103,7 @@ class InterceptTab(QWidget):
     def _toggle_intercept(self, checked: bool):
         self._intercept_enabled = checked
         self.intercept_toggle_btn.setText(
-            "⏸ Intercept: ON" if checked else "⏸ Intercept: OFF"
+            "▶ Intercept: ON" if checked else "⏸ Intercept: OFF"
         )
         self.intercept_toggle_btn.setStyleSheet(self._toggle_style(checked))
         self.intercept_changed.emit(checked)
@@ -1130,7 +1130,7 @@ class InterceptTab(QWidget):
     def _toggle_response_intercept(self):
         checked = self.resp_int_switch.isChecked()
         self.resp_int_lbl.setText(
-            "📥 Responses: ON" if checked else "📥 Responses: OFF"
+            " Responses: ON" if checked else " Responses: OFF"
         )
         self.resp_int_lbl.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT if checked else COLOR_TEXT_MUTED}; font-weight: bold;")
         
@@ -1199,7 +1199,7 @@ class InterceptTab(QWidget):
         resp_file = os.path.join(project_dir, "intercept_responses")
         resp_enabled = os.path.exists(resp_file)
         self.resp_int_switch.setChecked(resp_enabled)
-        self.resp_int_lbl.setText("📥 Responses: ON" if resp_enabled else "📥 Responses: OFF")
+        self.resp_int_lbl.setText(" Responses: ON" if resp_enabled else " Responses: OFF")
         self.resp_int_lbl.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT if resp_enabled else COLOR_TEXT_MUTED}; font-weight: bold;")
 
         # Sync WS intercept state
@@ -1359,10 +1359,10 @@ class InterceptTab(QWidget):
         
         # Create detailed header
         if flow_type == "request":
-            header = f"🔴 REQUEST  •  {meta.get('method', '')} {meta.get('url', '')[:100]}"
+            header = f"→ REQUEST  •  {meta.get('method', '')} {meta.get('url', '')[:100]}"
         else:
             status = meta.get('status', '')
-            header = f"🟢 RESPONSE •  HTTP {status}  •  {meta.get('url', '')[:80]}"
+            header = f"← RESPONSE  •  HTTP {status}  •  {meta.get('url', '')[:80]}"
         
         self.editor_type_lbl.setText(header)
         
@@ -1565,9 +1565,9 @@ class InterceptTab(QWidget):
             intercept_resp_act.triggered.connect(self._intercept_response_for_this)
 
         menu.addSeparator()
-        ai_analyze_act = menu.addAction("✨ AI Analyze  (Ctrl+Shift+C)")
+        ai_analyze_act = menu.addAction(" AI Analyze  (Ctrl+Shift+C)")
         ai_analyze_act.triggered.connect(self._ai_analyze)
-        send_to_ai_act = menu.addAction("✨ Send to AI")
+        send_to_ai_act = menu.addAction(" Send to AI")
         send_to_ai_act.triggered.connect(self._send_to_ai)
 
         menu.exec_(self.editor.mapToGlobal(pos))
@@ -2018,7 +2018,7 @@ class InterceptTab(QWidget):
         h_layout.addWidget(self._sel_source_badge)
         h_layout.addStretch()
 
-        _copy_btn = QPushButton("📋 Copy")
+        _copy_btn = QPushButton("🗉 Copy")
         _copy_btn.setFixedHeight(20)
         _copy_btn.setStyleSheet(
             f"background:{COLOR_ELEVATED_BG};color:{COLOR_TEXT};"
