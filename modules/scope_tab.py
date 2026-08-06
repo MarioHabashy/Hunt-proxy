@@ -343,7 +343,7 @@ class AddScopeEntryDialog(QDialog):
 
         # Type indicator banner
         type_color = COLOR_SUCCESS if self._rule_type == "include" else COLOR_CRITICAL
-        type_label = QLabel(f"{'✅ Include' if self._rule_type == 'include' else '🚫 Exclude'} Rule")
+        type_label = QLabel(f"{'✓ Include' if self._rule_type == 'include' else '⛒ Exclude'} Rule")
         type_label.setStyleSheet(
             f"background-color: {type_color}22; color: {type_color}; font-weight: bold; "
             f"padding: 8px 12px; border-radius: 4px; font-size: {FONT_SIZE_NORMAL};"
@@ -791,11 +791,11 @@ class ScopeTab(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(6)
 
-        add_adv_include = _btn("＋ Add Include…", COLOR_SUCCESS, 100)
+        add_adv_include = _btn("🞥 Add Include…", COLOR_SUCCESS, 100)
         add_adv_include.clicked.connect(lambda: self._open_add_rule_dialog("include"))
         btn_row.addWidget(add_adv_include)
 
-        add_adv_exclude = _btn("＋ Add Exclude…", COLOR_CRITICAL, 100)
+        add_adv_exclude = _btn("🞥 Add Exclude…", COLOR_CRITICAL, 100)
         add_adv_exclude.clicked.connect(lambda: self._open_add_rule_dialog("exclude"))
         btn_row.addWidget(add_adv_exclude)
 
@@ -984,7 +984,7 @@ class ScopeTab(QWidget):
         inc = sum(1 for r in rules if r.get("type") == "include" and r.get("enabled", True))
         exc = sum(1 for r in rules if r.get("type") == "exclude" and r.get("enabled", True))
         self._scope_summary_lbl.setText(
-            f"  ✅ {inc} include  🚫 {exc} exclude"
+            f"  ✓ {inc} include  ⛒ {exc} exclude"
         )
 
     # ── Scope rules actions ────────────────────────────────────────────────
@@ -1042,10 +1042,10 @@ class ScopeTab(QWidget):
             return
         in_scope = pm.is_in_scope(self._current_slug, url)
         if in_scope:
-            self._test_result_lbl.setText("✅ IN SCOPE")
+            self._test_result_lbl.setText("✓ IN SCOPE")
             self._test_result_lbl.setStyleSheet(f"color: {COLOR_SUCCESS}; font-weight: bold;")
         else:
-            self._test_result_lbl.setText("🚫 OUT OF SCOPE")
+            self._test_result_lbl.setText("⛒ OUT OF SCOPE")
             self._test_result_lbl.setStyleSheet(f"color: {COLOR_CRITICAL}; font-weight: bold;")
         QTimer.singleShot(4000, lambda: self._test_result_lbl.setText(""))
 
@@ -1141,10 +1141,10 @@ class ScopeTab(QWidget):
 
         # Add to scope rules quick actions
         menu.addSeparator()
-        menu.addAction("✅ Add to Include rules").triggered.connect(
+        menu.addAction("✓ Add to Include rules").triggered.connect(
             lambda: self._add_domain_to_scope_rules(domain, "include")
         )
-        menu.addAction("🚫 Add to Exclude rules").triggered.connect(
+        menu.addAction("⛒ Add to Exclude rules").triggered.connect(
             lambda: self._add_domain_to_scope_rules(domain, "exclude")
         )
         menu.addSeparator()
@@ -1231,10 +1231,10 @@ class ScopeTab(QWidget):
         )
         menu.addAction("Set as Target").triggered.connect(self._set_subdomain_target)
         menu.addSeparator()
-        menu.addAction("✅ Add to Include rules").triggered.connect(
+        menu.addAction("✓ Add to Include rules").triggered.connect(
             lambda: self._add_domain_to_scope_rules(sub, "include")
         )
-        menu.addAction("🚫 Add to Exclude rules").triggered.connect(
+        menu.addAction("⛒ Add to Exclude rules").triggered.connect(
             lambda: self._add_domain_to_scope_rules(sub, "exclude")
         )
         menu.addSeparator()
