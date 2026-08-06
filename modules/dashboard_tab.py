@@ -167,10 +167,10 @@ class OutputFormatter:
                     '200': '✓',
                     '301': '↬',
                     '302': '↬',
-                    '403': '🔒',
-                    '404': '❌',
-                    '500': '💥'
-                }.get(status, '📄')
+                    '403': '⊘',
+                    '404': '✘',
+                    '500': '⚠'
+                }.get(status, '🗉')
                 
                 formatted.append(f"{status_color} [{status}] {size:<8} {url}")
             else:
@@ -185,11 +185,11 @@ class OutputFormatter:
         formatted = []
         
         severity_icons = {
-            'critical': '🔥',
-            'high': '⚠',
-            'medium': '⚡',
-            'low': 'ℹ️',
-            'info': '📌'
+            'critical': 'Ⓒ',
+            'high': 'Ⓗ',
+            'medium': 'Ⓜ',
+            'low': 'ℹⓁ',
+            'info': 'Ⓘ'
         }
         
         for line in lines:
@@ -229,7 +229,7 @@ class OutputFormatter:
             'php': '🐘 PHP',
             'asp|aspx': '🔷 ASP.NET',
             'json': '📦 JSON',
-            'xml': '📄 XML',
+            'xml': '🗉 XML',
             'pdf': '📑 PDF',
             'zip|tar|gz': '🗜️ Archives'
         }
@@ -776,7 +776,7 @@ class BruteforceRunner:
         formatted = "📂 CONTENT BRUTEFORCE RESULTS\n" + "═" * 50 + "\n\n"
         formatted += "📊 Summary by Status:\n"
         for status in sorted(status_counts):
-            formatted += f"  {icons.get(status, '📄')} HTTP {status}: {status_counts[status]} endpoints\n"
+            formatted += f"  {icons.get(status, '🗉')} HTTP {status}: {status_counts[status]} endpoints\n"
         formatted += "\n🗉 Discovered Endpoints:\n" + "-" * 60 + "\n"
         for line in sorted(set(clean_lines)):
             formatted += f"  {line}\n"
@@ -4223,7 +4223,7 @@ class TaskInputDialog(QDialog):
             "github_dorks":      ("🐙", "GitHub secret/code search (gitdorks_go)"),
             "github_secrets":    ("🔑", "Verified secrets scanner (trufflehog)"),
             "emails":            ("📧", "Email discovery (emailfinder)"),
-            "metadata":          ("📄", "Document metadata extraction (metafinder)"),
+            "metadata":          ("🗉", "Document metadata extraction (metafinder)"),
             "passive_subdomains":("🌿", "Passive enum: amass+subfinder+crt.sh+findomain+hackertarget"),
             "active_subdomains": ("💥", "DNS brute-force (gobuster dns)"),
             "guess_subdomains":  ("🔀", "Permutation guessing (altdns) — needs passive subs first"),
@@ -6222,7 +6222,7 @@ class DashboardTab(QWidget):
             f"border:none;font-family:{FONT_FAMILY_MONO};}}"
         )
         self._output_viewer.setPlaceholderText(
-            "Select a task and click '📄 View Output' to see results here…"
+            "Select a task and click '🗉 View Output' to see results here…"
         )
         opl.addWidget(self._output_viewer)
         right_vsplit.addWidget(output_panel)
@@ -6732,7 +6732,7 @@ class DashboardTab(QWidget):
         if self._viewed_task_id == task_id:
             self._viewed_task_id = None
             self._output_viewer.clear()
-            self._output_title.setText("📄 Task Output")
+            self._output_title.setText("🗉 Task Output")
 
         self.save_tasks()
         self._update_stats()

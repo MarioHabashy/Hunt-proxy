@@ -2450,7 +2450,7 @@ class ToolsConfigDialog(QDialog):
             "gemini-1.5-flash":        ("⚡ Free tier", "Google — free tier available", COLOR_SUCCESS),
             "gemini-1.5-flash-latest": ("⚡ Free tier", "Google — free tier, latest Flash 1.5", COLOR_SUCCESS),
             "gemini-1.5-flash-8b":     ("⚡ Free tier", "Google — free tier, smallest Flash", COLOR_SUCCESS),
-            "gemini-1.5-pro":          ("💳 Paid",      "~$1.25/1M in · $5/1M out (after free quota)", COLOR_LOW),
+            "gemini-1.5-pro":          ("$ Paid",      "~$1.25/1M in · $5/1M out (after free quota)", COLOR_LOW),
             # OpenRouter (free models have :free suffix)
             "meta-llama/llama-3.3-70b-instruct:free": ("\U0001f49a Free", "OpenRouter \u2014 free model", COLOR_SUCCESS),
             "google/gemini-flash-1.5:free":            ("\U0001f49a Free", "OpenRouter \u2014 free model", COLOR_SUCCESS),
@@ -5500,7 +5500,7 @@ class HuntGUI(
                     f" QLabel:hover {{ color: #ffaa44; text-decoration: underline; }}"
                 )
             else:
-                self.intercept_status_label.setText("⏸ Intercept: OFF")
+                self.intercept_status_label.setText("○ Intercept: OFF")
                 self.intercept_status_label.setStyleSheet(
                     f"QLabel {{ color: {COLOR_TEXT_MUTED}; padding: 0 8px; "
                     f"border-left: 1px solid {COLOR_BORDER}; font-weight: 600; }}"
