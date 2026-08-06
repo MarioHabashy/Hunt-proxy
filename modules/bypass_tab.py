@@ -14,10 +14,10 @@ New layout (horizontal split):
   │  │                    │  │  │  ├── req / resp detail        │   │
   │  └────────────────────┘  │  └──────────────────────────────┘   │
   │  ┌────────────────────┐  │  ┌──────────────────────────────┐   │
-  │  │  WAF Bypass Config │  │  │  🏆 Bypass Results            │   │
+  │  │  WAF Bypass Config │  │  │  🗠 Bypass Results            │   │
   │  │  • WAF type        │  │  └──────────────────────────────┘   │
   │  │  • Payload type    │  │  ┌──────────────────────────────┐   │
-  │  │  • Blocked payload │  │  │  📋 Scan Log                  │   │
+  │  │  • Blocked payload │  │  │  🗊 Scan Log                  │   │
   │  │  • Extra payloads  │  │  └──────────────────────────────┘   │
   │  └────────────────────┘  │                                      │
   └──────────────────────────┴──────────────────────────────────────┘
@@ -783,15 +783,15 @@ class WafScanMixin:
         # Log scan mode
         if primary_payload:
             self.scan_progress.emit(
-                f"🔥  [WAF] Payload-first mode — primary: [{_eff_cat.upper()}] "
+                f"▓  [WAF] Payload-first mode — primary: [{_eff_cat.upper()}] "
                 f"{primary_payload[:60]}  |  "
                 f"Known bypass payloads: {len(known_payloads)}  |  "
                 f"Custom: {len(custom_payloads)}")
         self.scan_progress.emit(
-            f"🔥  [WAF] Starting advanced WAF detection + bypass — {url[:80]}")
+            f"▓  [WAF] Starting advanced WAF detection + bypass — {url[:80]}")
 
         # ── Phase 0 — Baseline + Fingerprint ─────────────────────────────
-        self.scan_progress.emit("🔥  [WAF] Phase 0 — Baseline + WAF Fingerprinting")
+        self.scan_progress.emit("▓  [WAF] Phase 0 — Baseline + WAF Fingerprinting")
         stats["phases_run"] += 1
 
         # Step 0a: clean baseline
@@ -800,7 +800,7 @@ class WafScanMixin:
             payload="[WAF-Baseline]", payload_type="WAF-Baseline")
         stats["payloads_sent"] += 1
         self.scan_progress.emit(
-            f"🔥  [WAF] Clean baseline → HTTP {b_status}  {b_len}b  {b_time:.3f}s")
+            f"▓  [WAF] Clean baseline → HTTP {b_status}  {b_len}b  {b_time:.3f}s")
 
         # Step 0b: passive fingerprint from clean response
         if b_resp is not None:
@@ -811,7 +811,7 @@ class WafScanMixin:
                 waf_info["confidence"] = "passive"
                 waf_info["evidence"].append(f"Passive: found {vendor} signatures in baseline response")
                 stats["waf_vendor"] = vendor
-                self.scan_progress.emit(f"🔥  [WAF] Passive detect: {vendor}")
+                self.scan_progress.emit(f"▓  [WAF] Passive detect: {vendor}")
 
         # Apply forced vendor from config (overrides auto-detection)
         if forced_vendor:
@@ -820,7 +820,7 @@ class WafScanMixin:
             waf_info['confidence']  = 'manual'
             waf_info['evidence'].append(f'Manual override: user selected {forced_vendor}')
             stats['waf_vendor']     = forced_vendor
-            self.scan_progress.emit(f'🔥  [WAF] Vendor manually set: {forced_vendor}')
+            self.scan_progress.emit(f'▓  [WAF] Vendor manually set: {forced_vendor}')
 
         # Step 0c: active fingerprint — fire attack payloads to trigger WAF
         block_status = None
@@ -865,10 +865,10 @@ class WafScanMixin:
                 waf_info["block_status"] = block_status
         if not waf_info["detected"]:
             self.scan_progress.emit(
-                "🔥  [WAF] No WAF detected from baseline — continuing with generic bypass phases.")
+                "▓  [WAF] No WAF detected from baseline — continuing with generic bypass phases.")
         else:
             self.scan_progress.emit(
-                f"🔥  [WAF] Confirmed: {waf_info['vendor']} "
+                f"▓  [WAF] Confirmed: {waf_info['vendor']} "
                 f"(confidence={waf_info['confidence']}, blocks with HTTP {block_status})")
 
         vendor  = waf_info.get("vendor") or "Generic WAF"
@@ -878,10 +878,10 @@ class WafScanMixin:
 
         def _run(phase_num: int, label: str, probes: List[Dict]) -> None:
             if not self.running or not probes or not _phase_active(phase_num):
-                if not _phase_active(phase_num): self.scan_progress.emit(f"🔥  [WAF] Phase {phase_num} — skipped (disabled in config)");
+                if not _phase_active(phase_num): self.scan_progress.emit(f"▓  [WAF] Phase {phase_num} — skipped (disabled in config)");
                 return
             self.scan_progress.emit(
-                f"🔥  [WAF] Phase {phase_num} — {label} ({len(probes)} probes)")
+                f"▓  [WAF] Phase {phase_num} — {label} ({len(probes)} probes)")
             stats["phases_run"] += 1
             stats["payloads_sent"] += len(probes)
             if workers > 1:
@@ -894,7 +894,7 @@ class WafScanMixin:
             stats["bypasses_found"] += len(new_f)
             if new_f:
                 self.scan_progress.emit(
-                    f"  ✅ [WAF] Phase {phase_num}: {len(new_f)} bypass(es) found!")
+                    f"  ✓ [WAF] Phase {phase_num}: {len(new_f)} bypass(es) found!")
 
         # ── Phase 1 — Header Pollution & Smuggling ────────────────────────
         p1 = []
@@ -1357,7 +1357,7 @@ class WafScanMixin:
         _run(10, f"Vendor-Specific Bypasses [{vendor}]", p10)
 
         # ── Phase 11 — Blind WAF Detection (timing) ───────────────────────
-        self.scan_progress.emit("🔥  [WAF] Phase 11 — Blind Timing Analysis")
+        self.scan_progress.emit("▓  [WAF] Phase 11 — Blind Timing Analysis")
         stats["phases_run"] += 1
         timing_findings: List[Dict] = []
         time_clean_samples: List[float] = []
@@ -1409,7 +1409,7 @@ class WafScanMixin:
         findings.extend(timing_findings)
         stats["bypasses_found"] += len(timing_findings)
         if timing_findings:
-            self.scan_progress.emit("  ✅ [WAF] Phase 11: timing anomaly detected — WAF is active!")
+            self.scan_progress.emit("  ✓ [WAF] Phase 11: timing anomaly detected — WAF is active!")
         else:
             self.scan_progress.emit("  ✓  [WAF] Phase 11: no timing anomaly detected")
 
@@ -1478,10 +1478,10 @@ class WafScanMixin:
         is_vuln = len(findings) > 0
         waf_str = (f"WAF: {waf_info['vendor']} [{waf_info['confidence']}]"
                    if waf_info["detected"] else "WAF: not detected")
-        summary = (f"{'⚠️ WAF BYPASS FOUND' if is_vuln else '✓ No WAF bypass found'}  |  "
+        summary = (f"{'⚠ WAF BYPASS FOUND' if is_vuln else '✓ No WAF bypass found'}  |  "
                    f"{waf_str}  |  Phases: {stats['phases_run']}  |  "
                    f"Sent: {stats['payloads_sent']}  |  Bypasses: {len(findings)}")
-        self.scan_progress.emit(f"🔥  [WAF] Done — {summary}")
+        self.scan_progress.emit(f"▓  [WAF] Done — {summary}")
 
         return {"vulnerable": is_vuln, "summary": summary,
                 "stats": stats, "baseline": baseline,
@@ -1530,7 +1530,7 @@ class WafScanMixin:
             elapsed = round(time.time() - start, 3)
             return resp.status_code, len(resp.content or b""), elapsed, resp
         except Exception as e:
-            self.scan_progress.emit(f"⚠️  [WAF] Request error: {str(e)[:60]}")
+            self.scan_progress.emit(f"⚠  [WAF] Request error: {str(e)[:60]}")
             return 0, 0, 0.0, None
 
     def _waf_probe(self, probe: Dict, baseline: Dict,
@@ -1765,7 +1765,7 @@ class BypassScanMixin:
         stats["phases_run"] += 1; stats["payloads_sent"] += 1
         self.scan_progress.emit(f"🛡  [Bypass] Baseline → HTTP {b_status}  {b_len}b  {b_time:.2f}s")
         if b_status not in (401,403,405,407,429):
-            self.scan_progress.emit(f"⚠️  [Bypass] Baseline {b_status} is not a 4xx block — continuing anyway.")
+            self.scan_progress.emit(f"⚠  [Bypass] Baseline {b_status} is not a 4xx block — continuing anyway.")
         baseline = {"status":b_status,"length":b_len,"time":b_time}
 
         def _run(num, label, probes):
@@ -1778,7 +1778,7 @@ class BypassScanMixin:
             for f in new_f: f["phase"] = f"{num} – {label}"
             findings.extend(new_f); stats["bypasses_found"] += len(new_f)
             if new_f:
-                self.scan_progress.emit(f"  ✅ [Bypass] Phase {num}: {len(new_f)} bypass(es) found!")
+                self.scan_progress.emit(f"  ✓ [Bypass] Phase {num}: {len(new_f)} bypass(es) found!")
 
         p1 = []
         for h in _IP_SPOOF_HEADERS:
@@ -2093,7 +2093,7 @@ class BypassScanMixin:
         findings.sort(key=lambda f:{"HIGH":0,"MEDIUM":1,"LOW":2}.get(f.get("confidence","LOW"),9))
 
         is_vuln = len(findings) > 0
-        summary = (f"{'⚠️ BYPASS FOUND' if is_vuln else '✓ No bypass found'}  |  "
+        summary = (f"{'⚠ BYPASS FOUND' if is_vuln else '✓ No bypass found'}  |  "
                    f"Phases: {stats['phases_run']}  |  Sent: {stats['payloads_sent']}  |  "
                    f"Bypasses: {len(findings)}")
         self.scan_progress.emit(f"🛡  [Bypass] Done — {summary}")
@@ -2122,7 +2122,7 @@ class BypassScanMixin:
             elapsed = round(time.time()-start,3)
             return resp.status_code, len(resp.content or b""), elapsed
         except Exception as e:
-            self.scan_progress.emit(f"⚠️  [Bypass] Baseline error: {e}")
+            self.scan_progress.emit(f"⚠  [Bypass] Baseline error: {e}")
             return 403, 0, 0.0
 
     def _bypass_probe(self, probe: Dict, b_status: int, b_len: int, timeout: int) -> Optional[Dict]:
@@ -2554,7 +2554,7 @@ class BypassTab(QWidget):
         _mode_lbl.setStyleSheet(f'color:{COLOR_TEXT_MUTED};font-size:9pt;')
         tb.addWidget(_mode_lbl)
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(['\U0001f525 WAF Bypass', '\U0001f6e1 Access Control Bypass'])
+        self.mode_combo.addItems(['▓ WAF Bypass', '🛡 Access Control Bypass'])
         self.mode_combo.setFixedHeight(26)
         self.mode_combo.setFixedWidth(215)
         self.mode_combo.setStyleSheet(
@@ -2669,7 +2669,7 @@ class BypassTab(QWidget):
         r2h = QHBoxLayout()
         lbl2 = QLabel("Blocked Payload  (exact payload being blocked — auto-detected from request):")
         lbl2.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:9pt;")
-        self.auto_detect_btn = QPushButton("🔍 Auto-detect")
+        self.auto_detect_btn = QPushButton("⌕ Auto-detect")
         self.auto_detect_btn.setFixedHeight(22)
         self.auto_detect_btn.setStyleSheet(
             f"QPushButton{{background:{COLOR_ELEVATED_BG};color:{COLOR_ACCENT};"
@@ -2715,8 +2715,8 @@ class BypassTab(QWidget):
             f"QTabBar::tab:selected{{background:{COLOR_ACCENT};color:#fff;}}"
         )
         rt.addTab(self._traffic_tab(), " Traffic Monitor")
-        rt.addTab(self._results_tab(), "🏆 Bypass Results")
-        rt.addTab(self._log_tab(),     "📋 Scan Log")
+        rt.addTab(self._results_tab(), "🗠 Bypass Results")
+        rt.addTab(self._log_tab(),     "🗊 Scan Log")
         h.addWidget(rt)
 
         # 40% left / 60% right
@@ -2969,7 +2969,7 @@ class BypassTab(QWidget):
             self.host_edit.setText(host)
         self.scheme_combo.setCurrentText("https" if is_https else "http")
         self._auto_detect_payload()
-        self._log(f"📥 Request loaded — host:{host or '(from Host header)'}  port:{port}")
+        self._log(f"✓ Request loaded — host:{host or '(from Host header)'}  port:{port}")
 
     # ── Actions ────────────────────────────────────────────────────────────
 
@@ -3029,7 +3029,7 @@ class BypassTab(QWidget):
                 idx = self.payload_type_combo.findText(disp)
                 if idx >= 0:
                     self.payload_type_combo.setCurrentIndex(idx)
-            self._log(f"🔍 Auto-detected [{cat}]: {payload[:80]}")
+            self._log(f"⌕ Auto-detected [{cat}]: {payload[:80]}")
             self._status(f"✓ Detected [{cat}] payload", COLOR_SUCCESS)
         else:
             self._status("⚠ No attack payload found — enter it manually", COLOR_HIGH)
@@ -3116,12 +3116,12 @@ class BypassTab(QWidget):
 
         mode = self._scan_mode()
         if mode == "ac":
-            self._log("🚀 Access Control Bypass Scan started")
+            self._log("▶ Access Control Bypass Scan started")
             self._log(f"   Target  : {rd['url']}")
             self._log(f"   Method  : {rd['method']}")
             self._log(f"   Phases  : 11  (~300 probes)")
         else:
-            self._log("🚀 WAF Bypass Scan started")
+            self._log("▶ WAF Bypass Scan started")
             self._log(f"   Target     : {rd['url']}")
             self._log(f"   Method     : {rd['method']}")
             self._log(f"   WAF vendor : {cfg.get('vendor') or 'Auto-detect'}")
@@ -3179,11 +3179,11 @@ class BypassTab(QWidget):
     def _on_progress(self, msg: str):
         self._log(msg)
         if any(k in msg for k in ("Phase", "Done", "WAF", "bypass", "AC-Bypass", "Bypass", "Baseline")):
-            self._status(msg.strip().lstrip("🔥 ")[:80], COLOR_ACCENT)
+            self._status(msg.strip().lstrip("▓ ")[:80], COLOR_ACCENT)
 
     def _on_finished(self, result: Dict):
         self._log("─" * 56)
-        self._log("✅ Scan complete")
+        self._log("✓ Scan complete")
         self._log(result.get("summary", ""))
 
         findings = result.get("findings", [])
@@ -3215,7 +3215,7 @@ class BypassTab(QWidget):
                 f"color:#fff;padding:6px;background:{COLOR_CRITICAL};border-radius:4px;"
             )
             self.results_summary_lbl.setText(
-                f"⚠️  {len(findings)} bypass technique(s) found!  "
+                f"⚠  {len(findings)} bypass technique(s) found!  "
                 f"Best confidence: {findings[0].get('confidence','?')}"
             )
         else:
@@ -3256,8 +3256,8 @@ class BypassTab(QWidget):
             self.traffic_table.setItem(row, 5, bp_it)
 
     def _on_error(self, error: str):
-        self._log(f"❌ {error}")
-        self._status(f"❌ {error[:70]}", COLOR_CRITICAL)
+        self._log(f"✘ {error}")
+        self._status(f"✘ {error[:70]}", COLOR_CRITICAL)
         QMessageBox.critical(self, "WAF bypass scan error", error)
 
     def _on_done(self):
@@ -3265,7 +3265,7 @@ class BypassTab(QWidget):
         self.stop_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
         if self._result_entries:
-            self._status(f"⚠️ Done — {len(self._result_entries)} bypass(es)!", COLOR_CRITICAL)
+            self._status(f"⚠ Done — {len(self._result_entries)} bypass(es)!", COLOR_CRITICAL)
         else:
             self._status("✓ Done — no bypasses found")
 
@@ -3324,7 +3324,7 @@ class BypassTab(QWidget):
         time_it = _nit(f"{entry.elapsed:.3f}"); time_it.setTextAlignment(Qt.AlignCenter)
         self.traffic_table.setItem(row, 4, time_it)
 
-        bp_it = _it("✅ YES" if entry.bypassed else "")
+        bp_it = _it("✓ YES" if entry.bypassed else "")
         if entry.bypassed:
             cc = {"HIGH": COLOR_CRITICAL, "MEDIUM": COLOR_HIGH}.get(entry.confidence, COLOR_SUCCESS)
             bp_it.setForeground(QBrush(QColor(cc)))
@@ -3432,9 +3432,9 @@ class BypassTab(QWidget):
         if not isinstance(e, ProbeEntry): return
 
         menu = QMenu()
-        a_url  = menu.addAction("📋 Copy URL")
-        a_req  = menu.addAction("📋 Copy Request")
-        a_resp = menu.addAction("📋 Copy Response")
+        a_url  = menu.addAction("🗊 Copy URL")
+        a_req  = menu.addAction("🗊 Copy Request")
+        a_resp = menu.addAction("🗊 Copy Response")
         act = menu.exec_(self.traffic_table.viewport().mapToGlobal(pos))
 
         if act == a_url:
