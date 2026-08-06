@@ -33,22 +33,22 @@ class DecoderTab:
         # ========================================================================
 
         header_container = QWidget()
-        header_container.setMaximumHeight(50)  # ✅ LIMIT HEADER HEIGHT
+        header_container.setMaximumHeight(50)  # ✓ LIMIT HEADER HEIGHT
         header_layout = QHBoxLayout(header_container)
-        header_layout.setContentsMargins(0, 0, 0, 0)  # ✅ REMOVE MARGINS
+        header_layout.setContentsMargins(0, 0, 0, 0)  # ✓ REMOVE MARGINS
         header_layout.setSpacing(8)
 
-        header = QLabel("DECODER & ANALYZER")  # ✅ SHORTER TEXT
+        header = QLabel("DECODER & ANALYZER")  # ✓ SHORTER TEXT
         header.setStyleSheet(
             f"""
             QLabel {{
                 color: {COLOR_TEXT_BRIGHT};
-                font-size: {FONT_SIZE_NORMAL};  /* ✅ SMALLER FONT */
+                font-size: {FONT_SIZE_NORMAL};  /* ✓ SMALLER FONT */
                 font-weight: 700;
-                padding: 8px 16px;  /* ✅ LESS PADDING */
+                padding: 8px 16px;  /* ✓ LESS PADDING */
                 background: linear-gradient(135deg, {COLOR_ELEVATED_BG} 0%, {COLOR_CARD_BG} 100%);
-                border-radius: 6px;  /* ✅ SMALLER RADIUS */
-                border-left: 3px solid {COLOR_ACCENT};  /* ✅ THINNER BORDER */
+                border-radius: 6px;  /* ✓ SMALLER RADIUS */
+                border-left: 3px solid {COLOR_ACCENT};  /* ✓ THINNER BORDER */
             }}
         """
         )
@@ -58,15 +58,15 @@ class DecoderTab:
         smart_decode_btn = QPushButton("Smart Decode")
         smart_decode_btn.setToolTip("Auto-detect and decode multiple layers")
         smart_decode_btn.clicked.connect(self.smart_decode_advanced)
-        smart_decode_btn.setMaximumHeight(36)  # ✅ LIMIT BUTTON HEIGHT
+        smart_decode_btn.setMaximumHeight(36)  # ✓ LIMIT BUTTON HEIGHT
         smart_decode_btn.setStyleSheet(
             f"""
             QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 {COLOR_ACCENT}, stop:1 {COLOR_ACCENT_SECONDARY});
-                padding: 6px 16px;  /* ✅ LESS PADDING */
+                padding: 6px 16px;  /* ✓ LESS PADDING */
                 font-weight: 600;
-                font-size: {FONT_SIZE_SMALL};  /* ✅ SMALLER FONT */
+                font-size: {FONT_SIZE_SMALL};  /* ✓ SMALLER FONT */
                 color: white;
                 border-radius: 4px;
             }}
@@ -103,18 +103,18 @@ class DecoderTab:
         header_layout.addWidget(encode_all_btn)
 
         # Quick action: Analyze - COMPACT
-        analyze_btn = QPushButton("📊 Analyze")
+        analyze_btn = QPushButton("🗠 Analyze")
         analyze_btn.setToolTip("Deep analysis: entropy, patterns, signatures")
         analyze_btn.clicked.connect(self.analyze_input)
-        analyze_btn.setMaximumHeight(36)  # ✅ LIMIT BUTTON HEIGHT
+        analyze_btn.setMaximumHeight(36)  # ✓ LIMIT BUTTON HEIGHT
         analyze_btn.setStyleSheet(
             f"""
             QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 {COLOR_LOW}, stop:1 {COLOR_SUCCESS});
-                padding: 6px 16px;  /* ✅ LESS PADDING */
+                padding: 6px 16px;  /* ✓ LESS PADDING */
                 font-weight: 600;
-                font-size: {FONT_SIZE_SMALL};  /* ✅ SMALLER FONT */
+                font-size: {FONT_SIZE_SMALL};  /* ✓ SMALLER FONT */
                 color: white;
                 border-radius: 4px;
             }}
@@ -168,7 +168,7 @@ class DecoderTab:
         # ENCODING OPERATIONS
         # ========================================================================
 
-        encoding_label = QLabel("📤 ENCODING")
+        encoding_label = QLabel(" ENCODING")
         encoding_label.setStyleSheet(
             f"""
             QLabel {{
@@ -206,7 +206,7 @@ class DecoderTab:
         # DECODING OPERATIONS
         # ========================================================================
 
-        decoding_label = QLabel("📥 DECODING")
+        decoding_label = QLabel(" DECODING")
         decoding_label.setStyleSheet(
             f"""
             QLabel {{
@@ -243,7 +243,7 @@ class DecoderTab:
         # HASHING OPERATIONS
         # ========================================================================
 
-        hash_label = QLabel("🔒 HASHING")
+        hash_label = QLabel(" HASHING")
         hash_label.setStyleSheet(
             f"""
             QLabel {{
@@ -277,7 +277,7 @@ class DecoderTab:
         # PENTESTING UTILITIES
         # ========================================================================
 
-        pentest_label = QLabel("PENTESTING")
+        pentest_label = QLabel(" PENTESTING")
         pentest_label.setStyleSheet(
             f"""
             QLabel {{
@@ -464,11 +464,11 @@ class DecoderTab:
         load_file_btn.clicked.connect(lambda: self.load_file_to_decoder(tab_widget))
         input_header_layout.addWidget(load_file_btn)
 
-        paste_btn = QPushButton("📋 Paste")
+        paste_btn = QPushButton("🗈 Paste")
         paste_btn.clicked.connect(lambda: self.paste_to_decoder(tab_widget))
         input_header_layout.addWidget(paste_btn)
 
-        clear_input_btn = QPushButton("🗑️ Clear")
+        clear_input_btn = QPushButton("🗑 Clear")
         clear_input_btn.clicked.connect(lambda: self.clear_decoder_input(tab_widget))
         input_header_layout.addWidget(clear_input_btn)
 
@@ -527,7 +527,7 @@ class DecoderTab:
         output_header_layout.addWidget(output_label)
 
         # Output actions
-        copy_output_btn = QPushButton("📋 Copy")
+        copy_output_btn = QPushButton("🗈 Copy")
         copy_output_btn.clicked.connect(lambda: self.copy_decoder_output(tab_widget))
         output_header_layout.addWidget(copy_output_btn)
 
@@ -535,14 +535,14 @@ class DecoderTab:
         save_output_btn.clicked.connect(lambda: self.save_decoder_output(tab_widget))
         output_header_layout.addWidget(save_output_btn)
 
-        send_to_input_btn = QPushButton("↩️ To Input")
+        send_to_input_btn = QPushButton("⮌ To Input")
         send_to_input_btn.setToolTip(
             "Send output back to input for chaining operations"
         )
         send_to_input_btn.clicked.connect(lambda: self.output_to_input(tab_widget))
         output_header_layout.addWidget(send_to_input_btn)
 
-        clear_output_btn = QPushButton("🗑️ Clear")
+        clear_output_btn = QPushButton("🗑 Clear")
         clear_output_btn.clicked.connect(lambda: self.clear_decoder_output(tab_widget))
         output_header_layout.addWidget(clear_output_btn)
 
@@ -678,35 +678,35 @@ class DecoderTab:
             if text.rstrip().endswith("-----") and not text.endswith("\n"):
                 text += "\n"
             encoded = base64.b64encode(text.encode("utf-8")).decode("utf-8")
-            self.set_decoder_output(encoded, "✅ Base64 encoded")
+            self.set_decoder_output(encoded, "✓ Base64 encoded")
 
     def encode_url(self):
         """URL encode"""
         text = self.get_decoder_input()
         if text:
             encoded = urllib.parse.quote(text)
-            self.set_decoder_output(encoded, "✅ URL encoded")
+            self.set_decoder_output(encoded, "✓ URL encoded")
 
     def encode_html(self):
         """HTML entity encode"""
         text = self.get_decoder_input()
         if text:
             encoded = html.escape(text)
-            self.set_decoder_output(encoded, "✅ HTML encoded")
+            self.set_decoder_output(encoded, "✓ HTML encoded")
 
     def encode_hex(self):
         """Encode to hex"""
         text = self.get_decoder_input()
         if text:
             encoded = text.encode("utf-8").hex()
-            self.set_decoder_output(encoded, "✅ Hex encoded")
+            self.set_decoder_output(encoded, "✓ Hex encoded")
 
     def encode_unicode(self):
         """Encode to Unicode escape"""
         text = self.get_decoder_input()
         if text:
             encoded = text.encode("unicode_escape").decode("utf-8")
-            self.set_decoder_output(encoded, "✅ Unicode encoded")
+            self.set_decoder_output(encoded, "✓ Unicode encoded")
 
     def encode_base32(self):
         """Encode to Base32"""
@@ -714,9 +714,9 @@ class DecoderTab:
         if text:
             try:
                 encoded = base64.b32encode(text.encode("utf-8")).decode("utf-8")
-                self.set_decoder_output(encoded, "✅ Base32 encoded")
+                self.set_decoder_output(encoded, "✓ Base32 encoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Encoding failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Encoding failed")
 
     def encode_base85(self):
         """Encode to Base85 (ASCII85)"""
@@ -724,23 +724,23 @@ class DecoderTab:
         if text:
             try:
                 encoded = base64.b85encode(text.encode("utf-8")).decode("utf-8")
-                self.set_decoder_output(encoded, "✅ Base85 encoded")
+                self.set_decoder_output(encoded, "✓ Base85 encoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Encoding failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Encoding failed")
 
     def encode_url_all(self):
         """URL encode all characters"""
         text = self.get_decoder_input()
         if text:
             encoded = "".join(f"%{ord(c):02X}" for c in text)
-            self.set_decoder_output(encoded, "✅ URL encoded (all chars)")
+            self.set_decoder_output(encoded, "✓ URL encoded (all chars)")
 
     def encode_binary(self):
         """Encode to binary (UTF-8 byte-level, 8 bits per byte)"""
         text = self.get_decoder_input()
         if text:
             binary = " ".join(format(b, "08b") for b in text.encode("utf-8"))
-            self.set_decoder_output(binary, "✅ Binary encoded")
+            self.set_decoder_output(binary, "✓ Binary encoded")
 
     def encode_rot13(self):
         """ROT13 encoding"""
@@ -749,14 +749,14 @@ class DecoderTab:
             import codecs
 
             encoded = codecs.encode(text, "rot_13")
-            self.set_decoder_output(encoded, "✅ ROT13 encoded")
+            self.set_decoder_output(encoded, "✓ ROT13 encoded")
 
     def encode_ascii_hex(self):
         """Encode each character as \\xHH"""
         text = self.get_decoder_input()
         if text:
             encoded = "".join(f"\\x{ord(c):02x}" for c in text)
-            self.set_decoder_output(encoded, "✅ ASCII Hex encoded")
+            self.set_decoder_output(encoded, "✓ ASCII Hex encoded")
 
     # Decoding methods
     def decode_base32(self):
@@ -766,9 +766,9 @@ class DecoderTab:
             try:
                 # casefold=True accepts both upper and lowercase base32
                 decoded = base64.b32decode(text, casefold=True).decode("utf-8", errors="replace")
-                self.set_decoder_output(decoded, "✅ Base32 decoded")
+                self.set_decoder_output(decoded, "✓ Base32 decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Decode failed")
 
     def decode_base85(self):
         """Decode from Base85"""
@@ -776,9 +776,9 @@ class DecoderTab:
         if text:
             try:
                 decoded = base64.b85decode(text).decode("utf-8", errors="replace")
-                self.set_decoder_output(decoded, "✅ Base85 decoded")
+                self.set_decoder_output(decoded, "✓ Base85 decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Decode failed")
 
     def decode_binary(self):
         """Decode from binary (UTF-8 byte-level, 8 bits per byte)"""
@@ -790,16 +790,16 @@ class DecoderTab:
                 if len(binary) % 8 != 0:
                     self.set_decoder_output(
                         f"Error: binary length ({len(binary)}) is not a multiple of 8",
-                        "❌ Decode failed",
+                        "✘ Decode failed",
                     )
                     return
                 raw_bytes = bytes(
                     int(binary[i : i + 8], 2) for i in range(0, len(binary), 8)
                 )
                 decoded = raw_bytes.decode("utf-8", errors="replace")
-                self.set_decoder_output(decoded, "✅ Binary decoded")
+                self.set_decoder_output(decoded, "✓ Binary decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Decode failed")
 
     def decode_cookie(self):
         """Parse and decode cookies"""
@@ -838,9 +838,9 @@ class DecoderTab:
 
                         result += "\n"
 
-                self.set_decoder_output(result, "✅ Cookie parsed")
+                self.set_decoder_output(result, "✓ Cookie parsed")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Parse failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Parse failed")
 
     def decode_base64(self):
         """Decode from Base64"""
@@ -848,23 +848,23 @@ class DecoderTab:
         if text:
             try:
                 decoded = base64.b64decode(text).decode("utf-8", errors="replace")
-                self.set_decoder_output(decoded, "✅ Base64 decoded")
+                self.set_decoder_output(decoded, "✓ Base64 decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Decode failed")
 
     def decode_url(self):
         """URL decode"""
         text = self.get_decoder_input(strip=True)
         if text:
             decoded = urllib.parse.unquote(text)
-            self.set_decoder_output(decoded, "✅ URL decoded")
+            self.set_decoder_output(decoded, "✓ URL decoded")
 
     def decode_html(self):
         """HTML entity decode"""
         text = self.get_decoder_input(strip=True)
         if text:
             decoded = html.unescape(text)
-            self.set_decoder_output(decoded, "✅ HTML decoded")
+            self.set_decoder_output(decoded, "✓ HTML decoded")
 
     def decode_hex(self):
         """Decode from hex"""
@@ -875,9 +875,9 @@ class DecoderTab:
                 clean = re.sub(r'(0x|\\x)', '', text)
                 clean = clean.replace(':', '').replace('-', '').replace(' ', '')
                 decoded = bytes.fromhex(clean).decode("utf-8", errors="replace")
-                self.set_decoder_output(decoded, "✅ Hex decoded")
+                self.set_decoder_output(decoded, "✓ Hex decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Decode failed")
 
     def decode_unicode(self):
         """Decode Unicode escape sequences (\\uXXXX, \\xXX)"""
@@ -887,9 +887,9 @@ class DecoderTab:
                 # raw_unicode_escape correctly preserves non-ASCII chars before
                 # unicode_escape decodes the \uXXXX / \xXX sequences
                 decoded = text.encode("raw_unicode_escape").decode("unicode_escape")
-                self.set_decoder_output(decoded, "✅ Unicode decoded")
+                self.set_decoder_output(decoded, "✓ Unicode decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Decode failed")
 
     def decode_jwt(self):
         """Decode JWT token"""
@@ -899,7 +899,7 @@ class DecoderTab:
                 parts = text.split(".")
                 if len(parts) != 3:
                     self.set_decoder_output(
-                        "Invalid JWT format (should have 3 parts)", "❌ Invalid JWT"
+                        "Invalid JWT format (should have 3 parts)", "✘ Invalid JWT"
                     )
                     return
 
@@ -918,9 +918,9 @@ class DecoderTab:
                 result += "\n\n=== JWT SIGNATURE ===\n"
                 result += parts[2]
 
-                self.set_decoder_output(result, "✅ JWT decoded")
+                self.set_decoder_output(result, "✓ JWT decoded")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ JWT decode failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ JWT decode failed")
 
     # Hash methods
     def hash_md5(self):
@@ -928,28 +928,28 @@ class DecoderTab:
         text = self.get_decoder_input()
         if text:
             hashed = hashlib.md5(text.encode("utf-8")).hexdigest()
-            self.set_decoder_output(hashed, "✅ MD5 hash calculated")
+            self.set_decoder_output(hashed, "✓ MD5 hash calculated")
 
     def hash_sha1(self):
         """Calculate SHA1 hash"""
         text = self.get_decoder_input()
         if text:
             hashed = hashlib.sha1(text.encode("utf-8")).hexdigest()
-            self.set_decoder_output(hashed, "✅ SHA1 hash calculated")
+            self.set_decoder_output(hashed, "✓ SHA1 hash calculated")
 
     def hash_sha256(self):
         """Calculate SHA256 hash"""
         text = self.get_decoder_input()
         if text:
             hashed = hashlib.sha256(text.encode("utf-8")).hexdigest()
-            self.set_decoder_output(hashed, "✅ SHA256 hash calculated")
+            self.set_decoder_output(hashed, "✓ SHA256 hash calculated")
 
     def hash_sha512(self):
         """Calculate SHA512 hash"""
         text = self.get_decoder_input()
         if text:
             hashed = hashlib.sha512(text.encode("utf-8")).hexdigest()
-            self.set_decoder_output(hashed, "✅ SHA512 hash calculated")
+            self.set_decoder_output(hashed, "✓ SHA512 hash calculated")
 
     def hash_sha3_256(self):
         """Calculate SHA3-256 hash"""
@@ -959,9 +959,9 @@ class DecoderTab:
                 import hashlib
 
                 hashed = hashlib.sha3_256(text.encode("utf-8")).hexdigest()
-                self.set_decoder_output(hashed, "✅ SHA3-256 hash calculated")
+                self.set_decoder_output(hashed, "✓ SHA3-256 hash calculated")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Hash failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Hash failed")
 
     def hash_blake2b(self):
         """Calculate BLAKE2b hash"""
@@ -971,9 +971,9 @@ class DecoderTab:
                 import hashlib
 
                 hashed = hashlib.blake2b(text.encode("utf-8")).hexdigest()
-                self.set_decoder_output(hashed, "✅ BLAKE2b hash calculated")
+                self.set_decoder_output(hashed, "✓ BLAKE2b hash calculated")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Hash failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Hash failed")
 
     def hash_ntlm(self):
         """Calculate NTLM hash (for Windows passwords)"""
@@ -983,9 +983,9 @@ class DecoderTab:
                 import hashlib
 
                 ntlm = hashlib.new("md4", text.encode("utf-16le")).hexdigest()
-                self.set_decoder_output(ntlm.upper(), "✅ NTLM hash calculated")
+                self.set_decoder_output(ntlm.upper(), "✓ NTLM hash calculated")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Hash failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Hash failed")
 
     # PENTESTING UTILITIES
     def encode_xss_payload(self):
@@ -1024,7 +1024,7 @@ class DecoderTab:
         result += f"<img src=x onerror=alert('XSS')>\n"
         result += f"<iframe src=javascript:alert('XSS')>\n"
 
-        self.set_decoder_output(result, "✅ XSS payloads generated")
+        self.set_decoder_output(result, "✓ XSS payloads generated")
 
     def encode_sql_payload(self):
         """Generate SQL injection payload variants"""
@@ -1058,7 +1058,7 @@ class DecoderTab:
         result += "' AND 1=1--\n"
         result += "' AND '1'='1\n"
 
-        self.set_decoder_output(result, "✅ SQL payloads generated")
+        self.set_decoder_output(result, "✓ SQL payloads generated")
 
     def encode_cmd_payload(self):
         """Generate command injection payload variants"""
@@ -1091,7 +1091,7 @@ class DecoderTab:
         result += f"%0a{text}\n"
         result += f"|{text}|\n"
 
-        self.set_decoder_output(result, "✅ Command injection payloads generated")
+        self.set_decoder_output(result, "✓ Command injection payloads generated")
 
     # Format methods
     def prettify_json(self):
@@ -1103,7 +1103,7 @@ class DecoderTab:
                 pretty = json.dumps(parsed, indent=2)
                 self.set_decoder_output(pretty, "✨ JSON prettified")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Invalid JSON")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Invalid JSON")
 
     def minify_json(self):
         """Minify JSON"""
@@ -1112,9 +1112,9 @@ class DecoderTab:
             try:
                 parsed = json.loads(text)
                 minified = json.dumps(parsed, separators=(",", ":"))
-                self.set_decoder_output(minified, "✅ JSON minified")
+                self.set_decoder_output(minified, "✓ JSON minified")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Invalid JSON")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Invalid JSON")
 
     def prettify_xml(self):
         """Prettify XML"""
@@ -1125,7 +1125,7 @@ class DecoderTab:
                 pretty = dom.toprettyxml(indent="  ")
                 self.set_decoder_output(pretty, "✨ XML prettified")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Invalid XML")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Invalid XML")
 
     # Analysis methods
     def detect_file_type(self):
@@ -1174,9 +1174,9 @@ class DecoderTab:
                 result += f"\nFirst 32 bytes (hex):\n{data[:32].hex()}\n"
                 result += f"\nFirst 32 bytes (ascii):\n{data[:32].decode('ascii', errors='replace')}\n"
 
-                self.set_decoder_output(result, "✅ File type analyzed")
+                self.set_decoder_output(result, "✓ File type analyzed")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Analysis failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Analysis failed")
 
     def calculate_entropy(self):
         """Calculate Shannon entropy"""
@@ -1209,9 +1209,9 @@ class DecoderTab:
 
                 result += f"\nNote: Maximum entropy for ASCII is ~6.57 bits/char\n"
 
-                self.set_decoder_output(result, "✅ Entropy calculated")
+                self.set_decoder_output(result, "✓ Entropy calculated")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Calculation failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Calculation failed")
 
     def character_frequency(self):
         """Analyze character frequency"""
@@ -1238,9 +1238,9 @@ class DecoderTab:
                         f"{char_display:<10} {count:<10} {freq:>6.2f}%        {bar}\n"
                     )
 
-                self.set_decoder_output(result, "✅ Frequency analyzed")
+                self.set_decoder_output(result, "✓ Frequency analyzed")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Analysis failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Analysis failed")
 
     def extract_urls(self):
         """Extract all URLs from text"""
@@ -1258,7 +1258,7 @@ class DecoderTab:
             if not urls:
                 result += "No URLs found\n"
 
-            self.set_decoder_output(result, f"✅ Found {len(urls)} URLs")
+            self.set_decoder_output(result, f"✓ Found {len(urls)} URLs")
 
     def extract_ips(self):
         """Extract all IP addresses from text"""
@@ -1276,7 +1276,7 @@ class DecoderTab:
             if not ips:
                 result += "No IP addresses found\n"
 
-            self.set_decoder_output(result, f"✅ Found {len(ips)} IPs")
+            self.set_decoder_output(result, f"✓ Found {len(ips)} IPs")
 
     def extract_emails(self):
         """Extract all email addresses from text"""
@@ -1294,7 +1294,7 @@ class DecoderTab:
             if not emails:
                 result += "No email addresses found\n"
 
-            self.set_decoder_output(result, f"✅ Found {len(emails)} emails")
+            self.set_decoder_output(result, f"✓ Found {len(emails)} emails")
 
     def extract_hashes(self):
         """Extract potential hashes from text"""
@@ -1334,7 +1334,7 @@ class DecoderTab:
                 result += f"  ... and {len(sha256s)-10} more\n"
 
             total = len(md5s) + len(sha1s) + len(sha256s)
-            self.set_decoder_output(result, f"✅ Found {total} hashes")
+            self.set_decoder_output(result, f"✓ Found {total} hashes")
 
     # CONVERSION UTILITIES
     def timestamp_to_date(self):
@@ -1368,9 +1368,9 @@ class DecoderTab:
                 dt_utc = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                 result += f"UTC:\n{dt_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
 
-                self.set_decoder_output(result, "✅ Timestamp converted")
+                self.set_decoder_output(result, "✓ Timestamp converted")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Conversion failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Conversion failed")
 
     def date_to_timestamp(self):
         """Convert date to Unix timestamp"""
@@ -1405,14 +1405,14 @@ class DecoderTab:
                     result += f"Unix timestamp (milliseconds):\n{timestamp * 1000}\n\n"
                     result += f"Parsed date:\n{dt.strftime('%Y-%m-%d %H:%M:%S')}\n"
 
-                    self.set_decoder_output(result, "✅ Date converted")
+                    self.set_decoder_output(result, "✓ Date converted")
                 else:
                     self.set_decoder_output(
                         "Could not parse date. Try: YYYY-MM-DD HH:MM:SS",
-                        "❌ Parse failed",
+                        "✘ Parse failed",
                     )
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Conversion failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Conversion failed")
 
     def ip_to_decimal(self):
         """Convert IP address to decimal"""
@@ -1430,9 +1430,9 @@ class DecoderTab:
                 result += f"Hex: 0x{decimal:08X}\n"
                 result += f"Binary: {bin(decimal)}\n"
 
-                self.set_decoder_output(result, "✅ IP converted")
+                self.set_decoder_output(result, "✓ IP converted")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Conversion failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Conversion failed")
 
     def decimal_to_ip(self):
         """Convert decimal to IP address"""
@@ -1449,34 +1449,34 @@ class DecoderTab:
                 result += f"IP Address: {ip}\n"
                 result += f"Hex: 0x{decimal:08X}\n"
 
-                self.set_decoder_output(result, "✅ Decimal converted")
+                self.set_decoder_output(result, "✓ Decimal converted")
             except Exception as e:
-                self.set_decoder_output(f"Error: {str(e)}", "❌ Conversion failed")
+                self.set_decoder_output(f"Error: {str(e)}", "✘ Conversion failed")
 
     def to_uppercase(self):
         """Convert to uppercase"""
         text = self.get_decoder_input()
         if text:
-            self.set_decoder_output(text.upper(), "✅ Converted to uppercase")
+            self.set_decoder_output(text.upper(), "✓ Converted to uppercase")
 
     def to_lowercase(self):
         """Convert to lowercase"""
         text = self.get_decoder_input()
         if text:
-            self.set_decoder_output(text.lower(), "✅ Converted to lowercase")
+            self.set_decoder_output(text.lower(), "✓ Converted to lowercase")
 
     def swap_case(self):
         """Swap case"""
         text = self.get_decoder_input()
         if text:
-            self.set_decoder_output(text.swapcase(), "✅ Case swapped")
+            self.set_decoder_output(text.swapcase(), "✓ Case swapped")
 
     def remove_whitespace(self):
         """Remove all whitespace"""
         text = self.get_decoder_input()
         if text:
             result = "".join(text.split())
-            self.set_decoder_output(result, "✅ Whitespace removed")
+            self.set_decoder_output(result, "✓ Whitespace removed")
 
     def show_length(self):
         """Show string length"""
@@ -1486,20 +1486,20 @@ class DecoderTab:
             result += f"Bytes: {len(text.encode('utf-8'))} bytes\n"
             result += f"Lines: {len(text.splitlines())} lines\n"
             result += f"Words: {len(text.split())} words"
-            self.set_decoder_output(result, "📊 Length calculated")
+            self.set_decoder_output(result, "🗠 Length calculated")
 
     def reverse_string(self):
         """Reverse string"""
         text = self.get_decoder_input()
         if text:
             reversed_text = text[::-1]
-            self.set_decoder_output(reversed_text, "🔄 String reversed")
+            self.set_decoder_output(reversed_text, "↤ String reversed")
 
     def smart_decode_advanced(self):
         """Advanced smart decode with AI-like detection and multiple layers"""
         text = self.get_decoder_input()
         if not text:
-            self.set_decoder_output("No input provided", "⚠️ Empty input")
+            self.set_decoder_output("No input provided", "⚠ Empty input")
             return
 
         import re
@@ -1799,20 +1799,20 @@ class DecoderTab:
             "╔══════════════════════════════════════════════════════════════════╗\n"
         )
         result += (
-            "║                        📊 DECODE SUMMARY                         ║\n"
+            "║                        🗠 DECODE SUMMARY                         ║\n"
         )
         result += (
             "╚══════════════════════════════════════════════════════════════════╝\n\n"
         )
 
         if layer == 0:
-            result += "❌ No encoding detected or unable to decode.\n\n"
-            result += "💡 Tips:\n"
+            result += "✘ No encoding detected or unable to decode.\n\n"
+            result += "🞉 Tips:\n"
             result += "  • Make sure input is properly formatted\n"
             result += "  • Try manual decode operations from the sidebar\n"
             result += "  • Check for custom/proprietary encodings\n"
         else:
-            result += f"✅ Successfully decoded {layer} layer(s)\n\n"
+            result += f"✓ Successfully decoded {layer} layer(s)\n\n"
             result += "Decoding chain:\n"
             for i, h in enumerate(history, 1):
                 result += f"  {i}. {h['type']} (Confidence: {h['confidence']}%) → {h['length']} chars\n"
@@ -1822,7 +1822,7 @@ class DecoderTab:
             result += current
             result += "\n" + "=" * 70 + "\n"
 
-        self.set_decoder_output(result, f"✅ Smart decode complete - {layer} layers")
+        self.set_decoder_output(result, f"✓ Smart decode complete - {layer} layers")
 
     # =========================================================================
     # ⚡ ENCODE ALL — dencode.com style
@@ -1831,7 +1831,7 @@ class DecoderTab:
         """Encode/hash/transform input in every format at once (dencode.com style)."""
         text = self.get_decoder_input()
         if not text:
-            self.set_decoder_output("No input provided", "⚠️ Empty input")
+            self.set_decoder_output("No input provided", "⚠ Empty input")
             return
 
         raw = text
@@ -1854,7 +1854,7 @@ class DecoderTab:
         out += SEP2 + "\n"
 
         # ── BASE ENCODINGS ────────────────────────────────────────────────────
-        out += section("BASE ENCODINGS", "📤  ")
+        out += section("BASE ENCODINGS", "  ")
         try:
             out += row("Base64",    base64.b64encode(raw_bytes).decode())
         except Exception as e:
@@ -1889,7 +1889,7 @@ class DecoderTab:
             out += row("Base16 (Hex)", f"[error: {e}]")
 
         # ── URL / PERCENT ENCODING ────────────────────────────────────────────
-        out += section("URL / PERCENT ENCODING", "🔗  ")
+        out += section("URL / PERCENT ENCODING", "  ")
         try:
             out += row("URL Encode (RFC 3986)",    urllib.parse.quote(raw, safe=""))
         except Exception as e:
@@ -1912,7 +1912,7 @@ class DecoderTab:
             out += row("Form Encoded (+spaces)",   f"[error: {e}]")
 
         # ── HTML ENCODING ─────────────────────────────────────────────────────
-        out += section("HTML ENCODING", "🌐  ")
+        out += section("HTML ENCODING", "  ")
         try:
             out += row("HTML Entities",            html.escape(raw))
         except Exception as e:
@@ -1931,7 +1931,7 @@ class DecoderTab:
             out += row("HTML Hex (&#xXX;)",        f"[error: {e}]")
 
         # ── UNICODE / ESCAPE SEQUENCES ────────────────────────────────────────
-        out += section("UNICODE & ESCAPE SEQUENCES", "🔡  ")
+        out += section("UNICODE & ESCAPE SEQUENCES", "  ")
         try:
             out += row("Unicode Escape (\\uXXXX)",  "".join(f"\\u{ord(c):04x}" for c in raw))
         except Exception as e:
@@ -1959,7 +1959,7 @@ class DecoderTab:
             out += row("Python repr()",             f"[error: {e}]")
 
         # ── HEX / BINARY ──────────────────────────────────────────────────────
-        out += section("HEX & BINARY", "🔢  ")
+        out += section("HEX & BINARY", "  ")
         try:
             out += row("Hex (lowercase)",          raw_bytes.hex())
         except Exception as e:
@@ -1990,7 +1990,7 @@ class DecoderTab:
             out += row("Decimal (bytes)",          f"[error: {e}]")
 
         # ── CHARACTER CASING ──────────────────────────────────────────────────
-        out += section("CHARACTER CASING", "🔠  ")
+        out += section("CHARACTER CASING", "  ")
         out += row("Uppercase",                 raw.upper())
         out += row("Lowercase",                 raw.lower())
         out += row("Title Case",                raw.title())
@@ -2013,7 +2013,7 @@ class DecoderTab:
             out += row("Kebab Case",            f"[error: {e}]")
 
         # ── CLASSIC CIPHERS ───────────────────────────────────────────────────
-        out += section("CLASSIC CIPHERS", "🔐  ")
+        out += section("CLASSIC CIPHERS", "  ")
         try:
             out += row("ROT13",                 codecs.encode(raw, "rot_13"))
         except Exception as e:
@@ -2049,7 +2049,7 @@ class DecoderTab:
             out += row("Morse Code",            f"[error: {e}]")
 
         # ── HASHES ────────────────────────────────────────────────────────────
-        out += section("CRYPTOGRAPHIC HASHES", "🔒  ")
+        out += section("CRYPTOGRAPHIC HASHES", "  ")
         hash_algos = [
             ("MD5",        hashlib.md5),
             ("SHA-1",      hashlib.sha1),
@@ -2085,7 +2085,7 @@ class DecoderTab:
                 out += row("NTLM", f"[error: {e}]")
 
         # ── COMPRESSION ───────────────────────────────────────────────────────
-        out += section("COMPRESSION (base64-wrapped)", "🗜  ")
+        out += section("COMPRESSION (base64-wrapped)", "  ")
         try:
             gz = gzip.compress(raw_bytes, compresslevel=9)
             out += row("Gzip", base64.b64encode(gz).decode())
@@ -2100,7 +2100,7 @@ class DecoderTab:
             out += row("Zlib", f"[error: {e}]")
 
         # ── NUMBER BASES ──────────────────────────────────────────────────────
-        out += section("NUMBER BASE CONVERSIONS  (first code-point)", "🔢  ")
+        out += section("NUMBER BASE CONVERSIONS  (first code-point)", "  ")
         try:
             cp = ord(stripped[0]) if stripped else 0
             out += row("Code-point", str(cp))
@@ -2112,7 +2112,7 @@ class DecoderTab:
             out += row("Code-point", f"[error: {e}]")
 
         # ── MISC ──────────────────────────────────────────────────────────────
-        out += section("MISCELLANEOUS", "🛠  ")
+        out += section("MISCELLANEOUS", "  ")
         try:
             out += row("Length (chars)",         str(len(raw)))
             out += row("Length (bytes UTF-8)",   str(len(raw_bytes)))
@@ -2137,7 +2137,7 @@ class DecoderTab:
             out += row("ASCII check", f"[error: {e}]")
 
         out += "\n" + SEP2 + "\n"
-        out += f"  ✅ All formats generated for {len(raw)}-char input\n"
+        out += f"  ✓ All formats generated for {len(raw)}-char input\n"
         out += SEP2 + "\n"
 
         self.set_decoder_output(out, "⚡ All formats encoded")
@@ -2154,7 +2154,7 @@ class DecoderTab:
         result = "=== DEEP ANALYSIS ===\n\n"
 
         # Basic stats
-        result += "📊 BASIC STATISTICS\n"
+        result += "🗠 BASIC STATISTICS\n"
         result += f"Length: {len(text)} characters\n"
         result += f"Bytes: {len(text.encode('utf-8'))} bytes\n"
         result += f"Lines: {len(text.splitlines())}\n"
@@ -2162,7 +2162,7 @@ class DecoderTab:
 
         # Character analysis
         counter = Counter(text)
-        result += "📝 CHARACTER ANALYSIS\n"
+        result += " CHARACTER ANALYSIS\n"
         result += f"Unique characters: {len(counter)}\n"
         result += f"Alphabetic: {sum(1 for c in text if c.isalpha())}\n"
         result += f"Numeric: {sum(1 for c in text if c.isdigit())}\n"
@@ -2174,7 +2174,7 @@ class DecoderTab:
         entropy = -sum(
             (count / length) * math.log2(count / length) for count in counter.values()
         )
-        result += "🔒 ENTROPY ANALYSIS\n"
+        result += " ENTROPY ANALYSIS\n"
         result += f"Shannon Entropy: {entropy:.4f} bits/char\n"
         if entropy < 3.5:
             result += "Assessment: Low entropy (plain text likely)\n"
@@ -2219,7 +2219,7 @@ class DecoderTab:
         # Pattern detection
         import re
 
-        result += "🎯 PATTERN DETECTION\n"
+        result += " PATTERN DETECTION\n"
 
         urls = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', text)
         result += f"URLs found: {len(urls)}\n"
@@ -2238,7 +2238,7 @@ class DecoderTab:
         hashes_sha256 = re.findall(r"\b[a-fA-F0-9]{64}\b", text)
         result += f"SHA256 hashes found: {len(hashes_sha256)}\n"
 
-        self.set_decoder_output(result, "✅ Analysis complete")
+        self.set_decoder_output(result, "✓ Analysis complete")
 
     # Tab Management
     def load_file_to_decoder(self, tab_widget):
@@ -2262,7 +2262,7 @@ class DecoderTab:
                 if input_widget:
                     input_widget.setPlainText(text)
 
-                self.status_label.setText(f"✅ Loaded {len(data)} bytes from file")
+                self.status_label.setText(f"✓ Loaded {len(data)} bytes from file")
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to load file: {e}")
 
@@ -2275,7 +2275,7 @@ class DecoderTab:
         if input_widget:
             input_widget.setPlainText(text)
 
-        self.status_label.setText("✅ Pasted from clipboard")
+        self.status_label.setText("✓ Pasted from clipboard")
 
     def clear_decoder_input(self, tab_widget):
         """Clear decoder input"""
@@ -2291,7 +2291,7 @@ class DecoderTab:
             if text:
                 clipboard = QApplication.clipboard()
                 clipboard.setText(text)
-                self.status_label.setText("📋 Output copied to clipboard!")
+                self.status_label.setText("🗈 Output copied to clipboard!")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def save_decoder_output(self, tab_widget):
@@ -2307,7 +2307,7 @@ class DecoderTab:
                     try:
                         with open(filename, "w", encoding="utf-8") as f:
                             f.write(text)
-                        self.status_label.setText(f"✅ Saved to {filename}")
+                        self.status_label.setText(f"✓ Saved to {filename}")
                         QTimer.singleShot(
                             2000, lambda: self.status_label.setText("Ready")
                         )
@@ -2322,7 +2322,7 @@ class DecoderTab:
         if input_widget and output_widget:
             output_text = output_widget.toPlainText()
             input_widget.setPlainText(output_text)
-            self.status_label.setText("↩️ Output sent to input")
+            self.status_label.setText("⮌ Output sent to input")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def clear_decoder_output(self, tab_widget):
