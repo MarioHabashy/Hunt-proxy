@@ -3612,7 +3612,18 @@ class _UpdateCheckWorker(QThread):
         import urllib.error
         try:
             req = urllib.request.Request(
-                url, headers={"User-Agent": "hunt-proxy-update-check"}
+                url,
+                headers={
+                    "User-Agent": "hunt-proxy-update-check",
+                    # raw.githubusercontent.com / api.github.com sit behind a
+                    # CDN whose edge nodes can briefly disagree right after a
+                    # push — one check can hit a fresh edge, the next a stale
+                    # one, flip-flopping "update found" / "up to date". These
+                    # headers, plus the cache-busting query param callers
+                    # append to the raw URL, force a live fetch every time.
+                    "Cache-Control": "no-cache, no-store",
+                    "Pragma": "no-cache",
+                },
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read(), None
@@ -3624,7 +3635,8 @@ class _UpdateCheckWorker(QThread):
             return None, f"Update check failed: {e}"
 
     def _latest_from_release(self):
-        raw, err = self._get(GITHUB_API_LATEST_RELEASE)
+        url = f"{GITHUB_API_LATEST_RELEASE}?_cb={int(time.time() * 1000)}"
+        raw, err = self._get(url)
         if not raw:
             return None, err
         try:
@@ -3640,7 +3652,13 @@ class _UpdateCheckWorker(QThread):
     def _latest_from_raw_main(self):
         last_err = None
         for branch in ("main", "master"):
-            raw, err = self._get(GITHUB_RAW_MAIN_TMPL.format(branch=branch))
+            # Cache-busting query param: raw.githubusercontent.com is served
+            # from a CDN that caches per-edge-node, so an identical URL can
+            # return stale content depending on which node answers. A unique
+            # param on every request forces a fresh pull instead of a cached
+            # (possibly stale/inconsistent) copy.
+            url = f"{GITHUB_RAW_MAIN_TMPL.format(branch=branch)}?_cb={int(time.time() * 1000)}"
+            raw, err = self._get(url)
             if not raw:
                 last_err = err
                 continue
