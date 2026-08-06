@@ -383,7 +383,7 @@ class ReportEditDialog(QDialog):
             "created":     _now(),
             "updated":     _now(),
         }
-        self.setWindowTitle("📝 Edit Report" if report else "📝 New Bug Report")
+        self.setWindowTitle("✎ Edit Report" if report else "🞥 New Bug Report")
         self.setMinimumSize(820, 700)
         self.resize(960, 780)
         self._build_ui()
@@ -1046,7 +1046,7 @@ class ReportTab(QWidget):
         submitted = sum(1 for r in self._reports if r.get("status") == "Submitted")
 
         txt = (
-            f"  📋 {total} Reports  ·  "
+            f"  🗠 {total} Reports  ·  "
             f"{'  ·  '.join(parts) if parts else '—'}  ·  "
             f"<span style='color:{COLOR_SUCCESS};'>Accepted: {accepted}</span>  ·  "
             f"Submitted: {submitted}"
@@ -1351,8 +1351,8 @@ class ReportTab(QWidget):
             QMenu::separator {{ height: 1px; background: {COLOR_BORDER}; margin: 4px 0; }}
         """)
 
-        menu.addAction("✏️  Edit Report").triggered.connect(self._on_edit)
-        menu.addAction("📋  Duplicate").triggered.connect(self._on_duplicate)
+        menu.addAction("✎  Edit Report").triggered.connect(self._on_edit)
+        menu.addAction("🗈  Duplicate").triggered.connect(self._on_duplicate)
 
         # Quick status change submenu
         status_menu = menu.addMenu("⚡  Set Status")
@@ -1362,9 +1362,9 @@ class ReportTab(QWidget):
             act.triggered.connect(lambda _, st=s, rpt=report: self._set_status(rpt, st))
 
         menu.addSeparator()
-        menu.addAction("⬇️  Export as Markdown").triggered.connect(lambda: self._export_selected("md"))
-        menu.addAction("⬇️  Export as Text").triggered.connect(lambda: self._export_selected("txt"))
-        menu.addAction("📋  Copy URL").triggered.connect(
+        menu.addAction("⬇  Export as Markdown").triggered.connect(lambda: self._export_selected("md"))
+        menu.addAction("⬇  Export as Text").triggered.connect(lambda: self._export_selected("txt"))
+        menu.addAction("🗈  Copy URL").triggered.connect(
             lambda: QApplication.clipboard().setText(report.get("url", ""))
         )
         menu.addSeparator()
