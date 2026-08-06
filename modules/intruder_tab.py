@@ -1401,7 +1401,7 @@ class PayloadConfigPanel(QWidget):
         builtin_rl = QHBoxLayout(self.builtin_row)
         builtin_rl.setContentsMargins(6, 4, 6, 4)
         builtin_rl.setSpacing(6)
-        bl_icon = QLabel("📋")
+        bl_icon = QLabel("☰")
         bl_label = QLabel("Select list:")
         bl_label.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:12px;")
         self.builtin_combo = QComboBox()
@@ -1809,9 +1809,9 @@ class ResultsTable(QTableWidget):
         send_scanner  = menu.addAction("→ Send to Scanner")
         send_endpoints= menu.addAction("→ Send to Attack Surface")
         menu.addSeparator()
-        highlight_r  = menu.addAction("🔴 Highlight Red")
-        highlight_g  = menu.addAction("🟢 Highlight Green")
-        highlight_y  = menu.addAction("🟡 Highlight Yellow")
+        highlight_r  = menu.addAction(" Highlight Red")
+        highlight_g  = menu.addAction(" Highlight Green")
+        highlight_y  = menu.addAction(" Highlight Yellow")
         clear_hl     = menu.addAction("Clear Highlight")
         action = menu.exec_(self.viewport().mapToGlobal(pos))
 
@@ -2866,13 +2866,13 @@ class IntruderTab(QWidget):
         self.stop_btn.setEnabled(False)
         total = self.results_table.rowCount()
         self.progress_bar.setValue(100)
-        self.status_bar.setText(f"✅  Attack complete  –  {total:,} requests")
+        self.status_bar.setText(f"✓  Attack complete  –  {total:,} requests")
 
     def _on_attack_error(self, err: str):
         self._is_running = False
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.status_bar.setText(f"❌  Error: {err}")
+        self.status_bar.setText(f"✗  Error: {err}")
 
     def _set_status(self, msg: str):
         self.status_bar.setText(msg)
