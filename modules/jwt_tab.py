@@ -2995,12 +2995,12 @@ class JWTTab(QWidget):
         # ── Row 2: Ngrok controls ─────────────────────────────────────────
         ngrok_ctrl_row = QHBoxLayout()
         ngrok_ctrl_row.setSpacing(4)
-        self.km_ngrok_start_btn = QPushButton("🌐  Start Ngrok")
+        self.km_ngrok_start_btn = QPushButton("▶  Start Ngrok")
         self.km_ngrok_start_btn.setStyleSheet(self._btn_style("#4A90D9"))
         self.km_ngrok_start_btn.setToolTip(
             "Start local JWKS server + ngrok tunnel.\n"
             "Requires pyngrok (pip install pyngrok) or the ngrok binary on PATH.\n"
-            "Authtoken is read from  Tools ➜ ⚙ Settings ➜ 🔑 Tokens."
+            "Authtoken is read from  Tools ➜ ⚙ Settings ➜ Tokens."
         )
         self.km_ngrok_start_btn.clicked.connect(self._km_ngrok_start)
         ngrok_ctrl_row.addWidget(self.km_ngrok_start_btn)
@@ -3052,7 +3052,7 @@ class JWTTab(QWidget):
         hints_row = QHBoxLayout()
         hints_row.setSpacing(12)
         hint_ngrok = QLabel(
-            "🔑 Authtoken: <b>Tools ➜ ⚙ Settings ➜ Tokens</b>"
+            " Authtoken: <b>Tools ➜ ⚙ Settings ➜ Tokens</b>"
         )
         hint_ngrok.setStyleSheet(f"color:{COLOR_TEXT_MUTED}; font-size:8pt;")
         hints_row.addWidget(hint_ngrok)
@@ -3799,7 +3799,7 @@ class JWTTab(QWidget):
                 trusted_domain=trusted_domain, km_key_data=km_key_data
             )
             _km_note = (
-                "\n\n✅ Using Key Manager key — JWT is signed with the SAME private key "
+                "\n\n✓ Using Key Manager key — JWT is signed with the SAME private key "
                 "as the JWKS hosted at your exploit server."
                 if km_key_data else
                 "\n\n⚠ No Key Manager key selected — a fresh ephemeral key pair was generated. "
