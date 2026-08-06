@@ -944,7 +944,7 @@ class FlowDialog(QDialog):
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(cancel_btn)
-        save_btn = QPushButton("💾  Save Flow")
+        save_btn = QPushButton("🖫  Save Flow")
         save_btn.setObjectName("save_btn")
         save_btn.clicked.connect(self._validate_and_accept)
         save_btn.setDefault(True)
@@ -1662,7 +1662,7 @@ class AttackSurfaceTab(QWidget):
         layout.addWidget(title)
         layout.addStretch()
 
-        add_btn = QPushButton("＋  Add Entry")
+        add_btn = QPushButton("🞥  Add Entry")
         add_btn.setObjectName("add_btn")
         add_btn.setFixedHeight(32)
         add_btn.setToolTip("Add a new attack surface entry (Ctrl+N)")
@@ -2390,7 +2390,7 @@ class AttackSurfaceTab(QWidget):
         lay.addWidget(flow_list, stretch=1)
 
         btn_row = QHBoxLayout()
-        new_btn  = QPushButton("＋  New Flow")
+        new_btn  = QPushButton("🞥  New Flow")
         new_btn.setObjectName("new_btn")
         edit_btn = QPushButton("  Edit")
         del_btn  = QPushButton("🗑  Delete")
@@ -2902,7 +2902,7 @@ class AttackSurfaceTab(QWidget):
         status_menu = menu.addMenu("↺  Set Status →")
         status_acts = {status_menu.addAction(s): s for s in STATUSES}
 
-        pri_menu = menu.addMenu("🎯  Set Priority →")
+        pri_menu = menu.addMenu("※  Set Priority →")
         pri_acts = {pri_menu.addAction(p): p for p in PRIORITIES}
 
         menu.addSeparator()
@@ -2914,7 +2914,7 @@ class AttackSurfaceTab(QWidget):
         menu.addSeparator()
         create_flow_act = menu.addAction("⛓  Create Flow from Selection")
         menu.addSeparator()
-        del_act = menu.addAction(f"🗑️  Delete all {len(entries)}")
+        del_act = menu.addAction(f"🗑  Delete all {len(entries)}")
 
         chosen = menu.exec_(self._bulk_act_btn.mapToGlobal(
             self._bulk_act_btn.rect().bottomLeft()
@@ -3224,9 +3224,9 @@ class AttackSurfaceTab(QWidget):
             QMenu::item {{ padding: 6px 20px 6px 10px; border-radius: 3px; }}
             QMenu::item:selected {{ background-color: {COLOR_ACCENT}; color: #fff; }}
         """)
-        json_act = menu.addAction("📄  Export as JSON")
-        csv_act  = menu.addAction("📊  Export as CSV")
-        md_act   = menu.addAction("📝  Export as Markdown")
+        json_act = menu.addAction("  Export as JSON")
+        csv_act  = menu.addAction("  Export as CSV")
+        md_act   = menu.addAction("  Export as Markdown")
 
         sender_widget = self.sender()
         if sender_widget:

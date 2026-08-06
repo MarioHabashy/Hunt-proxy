@@ -2005,7 +2005,7 @@ class InterceptTab(QWidget):
         h_layout.setContentsMargins(8, 3, 8, 3)
         h_layout.setSpacing(6)
 
-        hdr_lbl = QLabel("🔬 Selection Inspector")
+        hdr_lbl = QLabel(" Selection Inspector")
         hdr_lbl.setStyleSheet(
             f"color:{COLOR_ACCENT};font-weight:700;font-size:11px;background:transparent;"
         )
