@@ -143,7 +143,7 @@ class FileMonitorThread(QThread):
             import time
             start_time = time.time()
 
-            self.load_progress.emit(0, 0, "📊 Counting findings...")
+            self.load_progress.emit(0, 0, "𝍸 Counting findings...")
             QThread.msleep(10)
 
             total_lines = 0
@@ -158,7 +158,7 @@ class FileMonitorThread(QThread):
                 self.load_complete.emit(0)
                 return
 
-            self.load_progress.emit(0, total_lines, "📥 Loading findings...")
+            self.load_progress.emit(0, total_lines, "⥁ Loading findings...")
 
             with open(self._jsonl_path, "r", encoding="utf-8", errors="replace") as f:
                 batch = []
@@ -184,7 +184,7 @@ class FileMonitorThread(QThread):
                             self.load_progress.emit(
                                 current_line,
                                 total_lines,
-                                f"📥 Loading... {percentage}% ({current_line}/{total_lines})"
+                                f"⥁ Loading... {percentage}% ({current_line}/{total_lines})"
                             )
 
                             QThread.msleep(5)
@@ -753,12 +753,12 @@ class HTTPHistoryTab(AnalysisTabMixin):
         refresh_btn.setToolTip("Refresh all data")
         toolbar_layout.addWidget(refresh_btn)
 
-        clear_btn = QPushButton("🗑️ Clear")
+        clear_btn = QPushButton("🗑 Clear")
         clear_btn.clicked.connect(self.clear_findings)
         clear_btn.setToolTip("Clear all findings from GUI")
         toolbar_layout.addWidget(clear_btn)
 
-        proxy_options_btn = QPushButton("⚙️ Config")
+        proxy_options_btn = QPushButton("⚙ Config")
         proxy_options_btn.clicked.connect(self.show_proxy_options_dialog)
         proxy_options_btn.setToolTip("Configure proxy: Match & Replace, Header Injection, Drop Rules, and more")
         toolbar_layout.addWidget(proxy_options_btn)
@@ -1064,7 +1064,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         req_header_layout.setContentsMargins(8, 3, 8, 3)
         req_header_layout.setSpacing(6)
 
-        self.req_title = QLabel("📤 Request")
+        self.req_title = QLabel(" Request")
         self.req_title.setStyleSheet(
             f"color: {COLOR_TEXT_BRIGHT}; font-weight: 700; font-size: 11px;"
         )
@@ -1178,7 +1178,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         resp_header_layout.setContentsMargins(8, 3, 8, 3)
         resp_header_layout.setSpacing(6)
 
-        self.resp_title = QLabel("📥 Response")
+        self.resp_title = QLabel(" Response")
         self.resp_title.setStyleSheet(
             f"color: {COLOR_SUCCESS}; font-weight: 700; font-size: 11px;"
         )
@@ -1290,7 +1290,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         _insp_hdr_layout.setContentsMargins(10, 4, 8, 4)
         _insp_hdr_layout.setSpacing(6)
 
-        _insp_title = QLabel("🔍 Analysis")
+        _insp_title = QLabel("⌕ Analysis")
         _insp_title.setStyleSheet(
             f"color: {COLOR_TEXT_BRIGHT}; font-weight: 700; font-size: 12px;"
         )
@@ -1370,7 +1370,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         _sel_tb_l.addWidget(self._sel_source_badge)
         _sel_tb_l.addStretch()
 
-        _sel_copy_btn = QPushButton("📋 Copy")
+        _sel_copy_btn = QPushButton("🗉 Copy")
         _sel_copy_btn.setFixedHeight(20)
         _sel_copy_btn.setStyleSheet(
             f"background:{COLOR_ELEVATED_BG};color:{COLOR_TEXT};"
@@ -1380,7 +1380,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
             lambda: QApplication.clipboard().setText(
                 getattr(self, '_sel_current_text', '')))
 
-        _sel_dec_btn = QPushButton("🔐 Open in Decoder")
+        _sel_dec_btn = QPushButton("🗁 Open in Decoder")
         _sel_dec_btn.setFixedHeight(20)
         _sel_dec_btn.setStyleSheet(
             f"background:{COLOR_ELEVATED_BG};color:{COLOR_ACCENT};"
@@ -1489,7 +1489,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         toolbar_layout = QHBoxLayout(toolbar)
         toolbar_layout.setContentsMargins(8, 4, 8, 4)
 
-        self.send_btn = QPushButton("🚀 Send")
+        self.send_btn = QPushButton("🖅 Send")
         self.send_btn.setStyleSheet(
             """
             QPushButton {
@@ -1521,19 +1521,19 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         toolbar_layout.addWidget(self._create_separator())
 
-        templates_btn = QPushButton("📋 Templates")
+        templates_btn = QPushButton("䷓ Templates")
         templates_btn.clicked.connect(self.show_templates)
         toolbar_layout.addWidget(templates_btn)
 
-        save_btn = QPushButton("💾 Save")
+        save_btn = QPushButton("🖫 Save")
         save_btn.clicked.connect(self.save_as_template)
         toolbar_layout.addWidget(save_btn)
 
-        compare_btn = QPushButton("🔄 Compare")
+        compare_btn = QPushButton("⽐ Compare")
         compare_btn.clicked.connect(self.compare_responses)
         toolbar_layout.addWidget(compare_btn)
 
-        clear_btn = QPushButton("🗑️ Clear")
+        clear_btn = QPushButton("🗑 Clear")
         clear_btn.clicked.connect(self.clear_all)
         toolbar_layout.addWidget(clear_btn)
 
@@ -3221,7 +3221,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         menu.addSeparator()
 
-        delete_action   = menu.addAction("🗑️ Delete Request")
+        delete_action   = menu.addAction("🗑 Delete Request")
 
         menu.addSeparator()
 
@@ -3411,7 +3411,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
             parent_gui._switch_to_tools_subtab("Key Tester")
 
         api_key_tab.add_from_history(url, method)
-        self.toolbar_status.setText(f"🔑 Sent to Key Tester → {url[:60]}{'...' if len(url) > 60 else ''}")
+        self.toolbar_status.setText(f"⚿ Sent to Key Tester → {url[:60]}{'...' if len(url) > 60 else ''}")
         QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
     def _send_to_js_miner(self, finding: dict = None):
@@ -3477,7 +3477,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         url = finding.get("url", "")
         self.toolbar_status.setText(
-            f"🧪 Sent to PoC Generator → {url[:60]}{'...' if len(url) > 60 else ''}"
+            f" Sent to PoC Generator → {url[:60]}{'...' if len(url) > 60 else ''}"
         )
         QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
@@ -3518,7 +3518,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         url = finding.get("url", "")
         self.toolbar_status.setText(
-            f"🔐 Sent to JWT Analyzer → {url[:60]}{'...' if len(url) > 60 else ''}"
+            f" Sent to JWT Analyzer → {url[:60]}{'...' if len(url) > 60 else ''}"
         )
         QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
@@ -3618,7 +3618,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
                         tab_widget.setCurrentIndex(i)
                         break
             self.toolbar_status.setText(
-                f"📂 Content Bruteforce queued → https://{bruteforce_target}"
+                f" Content Bruteforce queued → https://{bruteforce_target}"
             )
             QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
@@ -3648,7 +3648,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         url = finding.get("url", "")
         self.toolbar_status.setText(
-            f"📍 Sent to Attack Surface → {url[:60]}{'...' if len(url) > 60 else ''}"
+            f" Sent to Attack Surface → {url[:60]}{'...' if len(url) > 60 else ''}"
         )
         QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
@@ -3688,7 +3688,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         url = finding.get("url", "")
         self.toolbar_status.setText(
-            f"🛡 Sent to Bypass → {url[:60]}{'...' if len(url) > 60 else ''}"
+            f" Sent to Bypass → {url[:60]}{'...' if len(url) > 60 else ''}"
         )
         QTimer.singleShot(3000, lambda: self.toolbar_status.setText("Ready"))
 
@@ -3729,7 +3729,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
                 add_subdomain_action = menu.addAction(" Add to Subdomain Scope")
                 menu.addSeparator()
 
-        clear_filter_action = menu.addAction("🗑️ Clear Sitemap Filter")
+        clear_filter_action = menu.addAction("🗑 Clear Sitemap Filter")
         menu.addSeparator()
         expand_all_action   = menu.addAction("Expand All")
         collapse_all_action = menu.addAction("Collapse All")
@@ -3821,14 +3821,14 @@ class HTTPHistoryTab(AnalysisTabMixin):
     def show_column_context_menu(self, position):
         menu = QMenu()
         column = self.history_table.horizontalHeader().logicalIndexAt(position)
-        resize_contents = menu.addAction("📏 Fit to Contents")
+        resize_contents = menu.addAction(" Fit to Contents")
         menu.addSeparator()
-        reset_all = menu.addAction("🔄 Reset All Widths")
+        reset_all = menu.addAction(" Reset All Widths")
         menu.addSeparator()
         if getattr(self, "_url_view", False):
             toggle_view = menu.addAction("⬡ Switch to Host / Path view")
         else:
-            toggle_view = menu.addAction("🔗 Switch to URL view")
+            toggle_view = menu.addAction(" Switch to URL view")
         action = menu.exec_(self.history_table.horizontalHeader().mapToGlobal(position))
         if action == resize_contents and column >= 0:
             self.history_table.resizeColumnToContents(column)
@@ -3854,7 +3854,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         header.resizeSection(7, 120)
         header.resizeSection(8, 150)
         header.resizeSection(9, 60)
-        self.status_label.setText("✅ Column widths reset")
+        self.status_label.setText("✓ Column widths reset")
         QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def _switch_url_view_mode(self):
@@ -3917,7 +3917,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         url = finding.get("url", "")
         if url:
             QApplication.clipboard().setText(url)
-            self.status_label.setText("📋 Copied URL")
+            self.status_label.setText("✓ Copied URL")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def _copy_selected_urls(self, selected_rows: list):
@@ -3935,7 +3935,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
                 urls.append(url)
         if urls:
             QApplication.clipboard().setText("\n".join(urls))
-            self.status_label.setText(f"📋 Copied {len(urls)} URLs")
+            self.status_label.setText(f"✓ Copied {len(urls)} URLs")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
 
     def copy_request_raw(self, finding: Dict[str, Any]):
@@ -3945,7 +3945,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
                 with open(request_file, "r", encoding="utf-8", errors="replace") as f:
                     request_text = f.read()
                 QApplication.clipboard().setText(request_text)
-                self.status_label.setText("📋 Copied raw request")
+                self.status_label.setText("✓ Copied raw request")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to copy request: {e}")
@@ -3959,7 +3959,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
                 with open(response_file, "r", encoding="utf-8", errors="replace") as f:
                     response_text = f.read()
                 QApplication.clipboard().setText(response_text)
-                self.status_label.setText("📋 Copied raw response")
+                self.status_label.setText("✓ Copied raw response")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to copy response: {e}")
@@ -3976,7 +3976,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
 
         if reply == QMessageBox.Yes:
             self.history_table.removeRow(row)
-            self.status_label.setText("🗑️ Request deleted from view")
+            self.status_label.setText("🗑 Request deleted from view")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
             self.update_sitemap_tree()
 
