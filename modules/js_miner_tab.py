@@ -106,31 +106,31 @@ SEV_COLOR = {
     "INFO":     COLOR_TEXT_MUTED,
 }
 SEV_ICON = {
-    "CRITICAL": "🔴",
-    "HIGH":     "🟠",
-    "MEDIUM":   "🟡",
-    "LOW":      "🔵",
-    "INFO":     "⚪",
+    "CRITICAL": "Ⓒ",
+    "HIGH":     "Ⓗ",
+    "MEDIUM":   "Ⓜ",
+    "LOW":      "Ⓛ",
+    "INFO":     "Ⓘ",
 }
 SEV_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
 
 CATEGORY_META = {
-    "🔑 Secrets & Keys":         {"sev": "CRITICAL", "desc": "Hardcoded API keys, passwords, tokens found in JS"},
-    "☁️ Cloud Infrastructure":   {"sev": "HIGH",     "desc": "S3 buckets, Firebase URLs, AWS/GCP/Azure identifiers"},
-    "🗺️ Endpoints & Paths":      {"sev": "HIGH",     "desc": "Hidden API routes and internal paths extracted from JS"},
-    "🌐 Hosts & Subdomains":     {"sev": "HIGH",     "desc": "Hardcoded hostnames, internal/staging URLs"},
-    "💥 DOM XSS Sinks":          {"sev": "HIGH",     "desc": "innerHTML, eval, document.write, jQuery sinks"},
-    "🔀 Open Redirects":         {"sev": "HIGH",     "desc": "User-controlled location.href, window.open()"},
-    "🌊 Taint Flows":            {"sev": "HIGH",     "desc": "User input → dangerous sink data flow chains"},
-    "📨 postMessage / WS":       {"sev": "HIGH",     "desc": "WebSocket usage and postMessage without origin check"},
-    "🔗 CORS Issues":            {"sev": "HIGH",     "desc": "credentials:include, withCredentials, dynamic origins"},
-    "🧬 GraphQL":                {"sev": "MEDIUM",   "desc": "GraphQL endpoints, introspection, mutations"},
-    "🗄️ Token Storage":          {"sev": "MEDIUM",   "desc": "JWT/token in localStorage, Authorization headers"},
-    "🗃️ Source Maps":            {"sev": "HIGH",     "desc": "sourceMappingURL, webpack chunks exposing source"},
-    "🧩 Prototype Pollution":    {"sev": "HIGH",     "desc": "__proto__, .prototype manipulation"},
-    "📦 Frameworks & Libraries": {"sev": "INFO",     "desc": "Detected JS frameworks and library versions"},
-    "📦 Dependency Confusion":   {"sev": "CRITICAL", "desc": "NPM package names missing from registry — supply chain risk"},
-    "🗺️ Source Map Files":       {"sev": "HIGH",     "desc": "Fetched/reconstructed source from .map files"},
+    "🗉 Secrets & Keys":         {"sev": "CRITICAL", "desc": "Hardcoded API keys, passwords, tokens found in JS"},
+    "𐄪 Cloud Infrastructure":   {"sev": "HIGH",     "desc": "S3 buckets, Firebase URLs, AWS/GCP/Azure identifiers"},
+    "// Endpoints & Paths":      {"sev": "HIGH",     "desc": "Hidden API routes and internal paths extracted from JS"},
+    "🖥 Hosts & Subdomains":     {"sev": "HIGH",     "desc": "Hardcoded hostnames, internal/staging URLs"},
+    "</> DOM XSS Sinks":          {"sev": "HIGH",     "desc": "innerHTML, eval, document.write, jQuery sinks"},
+    "⮌ Open Redirects":         {"sev": "HIGH",     "desc": "User-controlled location.href, window.open()"},
+    "𓈜 Taint Flows":            {"sev": "HIGH",     "desc": "User input → dangerous sink data flow chains"},
+    "🖂 postMessage / WS":       {"sev": "HIGH",     "desc": "WebSocket usage and postMessage without origin check"},
+    "꠵ CORS Issues":            {"sev": "HIGH",     "desc": "credentials:include, withCredentials, dynamic origins"},
+    "⬡ GraphQL":                {"sev": "MEDIUM",   "desc": "GraphQL endpoints, introspection, mutations"},
+    "🤀 Token Storage":          {"sev": "MEDIUM",   "desc": "JWT/token in localStorage, Authorization headers"},
+    "🖧 Source Maps":            {"sev": "HIGH",     "desc": "sourceMappingURL, webpack chunks exposing source"},
+    "𐄗 Prototype Pollution":    {"sev": "HIGH",     "desc": "__proto__, .prototype manipulation"},
+    "⚙ Frameworks & Libraries": {"sev": "INFO",     "desc": "Detected JS frameworks and library versions"},
+    "⚙ Dependency Confusion":   {"sev": "CRITICAL", "desc": "NPM package names missing from registry — supply chain risk"},
+    "🖧 Source Map Files":       {"sev": "HIGH",     "desc": "Fetched/reconstructed source from .map files"},
 }
 
 
@@ -414,13 +414,13 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
                             "FIREBASE_APP", "S3_BUCKET", "S3_BUCKET_URI"):
             if not _entropy_ok(value, item["type"]):
                 continue
-            cats["🔑 Secrets & Keys"].append({
+            cats["🗉 Secrets & Keys"].append({
                 "sev": sev, "title": item["type"],
                 "value": value, "context": item["context"],
                 "note": f"Entropy: {entropy:.2f} — verify credential is active"
             })
         else:
-            cats["☁️ Cloud Infrastructure"].append({
+            cats["𐄪 Cloud Infrastructure"].append({
                 "sev": "HIGH", "title": item["type"],
                 "value": value, "context": item["context"]
             })
@@ -431,7 +431,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
             stype = s.get("type", "GENERIC_SECRET")
             if not _entropy_ok(value, stype):
                 continue
-            cats["🔑 Secrets & Keys"].append({
+            cats["🗉 Secrets & Keys"].append({
                 "sev": "CRITICAL", "title": stype, "value": value,
                 "context": s.get("context", "")[:200],
                 "note": f"Entropy: {_shannon_entropy(value):.2f} — Variable: {s.get('var_name','?')}"
@@ -441,7 +441,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
 
     # 2. Endpoints & Paths
     for ep in JavaScriptAnalyzer.extract_endpoints(js_chunk):
-        cats["🗺️ Endpoints & Paths"].append({
+        cats["// Endpoints & Paths"].append({
             "sev": "HIGH", "title": ep["value"],
             "value": ep["value"], "context": ep["context"],
             "note": "Probe this endpoint: auth bypass, IDOR, hidden functionality"
@@ -449,7 +449,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
 
     # 3. Hosts & Subdomains
     for h in JavaScriptAnalyzer.extract_subdomains_and_hosts(js_chunk):
-        cats["🌐 Hosts & Subdomains"].append({
+        cats["🖥 Hosts & Subdomains"].append({
             "sev": h["severity"], "title": h["type"],
             "value": h["value"], "context": h["context"],
             "note": f"Host: {h['host']}"
@@ -458,7 +458,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
     # 4. DOM XSS Sinks
     try:
         for sink in SecurityAnalyzer._detect_dom_xss_sinks(js_chunk):
-            cats["💥 DOM XSS Sinks"].append({
+            cats["</> DOM XSS Sinks"].append({
                 "sev": sink["severity"], "title": sink["sink"],
                 "value": sink["context"][:120], "context": sink["context"],
                 "note": f"Type: {sink['type']} — trace user input to this sink"
@@ -471,7 +471,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
         sev    = "CRITICAL" if "CONFIRMED" in tags else "HIGH"
         chain  = next((t for t in tags if t.startswith("CHAIN:")),  "")
         source = next((t for t in tags if t.startswith("SOURCE:")), "")
-        cats["🌊 Taint Flows"].append({
+        cats["𓈜 Taint Flows"].append({
             "sev": sev, "title": flow_key,
             "value": chain.replace("CHAIN:", ""),
             "context": source.replace("SOURCE:", ""),
@@ -481,7 +481,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
 
     # 6. Open Redirects
     for rd in JavaScriptAnalyzer.detect_open_redirects(js_chunk):
-        cats["🔀 Open Redirects"].append({
+        cats["⮌ Open Redirects"].append({
             "sev": rd["severity"], "title": rd["sink"],
             "value": rd["value"], "context": rd["context"],
             "note": "User-controlled redirect — test with external URL"
@@ -490,21 +490,21 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
 
     # 7. WebSocket & postMessage
     for wf in JavaScriptAnalyzer.detect_websocket_issues(js_chunk):
-        cats["📨 postMessage / WS"].append({
+        cats["🖂 postMessage / WS"].append({
             "sev": wf["severity"], "title": wf["type"],
             "value": wf.get("value", ""), "context": wf["context"], "note": wf["note"]
         })
 
     # 8. CORS
     for ci in JavaScriptAnalyzer.detect_cors_issues(js_chunk):
-        cats["🔗 CORS Issues"].append({
+        cats["꠵ CORS Issues"].append({
             "sev": ci["severity"], "title": ci["type"],
             "value": ci["context"], "context": ci["context"], "note": ci["note"]
         })
 
     # 9. GraphQL
     for gf in JavaScriptAnalyzer.detect_graphql(js_chunk):
-        cats["🧬 GraphQL"].append({
+        cats["⬡ GraphQL"].append({
             "sev": gf["severity"], "title": gf["type"],
             "value": gf.get("value", ""), "context": gf["context"],
             "note": gf.get("note", "")
@@ -512,7 +512,7 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
 
     # 10. Token Storage
     for tf in JavaScriptAnalyzer.detect_token_storage(js_chunk):
-        cats["🗄️ Token Storage"].append({
+        cats["🤀 Token Storage"].append({
             "sev": tf["severity"], "title": tf["type"],
             "value": tf.get("key", tf.get("value", ""))[:80],
             "context": tf["context"], "note": tf["note"]
@@ -520,14 +520,14 @@ def _mp_run_js_chunk(url: str, js_chunk: str) -> dict:
 
     # 11. Source Maps — passive detection
     for sm in JavaScriptAnalyzer.detect_source_maps(js_chunk, url):
-        cats["🗃️ Source Maps"].append({
+        cats["🖧 Source Maps"].append({
             "sev": sm["severity"], "title": sm["type"],
             "value": sm["value"], "context": sm["context"], "note": sm["note"]
         })
 
     # 12. Prototype Pollution
     for p in set(re.findall(r'(__proto__|constructor\[.*?\]|\.prototype\.\w+)', js_chunk)):
-        cats["🧩 Prototype Pollution"].append({
+        cats["𐄗 Prototype Pollution"].append({
             "sev": "HIGH", "title": "PROTOTYPE_POLLUTION",
             "value": p[:100], "context": p[:200],
             "note": "Test for prototype pollution via controllable keys"
@@ -572,15 +572,15 @@ def _mp_run_js_wholefile(url: str, js: str, existing_cache: dict = None) -> dict
             )]
             note_parts = [f"{len(sources)} source files recovered"]
             if interesting:
-                note_parts.append(f"⚠️ Sensitive paths: {', '.join(interesting[:5])}")
-            cats["🗺️ Source Map Files"].append({
+                note_parts.append(f"⚠ Sensitive paths: {', '.join(interesting[:5])}")
+            cats["🖧 Source Map Files"].append({
                 "sev": "CRITICAL" if interesting else "HIGH",
                 "title": "SOURCE_MAP_FETCHED", "value": map_url,
                 "context": f"Sources: {', '.join(sources[:10])}{'…' if len(sources) > 10 else ''}",
                 "note": " | ".join(note_parts)
             })
         except (json.JSONDecodeError, KeyError):
-            cats["🗺️ Source Map Files"].append({
+            cats["🖧 Source Map Files"].append({
                 "sev": "HIGH", "title": "SOURCE_MAP_ACCESSIBLE",
                 "value": map_url, "context": map_content[:200],
                 "note": "Map file is accessible (non-standard format)"
@@ -591,7 +591,7 @@ def _mp_run_js_wholefile(url: str, js: str, existing_cache: dict = None) -> dict
     if FrameworkDetector:
         try:
             for fw_name, evidence in FrameworkDetector.detect_javascript_frameworks("", js).items():
-                cats["📦 Frameworks & Libraries"].append({
+                cats["⚙ Frameworks & Libraries"].append({
                     "sev": "INFO", "title": fw_name, "value": fw_name,
                     "context": " | ".join(evidence[:4]),
                     "note": "Check for framework-specific vulnerabilities"
@@ -610,14 +610,14 @@ def _mp_run_js_wholefile(url: str, js: str, existing_cache: dict = None) -> dict
         for pkg, exists in pool.map(_check_one, pkg_list):
             is_scoped = pkg.startswith("@")
             if exists is False:
-                cats["📦 Dependency Confusion"].append({
+                cats["⚙ Dependency Confusion"].append({
                     "sev": "CRITICAL", "title": "DEP_CONFUSION_MISSING", "value": pkg,
                     "context": f"Package '{pkg}' not found on NPM registry",
                     "note": f"{'Scoped org' if is_scoped else 'Package'} '{pkg}' is not on NPM — "
                             "register it before an attacker does (supply chain risk)"
                 })
             else:
-                cats["📦 Dependency Confusion"].append({
+                cats["⚙ Dependency Confusion"].append({
                     "sev": "INFO", "title": "DEP_FOUND", "value": pkg,
                     "context": f"Package '{pkg}' found on NPM registry",
                     "note": "Verify this is the intended package version"
@@ -776,13 +776,13 @@ class JSAnalysisWorker(QThread):
                 # entropy gate: skip obvious placeholders / low-entropy strings
                 if not _entropy_ok(value, item["type"]):
                     continue
-                cats["🔑 Secrets & Keys"].append({
+                cats["🗉 Secrets & Keys"].append({
                     "sev": sev, "title": item["type"],
                     "value": value, "context": item["context"],
                     "note": f"Entropy: {entropy:.2f} — verify credential is active"
                 })
             else:
-                cats["☁️ Cloud Infrastructure"].append({
+                cats["𐄪 Cloud Infrastructure"].append({
                     "sev": "HIGH", "title": item["type"],
                     "value": value, "context": item["context"]
                 })
@@ -796,7 +796,7 @@ class JSAnalysisWorker(QThread):
                 entropy = _shannon_entropy(value)
                 if not _entropy_ok(value, stype):
                     continue
-                cats["🔑 Secrets & Keys"].append({
+                cats["🗉 Secrets & Keys"].append({
                     "sev": "CRITICAL",
                     "title": stype,
                     "value": value,
@@ -808,7 +808,7 @@ class JSAnalysisWorker(QThread):
 
         # 2. Endpoints & Paths
         for ep in JavaScriptAnalyzer.extract_endpoints(js):
-            cats["🗺️ Endpoints & Paths"].append({
+            cats["// Endpoints & Paths"].append({
                 "sev": "HIGH", "title": ep["value"],
                 "value": ep["value"], "context": ep["context"],
                 "note": "Probe this endpoint: auth bypass, IDOR, hidden functionality"
@@ -816,7 +816,7 @@ class JSAnalysisWorker(QThread):
 
         # 3. Hosts & Subdomains
         for h in JavaScriptAnalyzer.extract_subdomains_and_hosts(js):
-            cats["🌐 Hosts & Subdomains"].append({
+            cats["🖥 Hosts & Subdomains"].append({
                 "sev": h["severity"], "title": h["type"],
                 "value": h["value"], "context": h["context"],
                 "note": f"Host: {h['host']}"
@@ -826,7 +826,7 @@ class JSAnalysisWorker(QThread):
         try:
             from modules.analysis_tab import SecurityAnalyzer
             for sink in SecurityAnalyzer._detect_dom_xss_sinks(js):
-                cats["💥 DOM XSS Sinks"].append({
+                cats["</> DOM XSS Sinks"].append({
                     "sev": sink["severity"],
                     "title": sink["sink"],
                     "value": sink["context"][:120],
@@ -842,7 +842,7 @@ class JSAnalysisWorker(QThread):
             sev = "CRITICAL" if "CONFIRMED" in tags else "HIGH"
             chain = next((t for t in tags if t.startswith("CHAIN:")), "")
             source = next((t for t in tags if t.startswith("SOURCE:")), "")
-            cats["🌊 Taint Flows"].append({
+            cats["𓈜 Taint Flows"].append({
                 "sev": sev, "title": flow_key,
                 "value": chain.replace("CHAIN:", ""),
                 "context": source.replace("SOURCE:", ""),
@@ -852,7 +852,7 @@ class JSAnalysisWorker(QThread):
 
         # 6. Open Redirects
         for rd in JavaScriptAnalyzer.detect_open_redirects(js):
-            cats["🔀 Open Redirects"].append({
+            cats["⮌ Open Redirects"].append({
                 "sev": rd["severity"], "title": rd["sink"],
                 "value": rd["value"], "context": rd["context"],
                 "note": "User-controlled redirect — test with external URL"
@@ -861,7 +861,7 @@ class JSAnalysisWorker(QThread):
 
         # 7. WebSocket & postMessage
         for wf in JavaScriptAnalyzer.detect_websocket_issues(js):
-            cats["📨 postMessage / WS"].append({
+            cats["🖂 postMessage / WS"].append({
                 "sev": wf["severity"], "title": wf["type"],
                 "value": wf.get("value", ""),
                 "context": wf["context"], "note": wf["note"]
@@ -869,7 +869,7 @@ class JSAnalysisWorker(QThread):
 
         # 8. CORS
         for ci in JavaScriptAnalyzer.detect_cors_issues(js):
-            cats["🔗 CORS Issues"].append({
+            cats["꠵ CORS Issues"].append({
                 "sev": ci["severity"], "title": ci["type"],
                 "value": ci["context"], "context": ci["context"],
                 "note": ci["note"]
@@ -877,7 +877,7 @@ class JSAnalysisWorker(QThread):
 
         # 9. GraphQL
         for gf in JavaScriptAnalyzer.detect_graphql(js):
-            cats["🧬 GraphQL"].append({
+            cats["⬡ GraphQL"].append({
                 "sev": gf["severity"], "title": gf["type"],
                 "value": gf.get("value", ""),
                 "context": gf["context"],
@@ -886,7 +886,7 @@ class JSAnalysisWorker(QThread):
 
         # 10. Token Storage
         for tf in JavaScriptAnalyzer.detect_token_storage(js):
-            cats["🗄️ Token Storage"].append({
+            cats["🤀 Token Storage"].append({
                 "sev": tf["severity"], "title": tf["type"],
                 "value": tf.get("key", tf.get("value", ""))[:80],
                 "context": tf["context"], "note": tf["note"]
@@ -894,14 +894,14 @@ class JSAnalysisWorker(QThread):
 
         # 11. Source Maps — passive detection
         for sm in JavaScriptAnalyzer.detect_source_maps(js, self.url):
-            cats["🗃️ Source Maps"].append({
+            cats["🖧 Source Maps"].append({
                 "sev": sm["severity"], "title": sm["type"],
                 "value": sm["value"], "context": sm["context"],
                 "note": sm["note"]
             })
 
         # 11b. Active .map file fetching — try to retrieve and inspect content
-        self.progress.emit(self.url, "🗺️ Probing .map files…")
+        self.progress.emit(self.url, "🖧 Probing .map files…")
         map_candidates = _candidate_map_urls(self.url, js)
         for map_url in map_candidates:
             map_content = _fetch_map_file(map_url)
@@ -920,8 +920,8 @@ class JSAnalysisWorker(QThread):
                 )]
                 note_parts = [f"{sources_count} source files recovered"]
                 if interesting:
-                    note_parts.append(f"⚠️ Sensitive paths: {', '.join(interesting[:5])}")
-                cats["🗺️ Source Map Files"].append({
+                    note_parts.append(f"⚠ Sensitive paths: {', '.join(interesting[:5])}")
+                cats["🖧 Source Map Files"].append({
                     "sev": "CRITICAL" if interesting else "HIGH",
                     "title": "SOURCE_MAP_FETCHED",
                     "value": map_url,
@@ -930,7 +930,7 @@ class JSAnalysisWorker(QThread):
                 })
             except (json.JSONDecodeError, KeyError):
                 # Not valid JSON sourcemap but file exists — still flag it
-                cats["🗺️ Source Map Files"].append({
+                cats["🖧 Source Map Files"].append({
                     "sev": "HIGH",
                     "title": "SOURCE_MAP_ACCESSIBLE",
                     "value": map_url,
@@ -943,7 +943,7 @@ class JSAnalysisWorker(QThread):
         # 12. Prototype Pollution
         proto = re.findall(r'(__proto__|constructor\[.*?\]|\.prototype\.\w+)', js)
         for p in set(proto):
-            cats["🧩 Prototype Pollution"].append({
+            cats["𐄗 Prototype Pollution"].append({
                 "sev": "HIGH", "title": "PROTOTYPE_POLLUTION",
                 "value": p[:100], "context": p[:200],
                 "note": "Test for prototype pollution via controllable keys"
@@ -954,7 +954,7 @@ class JSAnalysisWorker(QThread):
             try:
                 fws = FrameworkDetector.detect_javascript_frameworks("", js)
                 for fw_name, evidence in fws.items():
-                    cats["📦 Frameworks & Libraries"].append({
+                    cats["⚙ Frameworks & Libraries"].append({
                         "sev": "INFO", "title": fw_name,
                         "value": fw_name,
                         "context": " | ".join(evidence[:4]),
@@ -964,7 +964,7 @@ class JSAnalysisWorker(QThread):
                 pass
 
         # 14. Dependency Confusion — extract NPM packages and verify against registry
-        self.progress.emit(self.url, "📦 Checking dependencies…")
+        self.progress.emit(self.url, "⚙ Checking dependencies…")
         packages = _extract_npm_packages(js)
         checked = 0
         for pkg in packages[:40]:   # cap at 40 per file to keep scan fast
@@ -973,7 +973,7 @@ class JSAnalysisWorker(QThread):
             is_scoped = pkg.startswith("@")
             if exists is False:
                 # CRITICAL — package name is available on NPM, supply chain attack possible
-                cats["📦 Dependency Confusion"].append({
+                cats["⚙ Dependency Confusion"].append({
                     "sev": "CRITICAL",
                     "title": "DEP_CONFUSION_MISSING",
                     "value": pkg,
@@ -983,7 +983,7 @@ class JSAnalysisWorker(QThread):
                 })
             else:
                 # INFO — package found, just informational
-                cats["📦 Dependency Confusion"].append({
+                cats["⚙ Dependency Confusion"].append({
                     "sev": "INFO",
                     "title": "DEP_FOUND",
                     "value": pkg,
@@ -1078,24 +1078,24 @@ class JSMinerTab(QWidget):
         self.url_input.returnPressed.connect(self._add_manual_url)
         lay.addWidget(self.url_input, 1)
 
-        add_btn = QPushButton("➕ Add")
+        add_btn = QPushButton("🞥 Add")
         add_btn.clicked.connect(self._add_manual_url)
         add_btn.setStyleSheet(self._btn_style(COLOR_ACCENT))
         lay.addWidget(add_btn)
 
         sep2 = self._vsep(); lay.addWidget(sep2)
 
-        scan_all_btn = QPushButton("🔬 Analyse All")
+        scan_all_btn = QPushButton("⌕ Analyse All")
         scan_all_btn.clicked.connect(self._analyse_all_pending)
         scan_all_btn.setStyleSheet(self._btn_style(COLOR_SUCCESS))
         lay.addWidget(scan_all_btn)
 
-        clear_btn = QPushButton("🗑️ Clear")
+        clear_btn = QPushButton("🗑 Clear")
         clear_btn.clicked.connect(self._clear_queue)
         clear_btn.setStyleSheet(self._btn_style(COLOR_CARD_BG))
         lay.addWidget(clear_btn)
 
-        export_btn = QPushButton("📤 Export")
+        export_btn = QPushButton("🠉 Export")
         export_btn.clicked.connect(self._export_all)
         export_btn.setStyleSheet(self._btn_style(COLOR_CARD_BG))
         lay.addWidget(export_btn)
@@ -1116,13 +1116,13 @@ class JSMinerTab(QWidget):
         lay.setContentsMargins(8, 8, 4, 8)
         lay.setSpacing(6)
 
-        hdr = QLabel("📋  JS File Queue")
+        hdr = QLabel("☰  JS File Queue")
         hdr.setStyleSheet(f"font-weight:bold; color:{COLOR_TEXT_BRIGHT}; font-size:12px;")
         lay.addWidget(hdr)
 
         # Search box
         search = QLineEdit()
-        search.setPlaceholderText("🔍 Filter queue…")
+        search.setPlaceholderText("⌕ Filter queue…")
         search.textChanged.connect(self._filter_queue)
         search.setStyleSheet(f"""
             QLineEdit {{
@@ -1235,7 +1235,7 @@ class JSMinerTab(QWidget):
 
         for label, slot in [("⤢", lambda: self.findings_tree.expandAll()),
                              ("⤡", lambda: self.findings_tree.collapseAll()),
-                             ("📋", self._copy_all_findings)]:
+                             ("🗈", self._copy_all_findings)]:
             btn = QPushButton(label)
             btn.setFixedSize(22, 22)
             btn.clicked.connect(slot)
@@ -1266,12 +1266,12 @@ class JSMinerTab(QWidget):
         self.detail_text = QTextEdit()
         self.detail_text.setReadOnly(True)
         self.detail_text.setStyleSheet(f"QTextEdit {{ background:{COLOR_DARK_BG}; border:none; padding:8px; font-size:12px; }}")
-        detail_tabs.addTab(self.detail_text, "📄 Detail")
+        detail_tabs.addTab(self.detail_text, "🗊 Detail")
 
         self.note_text = QTextEdit()
         self.note_text.setReadOnly(True)
         self.note_text.setStyleSheet(f"QTextEdit {{ background:{COLOR_DARK_BG}; border:none; padding:8px; font-size:12px; }}")
-        detail_tabs.addTab(self.note_text, "💡 Hints")
+        detail_tabs.addTab(self.note_text, " Hints")
 
         dp_lay.addWidget(detail_tabs)
         h_split.addWidget(detail_panel)
@@ -1639,7 +1639,7 @@ class JSMinerTab(QWidget):
         total = results["summary"]["total"] if results else 0
         crit  = results["summary"].get("critical", 0) if results else 0
         high  = results["summary"].get("high", 0) if results else 0
-        dot   = "🔴" if crit else ("🟠" if high else ("🟢" if total else "⚪"))
+        dot   = "Ⓒ" if crit else ("Ⓗ" if high else ("🞉" if total else "🞅"))
         dot_item = QTableWidgetItem(dot if state == "done" else ("⏳" if state == "analysing" else "·"))
         dot_item.setTextAlignment(Qt.AlignCenter)
         self.queue_table.setItem(row, 0, dot_item)
@@ -1673,8 +1673,8 @@ class JSMinerTab(QWidget):
         state_map = {
             "queued":    ("⏸ Queued",    COLOR_TEXT_MUTED),
             "analysing": ("⏳ Scanning…", COLOR_ACCENT),
-            "done":      ("✅ Done",      COLOR_SUCCESS),
-            "error":     ("❌ Error",     COLOR_CRITICAL),
+            "done":      ("✓ Done",      COLOR_SUCCESS),
+            "error":     ("✗ Error",     COLOR_CRITICAL),
         }
         label, color = state_map.get(state, ("?", COLOR_TEXT_MUTED))
         if state == "analysing":
@@ -1723,7 +1723,7 @@ class JSMinerTab(QWidget):
         # Header
         fname = urlparse(url).path.split('/')[-1] or url
         total = results["summary"]["total"]
-        self.file_header.setText(f"⛏️  {fname}   —   {total} findings   |   {url}")
+        self.file_header.setText(f"※  {fname}   —   {total} findings   |   {url}")
 
         # Badges
         for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"):
@@ -1840,7 +1840,7 @@ class JSMinerTab(QWidget):
 
         hints_html = f"""
 <div style='font-family:Segoe UI,sans-serif; font-size:12px; color:{COLOR_TEXT};'>
-<h3 style='color:{sev_color}; margin:0 0 8px 0;'>💡 Testing Hints</h3>
+<h3 style='color:{sev_color}; margin:0 0 8px 0;'> Testing Hints</h3>
 """
         if note:
             hints_html += f"<p style='margin:4px 0;'>{self._esc(note)}</p>"
@@ -1986,37 +1986,37 @@ class JSMinerTab(QWidget):
 
         # ── Analyse actions ───────────────────────────────────────────────
         if state in ("queued", "error"):
-            a_analyse = menu.addAction("🔬 Analyse Now")
+            a_analyse = menu.addAction("⌕ Analyse Now")
             a_analyse.triggered.connect(lambda checked=False, u=url: self._start_analysis(u))
         else:
             a_analyse = None
 
         # Re-analyse always available (resets results and re-fetches JS source)
-        a_reanalyse = menu.addAction("🔄 Re-Analyse")
+        a_reanalyse = menu.addAction("⟳ Re-Analyse")
         a_reanalyse.setToolTip("Clear current results, reload JS source and re-run all detection engines")
         a_reanalyse.triggered.connect(lambda checked=False, u=url: self._reanalyse(u))
 
         menu.addSeparator()
 
         # ── Navigation ────────────────────────────────────────────────────
-        a_view_history = menu.addAction("📜 View in HTTP History")
+        a_view_history = menu.addAction("🖳 View in HTTP History")
         a_view_history.setToolTip("Switch to HTTP History tab and select this request")
         a_view_history.triggered.connect(lambda checked=False, u=url: self._view_in_http_history(u))
 
         menu.addSeparator()
 
         # ── Clipboard / export ────────────────────────────────────────────
-        a_copy = menu.addAction("📋 Copy URL")
+        a_copy = menu.addAction("🗈 Copy URL")
         a_copy.triggered.connect(lambda checked=False, u=url: QApplication.clipboard().setText(u))
 
         if state == "done":
-            a_export = menu.addAction("📤 Export This File")
+            a_export = menu.addAction("🠉 Export This File")
             a_export.triggered.connect(lambda checked=False, u=url: self._export_file(u))
 
         menu.addSeparator()
 
         # ── Destructive ───────────────────────────────────────────────────
-        a_remove = menu.addAction("🗑️ Remove")
+        a_remove = menu.addAction("🗑 Remove")
         a_remove.triggered.connect(lambda checked=False, u=url: self._remove_from_queue(u))
 
         menu.exec_(self.queue_table.viewport().mapToGlobal(pos))
@@ -2095,10 +2095,10 @@ class JSMinerTab(QWidget):
             return
         data = item.data(0, Qt.UserRole)
         menu = QMenu(self)
-        a1 = menu.addAction("📋 Copy Value")
+        a1 = menu.addAction("🗈 Copy Value")
         a1.triggered.connect(lambda: QApplication.clipboard().setText(
             data.get("value", "") if data else item.text(0)))
-        a2 = menu.addAction("📋 Copy Context")
+        a2 = menu.addAction("🗈 Copy Context")
         a2.triggered.connect(lambda: QApplication.clipboard().setText(
             data.get("context", "") if data else ""))
         menu.exec_(self.findings_tree.viewport().mapToGlobal(pos))
@@ -2202,8 +2202,8 @@ class JSMinerTab(QWidget):
             return
         s = results["summary"]
         self.queue_summary.setText(
-            f"🔴 {s.get('critical',0)}  🟠 {s.get('high',0)}  "
-            f"🟡 {s.get('medium',0)}  🔵 {s.get('low',0)}  ⚪ {s.get('info',0)}"
+            f"Ⓒ {s.get('critical',0)}  Ⓗ {s.get('high',0)}  "
+            f"Ⓜ {s.get('medium',0)}  Ⓛ {s.get('low',0)}  Ⓘ {s.get('info',0)}"
         )
 
     @staticmethod
