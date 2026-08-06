@@ -2352,12 +2352,12 @@ class _Sign2nDialog(QDialog):
         self._candidate_pems = pems
         self._results_view.setPlainText('\n\n'.join(pems))
         self._set_running(False)
-        self._status_lbl.setText(f"✅  Found {len(pems)} candidate key(s)")
+        self._status_lbl.setText(f"✓  Found {len(pems)} candidate key(s)")
         self._ok_btn.setEnabled(True)
 
     def _on_error(self, msg: str) -> None:
         self._set_running(False)
-        self._status_lbl.setText(f"❌  {msg}")
+        self._status_lbl.setText(f"✘  {msg}")
 
     def reject(self) -> None:   # type: ignore[override]
         """Cancel any in-progress computation before closing."""
@@ -3014,7 +3014,7 @@ class RepeaterInstance(QWidget):
     def _copy_text(self, text: str):
         from PyQt5.QtWidgets import QApplication
         QApplication.clipboard().setText(text)
-        self.status_bar.setText("📋 Copied to clipboard")
+        self.status_bar.setText("🗉 Copied to clipboard")
         QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
 
     def _prettify_request_body(self):
@@ -3148,7 +3148,7 @@ class RepeaterInstance(QWidget):
         self._update_nav()
 
         self.status_bar.setText(
-            f"✅  {status_code}  •  {elapsed_ms:.0f} ms  •  {self._format_size(size_bytes)}"
+            f"✓  {status_code}  •  {elapsed_ms:.0f} ms  •  {self._format_size(size_bytes)}"
         )
         _scheme = "https" if self.ssl_check.isChecked() else "http"
         _url    = f"{_scheme}://{self.host_input.text()}"
@@ -3296,7 +3296,7 @@ class RepeaterInstance(QWidget):
         self.send_btn.setEnabled(True)
         self.send_btn.setText("▶  Send")
         self.resp_pretty.setPlainText(f"[Connection Error]\n\n{error}")
-        self.status_bar.setText(f"❌  Error: {error}")
+        self.status_bar.setText(f"✘  Error: {error}")
         self.status_badge.setText("<b style='color:#e06c75;'>ERR</b>")
 
     def _format_size(self, n: int) -> str:
@@ -3369,7 +3369,7 @@ class RepeaterInstance(QWidget):
                     self.resp_raw.toPlainText(),
                     "Repeater"
                 )
-                self.status_bar.setText("✅  Sent to Comparer")
+                self.status_bar.setText("✓  Sent to Comparer")
                 QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
         except Exception as e:
             logger.error(f"Send to comparer error: {e}")
@@ -3387,7 +3387,7 @@ class RepeaterInstance(QWidget):
                     if hasattr(intruder, "load_request"):
                         intruder.load_request(raw)
                     main_win.tab_widget.setCurrentIndex(i)
-                    self.status_bar.setText("✅  Sent to Intruder")
+                    self.status_bar.setText("✓  Sent to Intruder")
                     QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
                     break
         except Exception as e:
@@ -3420,7 +3420,7 @@ class RepeaterInstance(QWidget):
                 if "Scanner" in main_win.tab_widget.tabText(i):
                     main_win.tab_widget.setCurrentIndex(i)
                     break
-            self.status_bar.setText("✅  Sent to Scanner")
+            self.status_bar.setText("✓  Sent to Scanner")
             QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
         except Exception as e:
             logger.error(f"Send to scanner error: {e}")
@@ -3438,7 +3438,7 @@ class RepeaterInstance(QWidget):
                     if hasattr(intruder, "load_request"):
                         intruder.load_request(raw)
                     main_win.tab_widget.setCurrentIndex(i)
-                    self.status_bar.setText("✅  Sent to Intruder")
+                    self.status_bar.setText("✓  Sent to Intruder")
                     QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
                     break
         except Exception as e:
@@ -3472,7 +3472,7 @@ class RepeaterInstance(QWidget):
                 if "Scanner" in main_win.tab_widget.tabText(i):
                     main_win.tab_widget.setCurrentIndex(i)
                     break
-            self.status_bar.setText("✅  Sent to Scanner")
+            self.status_bar.setText("✓  Sent to Scanner")
             QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
         except Exception as e:
             logger.error(f"Send to scanner error: {e}")
@@ -3505,7 +3505,7 @@ class RepeaterInstance(QWidget):
                 if "Attack Surface" in main_win.tab_widget.tabText(i):
                     main_win.tab_widget.setCurrentIndex(i)
                     break
-            self.status_bar.setText("✅  Sent to Attack Surface")
+            self.status_bar.setText("✓  Sent to Attack Surface")
             from PyQt5.QtCore import QTimer
             QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
         except Exception as e:
@@ -3539,7 +3539,7 @@ class RepeaterInstance(QWidget):
                 if "Report" in main_win.tab_widget.tabText(i):
                     main_win.tab_widget.setCurrentIndex(i)
                     break
-            self.status_bar.setText("✅  Opened Report Bug dialog")
+            self.status_bar.setText("✓  Opened Report Bug dialog")
             from PyQt5.QtCore import QTimer
             QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
         except Exception as e:
@@ -3786,7 +3786,7 @@ class RepeaterInstance(QWidget):
         send_scanner_act.triggered.connect(self._send_to_scanner)
         send_endpoints_act = menu.addAction("→  Send to Attack Surface")
         send_endpoints_act.triggered.connect(self._send_to_endpoints)
-        send_report_act = menu.addAction("�  Report Bug")
+        send_report_act = menu.addAction("⚠  Report Bug")
         send_report_act.triggered.connect(self._send_to_report)
 
         menu.addSeparator()
@@ -5287,7 +5287,7 @@ class RepeaterInstance(QWidget):
         self.send_btn.setText("▶  Send")
         if found:
             self.status_bar.setText(
-                "✅ Introspection bypass succeeded — schema loaded in response"
+                "✓ Introspection bypass succeeded — schema loaded in response"
             )
         else:
             self.status_bar.setText(
@@ -5738,15 +5738,15 @@ class RepeaterInstance(QWidget):
         spl.setStyleSheet(_spl_style)
 
         hdr_panel, self._jwt_req_hdr_edit = self._make_jwt_section(
-            "  HEADER  (decoded JSON — edit to modify alg/kid/typ)",
+            "🛈  HEADER  (decoded JSON — edit to modify alg/kid/typ)",
             "#e5a550", read_only=False
         )
         pay_panel, self._jwt_req_pay_edit = self._make_jwt_section(
-            "📋  PAYLOAD  (decoded JSON — edit claims)",
+            "🗉  PAYLOAD  (decoded JSON — edit claims)",
             "#89b4fa", read_only=False
         )
         sig_panel, self._jwt_req_sig_display = self._make_jwt_section(
-            "🔒  SIGNATURE  (base64url — read only)",
+            "🆜  SIGNATURE  (base64url — read only)",
             "#6c7086", read_only=True, sig=True
         )
 
@@ -5805,7 +5805,7 @@ class RepeaterInstance(QWidget):
         remove_sig_btn.clicked.connect(self._jwt_remove_signature)
         btn_row1.addWidget(remove_sig_btn)
 
-        copy_orig_btn = QPushButton("📋 Copy Original")
+        copy_orig_btn = QPushButton("🗉 Copy Original")
         copy_orig_btn.setStyleSheet(_neutral_style)
         copy_orig_btn.setToolTip("Copy the original (unmodified) JWT to clipboard")
         copy_orig_btn.clicked.connect(self._jwt_copy_original)
@@ -5869,7 +5869,7 @@ class RepeaterInstance(QWidget):
 
         btn_row2.addSpacing(10)
 
-        copy_mod_btn = QPushButton("📋 Copy Modified")
+        copy_mod_btn = QPushButton("🗉 Copy Modified")
         copy_mod_btn.setStyleSheet(_neutral_style)
         copy_mod_btn.setToolTip("Copy the current (edited) JWT to clipboard")
         copy_mod_btn.clicked.connect(self._jwt_copy_modified)
@@ -5936,11 +5936,11 @@ class RepeaterInstance(QWidget):
         spl.setStyleSheet(_spl_style)
 
         hdr_panel, self._jwt_resp_hdr_edit = self._make_jwt_section(
-            "  HEADER", "#e5a550", read_only=True)
+            "🛈  HEADER", "#e5a550", read_only=True)
         pay_panel, self._jwt_resp_pay_edit = self._make_jwt_section(
-            "📋  PAYLOAD  (claims, roles, expiry)", "#89b4fa", read_only=True)
+            "🗉  PAYLOAD  (claims, roles, expiry)", "#89b4fa", read_only=True)
         sig_panel, self._jwt_resp_sig_edit = self._make_jwt_section(
-            "🔒  SIGNATURE", "#6c7086", read_only=True, sig=True)
+            "🆜  SIGNATURE", "#6c7086", read_only=True, sig=True)
 
         spl.addWidget(hdr_panel)
         spl.addWidget(pay_panel)
@@ -6962,10 +6962,10 @@ class RepeaterInstance(QWidget):
         # Update signature display
         self._jwt_req_sig_display.setPlainText(new_tok.split('.')[-1])
         if self._jwt_replace_in_request(new_tok):
-            self.status_bar.setText("✅ JWT re-signed with HS256 and applied to request")
+            self.status_bar.setText("✓ JWT re-signed with HS256 and applied to request")
         else:
             QApplication.clipboard().setText(new_tok)
-            self.status_bar.setText("✅ Re-signed JWT copied to clipboard")
+            self.status_bar.setText("✓ Re-signed JWT copied to clipboard")
         QTimer.singleShot(4000, lambda: self.status_bar.setText("Ready"))
 
     def _jwt_get_km_keys(self) -> list:
@@ -7194,17 +7194,17 @@ class RepeaterInstance(QWidget):
         new_tok = self._jwt_build_modified(secret=None)
         self._jwt_req_sig_display.setPlainText('(unsigned)')
         if self._jwt_replace_in_request(new_tok):
-            self.status_bar.setText("📝 Modified JWT (no sig) applied to request")
+            self.status_bar.setText("✎ Modified JWT (no sig) applied to request")
         else:
             QApplication.clipboard().setText(new_tok)
-            self.status_bar.setText("📝 Modified JWT copied to clipboard (original not found)")
+            self.status_bar.setText("✎ Modified JWT copied to clipboard (original not found)")
         QTimer.singleShot(3000, lambda: self.status_bar.setText("Ready"))
 
     def _jwt_copy_original(self) -> None:
         token = self._jwt_state.get('req', {}).get('token', '')
         if token:
             QApplication.clipboard().setText(token)
-            self.status_bar.setText("📋 Original JWT copied to clipboard")
+            self.status_bar.setText("🗉 Original JWT copied to clipboard")
             QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
 
     def _jwt_remove_signature(self) -> None:
@@ -7236,7 +7236,7 @@ class RepeaterInstance(QWidget):
     def _jwt_copy_modified(self) -> None:
         new_tok = self._jwt_build_modified(secret=None)
         QApplication.clipboard().setText(new_tok)
-        self.status_bar.setText("📋 Modified JWT (no sig) copied to clipboard")
+        self.status_bar.setText("🗉 Modified JWT (no sig) copied to clipboard")
         QTimer.singleShot(2000, lambda: self.status_bar.setText("Ready"))
 
     def _jwt_resp_use_in_request(self) -> None:
@@ -7263,7 +7263,7 @@ class RepeaterInstance(QWidget):
             self.resp_jwt_btn.setChecked(False)
             self.resp_jwt_btn.setText(" JWT")
             self.resp_stack.setCurrentIndex(0)
-        self.status_bar.setText("✅ JWT added to Authorization header in request")
+        self.status_bar.setText("✓ JWT added to Authorization header in request")
         QTimer.singleShot(3000, lambda: self.status_bar.setText("Ready"))
 
     # ── AI Payload Suggester ──────────────────────────────────────────────────
@@ -7669,7 +7669,7 @@ class RepeaterInstance(QWidget):
             self._ai_status_lbl.setText("⚠ AI returned no payloads. Try adjusting the scan type or WAF hint.")
             return
         self._ai_status_lbl.setText(
-            f"✅ {len(payloads)} payload(s) generated.  "
+            f"✓ {len(payloads)} payload(s) generated.  "
             f"Injection value: {self._ai_inject_original[:60]!r}"
         )
         self._ai_payload_table.setRowCount(0)
@@ -7876,7 +7876,7 @@ class RepeaterInstance(QWidget):
         total = self._ai_payload_table.rowCount()
         self._ai_progress_lbl.setText(f"{total}/{total} done")
         self._ai_status_lbl.setText(
-            f"✅ Auto-exploit complete — {total} payload(s) sent. "
+            f"✓ Auto-exploit complete — {total} payload(s) sent. "
             "Review Status/Length columns for interesting responses."
         )
 
@@ -8056,7 +8056,7 @@ class RepeaterInstance(QWidget):
 
         def _apply(new_raw):
             self.request_editor.setPlainText(new_raw)
-            self.status_bar.setText("🧹 Cleaned request applied")
+            self.status_bar.setText(" Cleaned request applied")
             QTimer.singleShot(3000, lambda: self.status_bar.setText("Ready"))
 
         dlg = _CleanRequestDialog(host, port, self.ssl_check.isChecked(), raw, 15, _apply, self)
@@ -8197,7 +8197,7 @@ class _MethodCheckDialog(QDialog):
     def __init__(self, host, port, use_ssl, raw, timeout=15, parent=None):
         super().__init__(parent, Qt.Window)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.setWindowTitle("🔀 HTTP Method Checker")
+        self.setWindowTitle("⤭ HTTP Method Checker")
         self.resize(820, 460)
         self.setStyleSheet(_DIALOG_STYLE)
         layout = QVBoxLayout(self)
@@ -8231,7 +8231,7 @@ class _MethodCheckDialog(QDialog):
         self._t = _MethodCheckThread(host, port, use_ssl, raw, timeout, self)
         self._t.result_ready.connect(self._add_row)
         self._t.finished_all.connect(lambda: self._lbl.setText(
-            f"✅ Done — {self.table.rowCount()} checks completed."))
+            f"✓ Done — {self.table.rowCount()} checks completed."))
         self._t.start()
 
     def _add_row(self, label, status, size, ms, interesting):
@@ -8316,7 +8316,7 @@ class _EnvCheckDialog(QDialog):
         super().__init__(parent, Qt.Window)
         self.setAttribute(Qt.WA_DeleteOnClose)
         scheme = "https" if use_ssl else "http"
-        self.setWindowTitle("🌐 Environment Finder")
+        self.setWindowTitle("⤭ Environment Finder")
         self.resize(940, 520)
         self.setStyleSheet(_DIALOG_STYLE)
         layout = QVBoxLayout(self)
@@ -8347,7 +8347,7 @@ class _EnvCheckDialog(QDialog):
         self._lbl.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-size:11px;")
         foot.addWidget(self._lbl)
         foot.addStretch()
-        open_btn = QPushButton("🔗 Open in Browser")
+        open_btn = QPushButton(" Open in Browser")
         open_btn.clicked.connect(self._open_sel)
         foot.addWidget(open_btn)
         close_btn = QPushButton("Close")
@@ -8358,7 +8358,7 @@ class _EnvCheckDialog(QDialog):
         self._t = _EnvCheckThread(host, port, use_ssl, raw, timeout, self)
         self._t.result_ready.connect(self._add_row)
         self._t.finished_all.connect(lambda: self._lbl.setText(
-            f"✅ Done — {self.table.rowCount()} responding environment(s) found."))
+            f"✓ Done — {self.table.rowCount()} responding environment(s) found."))
         self._t.start()
 
     def _add_row(self, url, status, size, ms):
@@ -8753,7 +8753,7 @@ class _CleanRequestDialog(QDialog):
         cl.setContentsMargins(0, 0, 0, 0)
         self.table.setCellWidget(r, 0, cw)
 
-        kind_lbl = {"header": "🔷 Header", "param": "🔹 QParam", "body_param": "🔸 Body Param", "cookie": "🍪 Cookie"}
+        kind_lbl = {"header": "● Header", "param": "• QParam", "body_param": "• Body Param", "cookie": "🤀 Cookie"}
         self.table.setItem(r, 1, QTableWidgetItem(kind_lbl.get(kind, kind)))
         self.table.setItem(r, 2, QTableWidgetItem(label))
         self.table.setItem(r, 3, _color_status_item(status))
@@ -8763,7 +8763,7 @@ class _CleanRequestDialog(QDialog):
         self.table.setItem(r, 5, d_item)
 
         needed = diff > 5 or status != self._b_st
-        verdict = QTableWidgetItem("✅ Needed" if needed else "❌ Not needed")
+        verdict = QTableWidgetItem("✓ Needed" if needed else "✘ Not needed")
         verdict.setForeground(QColor("#a6e3a1" if needed else "#f38ba8"))
         self.table.setItem(r, 6, verdict)
         if not needed:
@@ -8794,7 +8794,7 @@ class _CleanRequestDialog(QDialog):
 
     def _auto_verify(self):
         """Phase 2 — called automatically when Phase 1 analysis finishes."""
-        self._prog_lbl.setText("✅ Phase 1 complete.")
+        self._prog_lbl.setText("✓ Phase 1 complete.")
 
         rm_h, rm_p, rm_b, rm_ck = set(), set(), set(), set()
         removed_items = []
@@ -8842,20 +8842,20 @@ class _CleanRequestDialog(QDialog):
     def _on_verify_done(self, st: str, sz: int):
         """Called after the Phase 2 combined-removal probe completes."""
         if st == self._b_st and abs(sz - self._b_sz) <= 50:
-            # ✅ Identical to baseline — minimal request is ready
+            # ✓ Identical to baseline — minimal request is ready
             self._apply_btn.setEnabled(True)
             self._phase2_lbl.setText(
-                f"✅ Phase 2: Cleaned request matches baseline "
+                f"✓ Phase 2: Cleaned request matches baseline "
                 f"(HTTP {st}  │  {sz:,} B). "
                 "Click ‘Apply’ to use it."
             )
             return
 
-        # ⚠️ Response changed — companion search on cookie/param values only
+        # ⚠ Response changed — companion search on cookie/param values only
         diff = sz - self._b_sz
         diff_str = f"+{diff:,}" if diff > 0 else f"{diff:,}"
         self._phase2_lbl.setText(
-            f"⚠️ Phase 2: Combined removal → HTTP {st}  │  {sz:,} B "
+            f"⚠ Phase 2: Combined removal → HTTP {st}  │  {sz:,} B "
             f"(Δ {diff_str} B vs baseline HTTP {self._b_st}) — "
             "checking cookie/param companion dependencies…"
         )
@@ -8869,7 +8869,7 @@ class _CleanRequestDialog(QDialog):
         if not companion_candidates:
             self._apply_btn.setEnabled(True)
             self._phase2_lbl.setText(
-                f"⚠️ Phase 2: Response changed (HTTP {st}) — no cookie/param values "
+                f"⚠ Phase 2: Response changed (HTTP {st}) — no cookie/param values "
                 "among removed items to test. Review ‘Needed’ items manually."
             )
             return
@@ -8898,7 +8898,7 @@ class _CleanRequestDialog(QDialog):
                             if cell:
                                 cell.setBackground(QColor("#2a2a1a"))
                     else:
-                        it.setText("❌ Not needed")
+                        it.setText("✘ Not needed")
                 break
 
     def _on_companion_done(self, companions: list):
@@ -8910,7 +8910,7 @@ class _CleanRequestDialog(QDialog):
         if not companions:
             # No single item restores baseline — multi-item interaction
             self._phase2_lbl.setText(
-                "⚠️ Phase 2: No single cookie/param value restores baseline alone — "
+                "⚠ Phase 2: No single cookie/param value restores baseline alone — "
                 "interaction involves multiple items. "
                 "Remove items one at a time and re-test manually. "
                 "'Apply' uses the fully-cleaned (possibly broken) request."
@@ -9428,7 +9428,7 @@ class RepeaterTab(QWidget):
         tl.addStretch()
 
         for label, slot in [
-            ("＋ New Tab",    self._new_tab_action),
+            ("🞥 New Tab",    self._new_tab_action),
             ("⊞ New Group",   self._new_group),
             ("✎ Rename",      self._rename_current_action),
             ("⎘ Duplicate",   self._duplicate_current_action),
@@ -10290,7 +10290,7 @@ class WSRepeaterInstance(QWidget):
         self._detail_title.setStyleSheet(f"color: {COLOR_TEXT_BRIGHT}; font-weight: 700; font-size: 11px;")
         dh_lay.addWidget(self._detail_title)
         dh_lay.addStretch()
-        copy_btn = QPushButton("📋 Copy")
+        copy_btn = QPushButton("🗉 Copy")
         copy_btn.setMaximumWidth(65)
         copy_btn.setToolTip("Copy message payload to clipboard")
         copy_btn.clicked.connect(self._copy_detail)
@@ -10511,9 +10511,9 @@ class WSRepeaterInstance(QWidget):
         payload   = entry["payload"]
 
         if "client" in direction:
-            icon = "📤 Sent"
+            icon = "🠉 Sent"
         elif "server" in direction:
-            icon = "📨 Received"
+            icon = "🠋 Received"
         else:
             icon = "⚠ Error"
         self._detail_title.setText(f"{icon} – {opcode}")
@@ -10535,7 +10535,7 @@ class WSRepeaterInstance(QWidget):
         self._messages.clear()
         self._msg_counter = 0
         self._detail_edit.clear()
-        self._detail_title.setText("🔌 WebSocket Message")
+        self._detail_title.setText("🖂 WebSocket Message")
 
     def closeEvent(self, event):
         if self._thread and self._thread.isRunning():
