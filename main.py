@@ -3579,48 +3579,76 @@ class InstallToolsDialog(QDialog):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _UpdateCheckWorker(QThread):
-    """Checks GitHub for a newer release than APP_VERSION. Silent on any
-    network failure — an update check should never interrupt startup."""
+    """Checks GitHub for a newer release than APP_VERSION.
 
-    result_ready = pyqtSignal(str)   # latest version string (only emitted if newer)
+    Always reports back via `checked`, distinguishing three outcomes:
+    an update is available, the app is confirmed up to date, or the check
+    itself failed (no network, rate-limited, etc). Callers must NOT treat
+    "no update found" and "check failed" as the same thing.
+    """
+
+    # status: "update_available" | "up_to_date" | "error"
+    # detail: latest version string (update_available) or error message (error);
+    #         empty string for up_to_date.
+    checked = pyqtSignal(str, str)
 
     def run(self):
-        latest = self._latest_from_release() or self._latest_from_raw_main()
-        if latest and _version_tuple(latest) > _version_tuple(APP_VERSION):
-            self.result_ready.emit(latest)
+        latest, err = self._latest_from_release()
+        if latest is None:
+            latest, err2 = self._latest_from_raw_main()
+            if latest is None:
+                self.checked.emit("error", err or err2 or "Could not reach GitHub.")
+                return
+
+        if _version_tuple(latest) > _version_tuple(APP_VERSION):
+            self.checked.emit("update_available", latest)
+        else:
+            self.checked.emit("up_to_date", "")
 
     @staticmethod
-    def _get(url: str, timeout: int = 6) -> Optional[bytes]:
+    def _get(url: str, timeout: int = 6):
+        """Returns (bytes_or_None, error_message_or_None)."""
         import urllib.request
+        import urllib.error
         try:
             req = urllib.request.Request(
                 url, headers={"User-Agent": "hunt-proxy-update-check"}
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return resp.read()
-        except Exception:
-            return None
+                return resp.read(), None
+        except urllib.error.HTTPError as e:
+            return None, f"GitHub returned HTTP {e.code}"
+        except urllib.error.URLError as e:
+            return None, f"Network error: {e.reason}"
+        except Exception as e:
+            return None, f"Update check failed: {e}"
 
-    def _latest_from_release(self) -> Optional[str]:
-        raw = self._get(GITHUB_API_LATEST_RELEASE)
+    def _latest_from_release(self):
+        raw, err = self._get(GITHUB_API_LATEST_RELEASE)
         if not raw:
-            return None
+            return None, err
         try:
             data = json.loads(raw.decode("utf-8", errors="ignore"))
             tag = (data.get("tag_name") or "").strip()
-            return tag.lstrip("vV") or None
-        except Exception:
-            return None
+            version = tag.lstrip("vV") or None
+            if not version:
+                return None, "GitHub release response had no version tag."
+            return version, None
+        except Exception as e:
+            return None, f"Could not parse GitHub release info: {e}"
 
-    def _latest_from_raw_main(self) -> Optional[str]:
+    def _latest_from_raw_main(self):
+        last_err = None
         for branch in ("main", "master"):
-            raw = self._get(GITHUB_RAW_MAIN_TMPL.format(branch=branch))
+            raw, err = self._get(GITHUB_RAW_MAIN_TMPL.format(branch=branch))
             if not raw:
+                last_err = err
                 continue
             m = re.search(r'APP_VERSION\s*=\s*["\']([\d.]+)["\']', raw.decode("utf-8", errors="ignore"))
             if m:
-                return m.group(1)
-        return None
+                return m.group(1), None
+            last_err = "Could not find APP_VERSION in remote source."
+        return None, last_err
 
 
 class _UpdateApplyWorker(QThread):
@@ -3785,34 +3813,43 @@ class HuntGUI(
 
     def _check_for_updates(self, silent: bool = False):
         """Kick off a background check against GitHub for a newer release.
-        silent=True (startup): says nothing if already up to date or if the
-        check fails (no network, rate-limited, etc). silent=False (manual
-        'Check for Updates' menu item): always reports the outcome.
+        silent=True (startup): stays quiet unless an update is actually
+        available (no popups for 'up to date' or 'check failed', though
+        failures are still logged). silent=False (manual 'Check for
+        Updates' menu item): always reports the outcome, including a clear
+        message when the check itself failed — never conflated with
+        'up to date'.
         """
         if getattr(self, "_update_check_worker", None) is not None:
             return  # a check is already in flight
         worker = _UpdateCheckWorker(self)
-        worker.result_ready.connect(self._on_update_available)
+        worker.checked.connect(lambda status, detail: self._on_update_checked(status, detail, silent))
         worker.finished.connect(lambda: setattr(self, "_update_check_worker", None))
-        if not silent:
-            worker.finished.connect(lambda: self._on_manual_update_check_done(worker))
         self._update_check_worker = worker
-        self._update_check_was_silent = silent
-        self._update_check_found = False
         worker.start()
 
-    def _on_manual_update_check_done(self, worker):
-        # result_ready fires (and sets a flag) before 'finished'; if it
-        # never fired, we're up to date or the check failed.
-        if not getattr(self, "_update_check_found", False):
-            QMessageBox.information(
-                self, "Check for Updates",
-                f"You're running the latest version (v{APP_VERSION}), or the "
-                f"update check couldn't reach GitHub."
-            )
+    def _on_update_checked(self, status: str, detail: str, silent: bool):
+        if status == "update_available":
+            self._show_update_available(detail)
+        elif status == "up_to_date":
+            if not silent:
+                QMessageBox.information(
+                    self, "Check for Updates",
+                    f"You're running the latest version (v{APP_VERSION})."
+                )
+        elif status == "error":
+            if silent:
+                logger.warning(f"Startup update check failed: {detail}")
+            else:
+                QMessageBox.warning(
+                    self, "Check for Updates",
+                    f"Couldn't check for updates: {detail}\n\n"
+                    f"You're currently running v{APP_VERSION}. This does not "
+                    f"mean you're up to date — the check simply couldn't "
+                    f"reach GitHub."
+                )
 
-    def _on_update_available(self, latest_version: str):
-        self._update_check_found = True
+    def _show_update_available(self, latest_version: str):
         box = QMessageBox(self)
         box.setWindowTitle("Update Available")
         box.setIcon(QMessageBox.Information)

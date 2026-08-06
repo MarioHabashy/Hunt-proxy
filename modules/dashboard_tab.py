@@ -130,20 +130,20 @@ class OutputFormatter:
         for line in lines:
             # Port scanning results
             if re.match(r'^\d+/\w+\s+\w+\s+\w+', line):
-                formatted.append(f"🔌 {line}")
+                formatted.append(f"𝞠 {line}")
             # Open ports
             elif 'open' in line.lower():
-                formatted.append(f"✅ {line}")
+                formatted.append(f"✓ {line}")
             # Service versions
             elif re.search(r'\d+\.\d+\.\d+', line):
-                formatted.append(f"📦 {line}")
+                formatted.append(f"ⱴ {line}")
             # Vulnerabilities
             elif 'vuln' in line.lower() or 'cve-' in line.lower():
-                formatted.append(f"⚠️  {line}")
+                formatted.append(f"⚠ {line}")
             # Script output
             elif line.startswith('|'):
                 if not in_script_section:
-                    formatted.append("📋 Script Output:")
+                    formatted.append("🗉 Script Output:")
                     in_script_section = True
                 formatted.append(f"  {line}")
             else:
@@ -164,9 +164,9 @@ class OutputFormatter:
             if match:
                 status, size, url = match.groups()
                 status_color = {
-                    '200': '✅',
-                    '301': '↪️',
-                    '302': '↪️',
+                    '200': '✓',
+                    '301': '↬',
+                    '302': '↬',
                     '403': '🔒',
                     '404': '❌',
                     '500': '💥'
@@ -186,7 +186,7 @@ class OutputFormatter:
         
         severity_icons = {
             'critical': '🔥',
-            'high': '⚠️',
+            'high': '⚠',
             'medium': '⚡',
             'low': 'ℹ️',
             'info': '📌'
@@ -540,11 +540,11 @@ class NmapRunner:
                 parts = line.split()
                 if len(parts) >= 3:
                     port, protocol, service = parts[0], parts[1], parts[2]
-                    formatted += f"✅ Port {port:<6} {protocol:<8} {service}\n"
+                    formatted += f"✓ Port {port:<6} {protocol:<8} {service}\n"
                 else:
-                    formatted += f"✅ {line}\n"
+                    formatted += f"✓ {line}\n"
             elif 'cve-' in line.lower():
-                formatted += f"⚠️  {line}\n"
+                formatted += f"⚠  {line}\n"
             elif line.strip():
                 formatted += line + '\n'
         return formatted
@@ -772,12 +772,12 @@ class BruteforceRunner:
                     size = ""
                 clean_lines.append(f"{status:<6} {size:<8} {url}")
 
-        icons = {'200': '✅', '301': '↪️', '302': '↪️', '403': '🔒', '500': '💥'}
+        icons = {'200': '✓', '301': '↬', '302': '↬', '403': '🔒', '500': '💥'}
         formatted = "📂 CONTENT BRUTEFORCE RESULTS\n" + "═" * 50 + "\n\n"
         formatted += "📊 Summary by Status:\n"
         for status in sorted(status_counts):
             formatted += f"  {icons.get(status, '📄')} HTTP {status}: {status_counts[status]} endpoints\n"
-        formatted += "\n📋 Discovered Endpoints:\n" + "-" * 60 + "\n"
+        formatted += "\n🗉 Discovered Endpoints:\n" + "-" * 60 + "\n"
         for line in sorted(set(clean_lines)):
             formatted += f"  {line}\n"
         return formatted
@@ -807,7 +807,7 @@ class NucleiRunner:
                     buckets[sev].append(line)
                     break
 
-        icons = {"critical": "🔥", "high": "⚠️", "medium": "⚡", "low": "ℹ️", "info": "📌"}
+        icons = {"critical": "🔥", "high": "⚠", "medium": "⚡", "low": "ℹ️", "info": "📌"}
         formatted = "☢️ NUCLEI SCAN RESULTS\n" + "═" * 50 + "\n\n"
         any_findings = False
         for sev, lines in buckets.items():
@@ -821,7 +821,7 @@ class NucleiRunner:
                 formatted += f"  ... and {len(lines)-10} more\n"
             formatted += "\n"
         if not any_findings:
-            formatted += "✅ No findings detected.\n"
+            formatted += "✓ No findings detected.\n"
         return formatted
 
 
@@ -859,7 +859,7 @@ class WpscanRunner:
             formatted += f"📌 Version: {version_match.group(1)}\n\n"
         vulns = re.findall(r'\[\!\] (.*?CVE.*?)\n', content)
         if vulns:
-            formatted += "⚠️ Vulnerabilities Found:\n"
+            formatted += "⚠ Vulnerabilities Found:\n"
             for v in vulns[:20]:
                 formatted += f"  • {v}\n"
             formatted += "\n"
@@ -869,7 +869,7 @@ class WpscanRunner:
             for u in users[:20]:
                 formatted += f"  • {u}\n"
         if not vulns and not users:
-            formatted += "✅ No critical findings detected.\n"
+            formatted += "✓ No critical findings detected.\n"
         return formatted
 
 
@@ -2608,7 +2608,7 @@ class TaskWorker(QThread):
             self._emit("[!] Could not fetch GitHub wordlist (offline or unreachable)")
 
         # ── Step 6: Display wordlist plan by technology ──────────────────────
-        self._emit("\n📋 WORDLIST PLAN:")
+        self._emit("\n🗉 WORDLIST PLAN:")
         for category, paths in wordlist_plan.items():
             if not paths:
                 self._emit(f"  [⚠ {category.upper()}] — no matching wordlists in SecLists")
@@ -3478,7 +3478,7 @@ class CookiePromptDialog(QDialog):
 
         btn_layout = QHBoxLayout()
 
-        use_btn = QPushButton("✅ Use this Cookie")
+        use_btn = QPushButton("✓ Use this Cookie")
         use_btn.setStyleSheet(f"background-color:{COLOR_SUCCESS}; color:black; font-weight:bold; padding:6px 14px;")
         use_btn.clicked.connect(lambda: self._done(self.USE_COOKIE))
         btn_layout.addWidget(use_btn)
@@ -3569,7 +3569,7 @@ class MultiTaskOrchestrator(QObject):
             return
         if gi >= len(self._groups):
             self.log.emit(self._plan_id,
-                f"✅ Plan '{self._plan['name']}' complete — all {len(self._groups)} group(s) done")
+                f"✓ Plan '{self._plan['name']}' complete — all {len(self._groups)} group(s) done")
             self.plan_done.emit(self._plan_id, not self._any_error)
             return
 
@@ -4209,7 +4209,7 @@ class TaskInputDialog(QDialog):
             "spider":      ("🕷️", "gospider + cariddi + katana + linkfinder + paramspider → sitemap.xml → httpx validation"),
             "archive":     ("🗄️", "waybackurls + waymore + gau + gauplus + github-endpoints → uro → httpx"),
             "ipinfo":      ("📍", "IP geolocation & ASN info via ipinfo CLI"),
-            "headers":     ("📋", "HTTP response headers via curl -I"),
+            "headers":     ("🗉", "HTTP response headers via curl -I"),
             "tech":        ("🔬", "Technology fingerprinting via wad"),
             "waf":         ("🛡️", "WAF detection via wafw00f"),
             "cms":         ("📰", "CMS detection via cmseek"),
@@ -4218,7 +4218,7 @@ class TaskInputDialog(QDialog):
             "nuclei":      ("☢️", "Vulnerability scan with Nuclei templates"),
             "nikto":       ("🔎", "Web server misconfiguration scanner (nikto)"),
             # Domain-level tools
-            "whois":             ("📋", "Whois domain registration info"),
+            "whois":             ("🗉", "Whois domain registration info"),
             "google_dorks":      ("🔎", "Google dork search URLs (dorks_hunter)"),
             "github_dorks":      ("🐙", "GitHub secret/code search (gitdorks_go)"),
             "github_secrets":    ("🔑", "Verified secrets scanner (trufflehog)"),
@@ -5668,7 +5668,7 @@ class SubdomainWidget(QWidget):
             f"QMenu::separator{{background-color:{COLOR_BORDER};height:1px;margin:3px 8px;}}"
         )
 
-        # ── 📋 Whois ──────────────────────────────────────────────────────
+        # ── 🗉 Whois ──────────────────────────────────────────────────────
         whois_title = menu.addAction("──  Domain Info ──")
         whois_title.setEnabled(False)
         whois_a = menu.addAction(p("whois") + "Whois Lookup")
@@ -6181,7 +6181,7 @@ class DashboardTab(QWidget):
         ohl.addWidget(self._output_title)
         ohl.addStretch()
 
-        copy_btn = QPushButton("📋 Copy")
+        copy_btn = QPushButton("🗉 Copy")
         copy_btn.setMaximumWidth(70)
         copy_btn.setStyleSheet(
             f"QPushButton{{background-color:{COLOR_ELEVATED_BG};color:{COLOR_TEXT};"
@@ -6191,7 +6191,7 @@ class DashboardTab(QWidget):
         copy_btn.clicked.connect(self._copy_output)
         ohl.addWidget(copy_btn)
 
-        copy_path_btn = QPushButton("📋 Copy Path")
+        copy_path_btn = QPushButton("🗉 Copy Path")
         copy_path_btn.setMaximumWidth(90)
         copy_path_btn.setStyleSheet(
             f"QPushButton{{background-color:{COLOR_ELEVATED_BG};color:{COLOR_TEXT};"
@@ -6649,7 +6649,7 @@ class DashboardTab(QWidget):
         self.save_tasks()
         self._execute_task(task_id)
         self._update_stats()
-        self._set_status(f"✅ {tool.title()} queued for {domain}")
+        self._set_status(f"✓ {tool.title()} queued for {domain}")
         if return_id:
             return task_id
 
@@ -6771,7 +6771,7 @@ class DashboardTab(QWidget):
         text = self._output_viewer.toPlainText()
         if text:
             QApplication.clipboard().setText(text)
-            self._set_status("📋 Output copied to clipboard.")
+            self._set_status("🗉 Output copied to clipboard.")
 
     def _copy_output_path(self):
         if not self._viewed_task_id:
@@ -6976,9 +6976,9 @@ class DashboardTab(QWidget):
         orch = self.plan_orchestrators.pop(plan_id, None)
         plan_name = orch._plan["name"] if orch else plan_id
         if success:
-            self._set_status(f"✅ Plan '{plan_name}' completed successfully!", 8000)
+            self._set_status(f"✓ Plan '{plan_name}' completed successfully!", 8000)
         else:
-            self._set_status(f"⚠️ Plan '{plan_name}' finished with errors.", 8000)
+            self._set_status(f"⚠ Plan '{plan_name}' finished with errors.", 8000)
 
     def save_tasks(self):
         if not self.project_dir:
