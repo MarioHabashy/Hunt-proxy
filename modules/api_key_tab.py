@@ -405,7 +405,7 @@ def validate_google_key(key: str) -> Tuple[bool, str, dict]:
         response = requests.get(url, params=params, timeout=10, verify=False)
         
         if response.status_code == 200:
-            results.append("✅ Google Drive API: Valid and enabled")
+            results.append("✓ Google Drive API: Valid and enabled")
             details["valid_endpoints"].append("drive_api")
             details["services_detected"].append("Google Drive")
         elif response.status_code == 403:
@@ -417,11 +417,11 @@ def validate_google_key(key: str) -> Tuple[bool, str, dict]:
                 project_match = re.search(r'project (\d+)', str(error))
                 if project_match:
                     details["project_id"] = project_match.group(1)
-                results.append("⚠️ Google Drive API: Service disabled (can be enabled in console)")
+                results.append("⚠ Google Drive API: Service disabled (can be enabled in console)")
                 details["failed_endpoints"].append("drive_api_disabled")
                 details["error_details"]["drive_api"] = "SERVICE_DISABLED - Can be enabled"
             else:
-                results.append("❌ Google Drive API: Access denied")
+                results.append("✘ Google Drive API: Access denied")
                 details["failed_endpoints"].append("drive_api")
     except Exception as e:
         pass
@@ -433,17 +433,17 @@ def validate_google_key(key: str) -> Tuple[bool, str, dict]:
         response = requests.get(url, params=params, timeout=10, verify=False)
         
         if response.status_code == 200:
-            results.append("✅ Google Sheets API: Valid and enabled")
+            results.append("✓ Google Sheets API: Valid and enabled")
             details["valid_endpoints"].append("sheets_api")
             details["services_detected"].append("Google Sheets")
         elif response.status_code == 403:
             data = response.json()
             error = data.get('error', {})
             if error.get('status') == 'PERMISSION_DENIED' and 'SERVICE_DISABLED' in str(error):
-                results.append("⚠️ Google Sheets API: Service disabled")
+                results.append("⚠ Google Sheets API: Service disabled")
                 details["failed_endpoints"].append("sheets_api_disabled")
             else:
-                results.append("❌ Google Sheets API: Access denied")
+                results.append("✘ Google Sheets API: Access denied")
                 details["failed_endpoints"].append("sheets_api")
     except Exception as e:
         pass
@@ -459,17 +459,17 @@ def validate_google_key(key: str) -> Tuple[bool, str, dict]:
         response = requests.get(url, params=params, timeout=10, verify=False)
         
         if response.status_code == 200:
-            results.append("✅ Custom Search API: Valid and enabled")
+            results.append("✓ Custom Search API: Valid and enabled")
             details["valid_endpoints"].append("custom_search")
             details["services_detected"].append("Custom Search")
         elif response.status_code == 403:
             data = response.json()
             error = data.get('error', {})
             if error.get('status') == 'PERMISSION_DENIED' and 'SERVICE_DISABLED' in str(error):
-                results.append("⚠️ Custom Search API: Service disabled")
+                results.append("⚠ Custom Search API: Service disabled")
                 details["failed_endpoints"].append("custom_search_disabled")
             else:
-                results.append("❌ Custom Search API: Access denied")
+                results.append("✘ Custom Search API: Access denied")
                 details["failed_endpoints"].append("custom_search")
     except Exception as e:
         pass
@@ -485,14 +485,14 @@ def validate_google_key(key: str) -> Tuple[bool, str, dict]:
             projects = data.get('projects', [])
             if projects:
                 details["project_id"] = projects[0].get('projectId')
-            results.append(f"✅ Cloud Resource Manager: Can access ({len(projects)} projects)")
+            results.append(f"✓ Cloud Resource Manager: Can access ({len(projects)} projects)")
             details["valid_endpoints"].append("cloud_resource_manager")
             details["services_detected"].append("Google Cloud Platform")
         elif response.status_code == 403:
             data = response.json()
             error = data.get('error', {})
             if 'permission' in str(error).lower():
-                results.append("✅ Cloud Resource Manager: Key valid (needs additional permissions)")
+                results.append("✓ Cloud Resource Manager: Key valid (needs additional permissions)")
                 details["valid_endpoints"].append("cloud_resource_manager_limited")
     except Exception as e:
         pass
@@ -508,12 +508,12 @@ def validate_google_key(key: str) -> Tuple[bool, str, dict]:
     is_valid = has_working or (has_project and has_disabled)
     
     if has_working:
-        message = f"✅ Valid Google API Key - Working APIs: {', '.join(details['services_detected'])}"
+        message = f"✓ Valid Google API Key - Working APIs: {', '.join(details['services_detected'])}"
     elif has_project and has_disabled:
-        message = f"⚠️ Valid Google API Key - No enabled APIs (Project: {details['project_id']})"
+        message = f"⚠ Valid Google API Key - No enabled APIs (Project: {details['project_id']})"
         message += f"\n   Enable APIs at: https://console.developers.google.com/apis?project={details['project_id']}"
     else:
-        message = "❌ Invalid or restricted Google API Key"
+        message = "✘ Invalid or restricted Google API Key"
     
     return is_valid, message, details
 
@@ -630,7 +630,7 @@ def validate_aws_key(key: str, secret: Optional[str] = None) -> Tuple[bool, str,
     except ClientError as e:
         pass
     
-    message = f"✅ Valid AWS credentials for account {details['account_info']['account_id']}\n"
+    message = f"✓ Valid AWS credentials for account {details['account_info']['account_id']}\n"
     message += f"   Active services: {', '.join(details['valid_services'][:5])}"
     if len(details['valid_services']) > 5:
         message += f" +{len(details['valid_services'])-5} more"
@@ -713,7 +713,7 @@ def validate_github_token(token: str) -> Tuple[bool, str, dict]:
     except:
         pass
     
-    message = f"✅ Valid GitHub token for {details['user_info']['login']}"
+    message = f"✓ Valid GitHub token for {details['user_info']['login']}"
     if details["scopes"]:
         message += f"\n   Scopes: {', '.join(details['scopes'])}"
     if details["organizations"]:
@@ -780,7 +780,7 @@ def validate_gitlab_token(token: str) -> Tuple[bool, str, dict]:
     except:
         pass
     
-    message = f"✅ Valid GitLab token for {details['user_info']['username']}"
+    message = f"✓ Valid GitLab token for {details['user_info']['username']}"
     if details["projects"]:
         message += f"\n   Projects: {', '.join(details['projects'])}"
     if details["groups"]:
@@ -873,7 +873,7 @@ def validate_slack_token(token: str) -> Tuple[bool, str, dict]:
     except:
         pass
     
-    message = f"✅ Valid Slack token for workspace: {details['team_info'].get('team')}"
+    message = f"✓ Valid Slack token for workspace: {details['team_info'].get('team')}"
     message += f"\n   Authenticated as: {details['team_info'].get('user')}"
     if details["channels"]:
         channel_names = [c['name'] for c in details["channels"]]
@@ -892,15 +892,15 @@ def validate_slack_webhook(url: str) -> Tuple[bool, str, dict]:
         body = response.text.strip()
         # Slack returns this specific error when the URL is valid but the payload is empty
         if response.status_code == 400 and "missing_text_or_fallback_or_attachments" in body:
-            return True, "✅ Valid Slack Webhook URL (empty probe confirmed – no message sent)", details
+            return True, "✓ Valid Slack Webhook URL (empty probe confirmed – no message sent)", details
         elif response.status_code == 200 and body == "ok":
-            return True, "✅ Valid Slack Webhook URL", details
+            return True, "✓ Valid Slack Webhook URL", details
         elif response.status_code == 403 or "invalid_token" in body or "no_service" in body:
-            return False, f"❌ Invalid or revoked Slack Webhook URL", details
+            return False, f"✘ Invalid or revoked Slack Webhook URL", details
         else:
-            return False, f"❌ Webhook returned unexpected status {response.status_code}: {body[:100]}", details
+            return False, f"✘ Webhook returned unexpected status {response.status_code}: {body[:100]}", details
     except Exception as e:
-        return False, f"❌ Validation error: {str(e)}", details
+        return False, f"✘ Validation error: {str(e)}", details
 
 def validate_discord_webhook(url: str) -> Tuple[bool, str, dict]:
     """Validate Discord webhook URL by fetching its info (GET), not posting a message."""
@@ -914,13 +914,13 @@ def validate_discord_webhook(url: str) -> Tuple[bool, str, dict]:
             details["channel_id"] = data.get("channel_id", "")
             details["guild_id"] = data.get("guild_id", "")
             name_str = f" – Name: {details['name']}" if details.get("name") else ""
-            return True, f"✅ Valid Discord Webhook URL{name_str} (read-only probe, no message sent)", details
+            return True, f"✓ Valid Discord Webhook URL{name_str} (read-only probe, no message sent)", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Discord Webhook (401 Unauthorized)", details
+            return False, "✘ Invalid Discord Webhook (401 Unauthorized)", details
         else:
-            return False, f"❌ Webhook returned status {response.status_code}", details
+            return False, f"✘ Webhook returned status {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Validation error: {str(e)}", details
+        return False, f"✘ Validation error: {str(e)}", details
 
 def validate_stripe_key(key: str) -> Tuple[bool, str, dict]:
     """
@@ -968,7 +968,7 @@ def validate_stripe_key(key: str) -> Tuple[bool, str, dict]:
             "payouts_enabled": account.get('payouts_enabled')
         }
     except stripe.error.AuthenticationError:
-        return False, "❌ Invalid Stripe key", details
+        return False, "✘ Invalid Stripe key", details
     except stripe.error.PermissionError:
         # Key works but lacks permissions for account info
         details["capabilities"].append("limited_access")
@@ -998,7 +998,7 @@ def validate_stripe_key(key: str) -> Tuple[bool, str, dict]:
         except:
             pass
     
-    message = f"✅ Valid Stripe {details['mode']} {details['key_type']} key"
+    message = f"✓ Valid Stripe {details['mode']} {details['key_type']} key"
     if details["account_info"].get('business_name'):
         message += f"\n   Account: {details['account_info']['business_name']}"
     if details["account_info"].get('email'):
@@ -1045,7 +1045,7 @@ def validate_twilio_sid(sid: str, token: Optional[str] = None) -> Tuple[bool, st
             if account.get('status') == 'active':
                 details["capabilities"].append("active_account")
         elif response.status_code == 401:
-            return False, "❌ Invalid Twilio credentials", details
+            return False, "✘ Invalid Twilio credentials", details
     except Exception as e:
         pass
     
@@ -1103,7 +1103,7 @@ def validate_twilio_sid(sid: str, token: Optional[str] = None) -> Tuple[bool, st
     except:
         pass
     
-    message = f"✅ Valid Twilio credentials"
+    message = f"✓ Valid Twilio credentials"
     if details["account_info"].get('name'):
         message += f"\n   Account: {details['account_info']['name']}"
     if details["account_info"].get('status'):
@@ -1140,7 +1140,7 @@ def validate_sendgrid_key(key: str) -> Tuple[bool, str, dict]:
             if 'stats.read' in scopes:
                 details["capabilities"] = "Can read stats"
         elif response.status_code == 401:
-            return False, "❌ Invalid SendGrid key", details
+            return False, "✘ Invalid SendGrid key", details
     except Exception as e:
         pass
     
@@ -1185,7 +1185,7 @@ def validate_sendgrid_key(key: str) -> Tuple[bool, str, dict]:
     except:
         pass
     
-    message = f"✅ Valid SendGrid key"
+    message = f"✓ Valid SendGrid key"
     if details["user_info"].get('username'):
         message += f"\n   Account: {details['user_info']['username']}"
     if details["user_info"].get('email'):
@@ -1222,7 +1222,7 @@ def validate_mailgun_key(key: str, domain: Optional[str] = None) -> Tuple[bool, 
                 'created_at': d.get('created_at')
             } for d in domains[:5]]
         elif response.status_code == 401:
-            return False, "❌ Invalid Mailgun key", details
+            return False, "✘ Invalid Mailgun key", details
     except Exception as e:
         pass
     
@@ -1264,7 +1264,7 @@ def validate_mailgun_key(key: str, domain: Optional[str] = None) -> Tuple[bool, 
         except:
             pass
     
-    message = f"✅ Valid Mailgun key"
+    message = f"✓ Valid Mailgun key"
     if details["domains"]:
         domain_names = [d['name'] for d in details["domains"]]
         message += f"\n   Domains: {', '.join(domain_names[:3])}"
@@ -1344,28 +1344,28 @@ def validate_jwt_token(token: str) -> Tuple[bool, str, dict]:
             issuer_info.append(f"subject: {details['payload']['sub']}")
         
         # Build message
-        message = f"✅ JWT Analysis - Algorithm: {details['algorithm']}"
+        message = f"✓ JWT Analysis - Algorithm: {details['algorithm']}"
         
         if details["expired"]:
-            message += f"\n   ⚠️ EXPIRED: {details['expired_seconds']:.0f} seconds ago"
+            message += f"\n   ⚠ EXPIRED: {details['expired_seconds']:.0f} seconds ago"
         
         if 'email' in details["payload"]:
             message += f"\n   Email: {details['payload']['email']}"
         
         if details["sensitive_data"]:
-            message += f"\n   🔑 Sensitive data: {len(details['sensitive_data'])} fields"
+            message += f"\n   🛈 Sensitive data: {len(details['sensitive_data'])} fields"
             for sd in details["sensitive_data"][:3]:
                 message += f"\n      - {sd['field']}: {sd['value_preview']}"
         
         if issuer_info:
-            message += f"\n   ℹ️ {', '.join(issuer_info)}"
+            message += f"\n   ℹ {', '.join(issuer_info)}"
         
         return True, message, details
         
     except json.JSONDecodeError as e:
-        return False, f"❌ Invalid JWT format: {str(e)}", details
+        return False, f"✘ Invalid JWT format: {str(e)}", details
     except Exception as e:
-        return False, f"❌ Error decoding JWT: {str(e)}", details
+        return False, f"✘ Error decoding JWT: {str(e)}", details
 
 def validate_bearer_token(token: str) -> Tuple[bool, str, dict]:
     """Test bearer token against common endpoints"""
@@ -1400,18 +1400,18 @@ def validate_bearer_token(token: str) -> Tuple[bool, str, dict]:
                 details["valid_endpoints"].append(service)
                 # Try to get user info
                 if service == 'GitHub' and 'login' in data:
-                    return True, f"✅ Valid bearer token for {service} - User: {data['login']}", details
+                    return True, f"✓ Valid bearer token for {service} - User: {data['login']}", details
                 elif service == 'Google' and 'email' in data:
-                    return True, f"✅ Valid bearer token for {service} - Email: {data['email']}", details
+                    return True, f"✓ Valid bearer token for {service} - Email: {data['email']}", details
                 else:
-                    return True, f"✅ Valid bearer token for {service}", details
+                    return True, f"✓ Valid bearer token for {service}", details
         except:
             continue
     
     if details["valid_endpoints"]:
-        return True, f"✅ Valid bearer token for: {', '.join(details['valid_endpoints'])}", details
+        return True, f"✓ Valid bearer token for: {', '.join(details['valid_endpoints'])}", details
     else:
-        return False, "❌ Bearer token not valid against common APIs", details
+        return False, "✘ Bearer token not valid against common APIs", details
 
 def validate_basic_auth(auth_str: str) -> Tuple[bool, str, dict]:
     """Decode and analyze Basic Authentication"""
@@ -1434,11 +1434,11 @@ def validate_basic_auth(auth_str: str) -> Tuple[bool, str, dict]:
             username, password = decoded.split(':', 1)
             details["username"] = username
             details["password"] = password
-            return True, f"✅ Basic Auth decoded - Username: {username}, Password: {password}", details
+            return True, f"✓ Basic Auth decoded - Username: {username}, Password: {password}", details
         else:
-            return True, f"✅ Basic Auth decoded (no colon): {decoded}", details
+            return True, f"✓ Basic Auth decoded (no colon): {decoded}", details
     except Exception as e:
-        return False, f"❌ Failed to decode Basic Auth: {str(e)}", details
+        return False, f"✘ Failed to decode Basic Auth: {str(e)}", details
 
 def validate_generic_secret(secret: str) -> Tuple[bool, str, dict]:
     """Generic validation for unknown secret types"""
@@ -1474,13 +1474,13 @@ def validate_generic_secret(secret: str) -> Tuple[bool, str, dict]:
     result += f"\n   Character classes: {classes}/4"
     
     if len(secret) >= 32 and entropy > 4.5 and classes >= 3:
-        result += "\n   ✅ High entropy secret (likely valid API key)"
+        result += "\n   ✓ High entropy secret (likely valid API key)"
         details["analysis"].append("High entropy - likely real key")
     elif len(secret) >= 20 and entropy > 3.5:
-        result += "\n   ⚠️ Medium entropy (could be valid)"
+        result += "\n   ⚠ Medium entropy (could be valid)"
         details["analysis"].append("Medium entropy - might be valid")
     else:
-        result += "\n   ⚠️ Low entropy (might be placeholder or test key)"
+        result += "\n   ⚠ Low entropy (might be placeholder or test key)"
         details["analysis"].append("Low entropy - possibly test/placeholder")
     
     return True, result, details
@@ -1505,9 +1505,9 @@ def validate_private_key(content: str) -> Tuple[bool, str, dict]:
             details["key_type"] = key_type
             if key_type == 'ENCRYPTED':
                 details["encrypted"] = True
-            return True, f"✅ Valid {key_type} private key format", details
+            return True, f"✓ Valid {key_type} private key format", details
     
-    return False, "❌ Not a recognized private key format", details
+    return False, "✘ Not a recognized private key format", details
 
 # =============================================================================
 # ADDITIONAL VALIDATORS (KeyHacks-sourced techniques)
@@ -1532,13 +1532,13 @@ def validate_dropbox_token(token: str) -> Tuple[bool, str, dict]:
             }
             name = details["account_info"].get("name", "")
             email = details["account_info"].get("email", "")
-            return True, f"✅ Valid Dropbox token – {name} ({email})", details
+            return True, f"✓ Valid Dropbox token – {name} ({email})", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Dropbox token", details
+            return False, "✘ Invalid Dropbox token", details
         else:
-            return False, f"❌ Dropbox API returned {response.status_code}", details
+            return False, f"✘ Dropbox API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_firebase_fcm(key: str) -> Tuple[bool, str, dict]:
@@ -1560,12 +1560,12 @@ def validate_firebase_fcm(key: str) -> Tuple[bool, str, dict]:
             data = response.json()
             # A valid key returns results (even if the device ID is invalid)
             if "results" in data or "failure" in data:
-                return True, "✅ Valid Firebase FCM Server Key (accepted by FCM API)", details
+                return True, "✓ Valid Firebase FCM Server Key (accepted by FCM API)", details
         elif response.status_code == 401:
-            return False, "❌ Invalid FCM Server Key", details
-        return False, f"❌ FCM API returned {response.status_code}", details
+            return False, "✘ Invalid FCM Server Key", details
+        return False, f"✘ FCM API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_telegram_bot(token: str) -> Tuple[bool, str, dict]:
@@ -1589,12 +1589,12 @@ def validate_telegram_bot(token: str) -> Tuple[bool, str, dict]:
                 }
                 username = bot.get("username", "unknown")
                 name = bot.get("first_name", "")
-                return True, f"✅ Valid Telegram Bot Token – @{username} ({name})", details
+                return True, f"✓ Valid Telegram Bot Token – @{username} ({name})", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Telegram Bot Token", details
-        return False, f"❌ Telegram API returned {response.status_code}", details
+            return False, "✘ Invalid Telegram Bot Token", details
+        return False, f"✘ Telegram API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_twitter_bearer(token: str) -> Tuple[bool, str, dict]:
@@ -1610,9 +1610,9 @@ def validate_twitter_bearer(token: str) -> Tuple[bool, str, dict]:
             data = response.json()
             details["subscriptions_count"] = data.get("subscriptions_count", 0)
             details["environments_count"] = data.get("environments_count", 0)
-            return True, f"✅ Valid Twitter/X Bearer Token (subscriptions: {details['subscriptions_count']})", details
+            return True, f"✓ Valid Twitter/X Bearer Token (subscriptions: {details['subscriptions_count']})", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Twitter/X Bearer Token", details
+            return False, "✘ Invalid Twitter/X Bearer Token", details
         elif response.status_code == 403:
             # Token is valid but endpoint requires higher plan – confirm it works with /2/users/me
             r2 = requests.get(
@@ -1621,11 +1621,11 @@ def validate_twitter_bearer(token: str) -> Tuple[bool, str, dict]:
             )
             if r2.status_code == 200:
                 user = r2.json().get("data", {})
-                return True, f"✅ Valid Twitter/X Bearer Token – @{user.get('username', 'unknown')}", details
-            return False, f"❌ Twitter/X API returned 403 Forbidden", details
-        return False, f"❌ Twitter/X API returned {response.status_code}", details
+                return True, f"✓ Valid Twitter/X Bearer Token – @{user.get('username', 'unknown')}", details
+            return False, f"✘ Twitter/X API returned 403 Forbidden", details
+        return False, f"✘ Twitter/X API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_pagerduty_token(token: str) -> Tuple[bool, str, dict]:
@@ -1644,19 +1644,19 @@ def validate_pagerduty_token(token: str) -> Tuple[bool, str, dict]:
             if users:
                 u = users[0]
                 details["user_info"] = {"name": u.get("name"), "email": u.get("email"), "role": u.get("role")}
-            return True, f"✅ Valid PagerDuty Token (total users: {total})", details
+            return True, f"✓ Valid PagerDuty Token (total users: {total})", details
         elif response.status_code == 401:
-            return False, "❌ Invalid PagerDuty Token", details
-        return False, f"❌ PagerDuty API returned {response.status_code}", details
+            return False, "✘ Invalid PagerDuty Token", details
+        return False, f"✘ PagerDuty API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_zendesk_token(token: str, domain: Optional[str] = None) -> Tuple[bool, str, dict]:
     """Validate Zendesk API token (requires subdomain)"""
     details = {}
     if not domain:
-        return False, "⚠️ Zendesk subdomain required for validation (e.g. 'yourcompany.zendesk.com')", details
+        return False, "⚠ Zendesk subdomain required for validation (e.g. 'yourcompany.zendesk.com')", details
     subdomain = domain.replace(".zendesk.com", "").rstrip("/")
     try:
         response = requests.get(
@@ -1665,12 +1665,12 @@ def validate_zendesk_token(token: str, domain: Optional[str] = None) -> Tuple[bo
         )
         if response.status_code == 200:
             count = response.json().get("count", "?")
-            return True, f"✅ Valid Zendesk Token for {subdomain} (tickets: {count})", details
+            return True, f"✓ Valid Zendesk Token for {subdomain} (tickets: {count})", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Zendesk Token", details
-        return False, f"❌ Zendesk API returned {response.status_code}", details
+            return False, "✘ Invalid Zendesk Token", details
+        return False, f"✘ Zendesk API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_npm_token(token: str) -> Tuple[bool, str, dict]:
@@ -1685,12 +1685,12 @@ def validate_npm_token(token: str) -> Tuple[bool, str, dict]:
         if response.status_code == 200:
             username = response.json().get("username", "unknown")
             details["username"] = username
-            return True, f"✅ Valid NPM Token – user: {username}", details
+            return True, f"✓ Valid NPM Token – user: {username}", details
         elif response.status_code == 401:
-            return False, "❌ Invalid NPM Token", details
-        return False, f"❌ NPM registry returned {response.status_code}", details
+            return False, "✘ Invalid NPM Token", details
+        return False, f"✘ NPM registry returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_square_token(token: str) -> Tuple[bool, str, dict]:
@@ -1705,12 +1705,12 @@ def validate_square_token(token: str) -> Tuple[bool, str, dict]:
         if response.status_code == 200:
             locations = response.json().get("locations", [])
             details["locations"] = [loc.get("name") for loc in locations[:3]]
-            return True, f"✅ Valid Square Token – {len(locations)} location(s): {', '.join(details['locations'])}", details
+            return True, f"✓ Valid Square Token – {len(locations)} location(s): {', '.join(details['locations'])}", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Square Access Token", details
-        return False, f"❌ Square API returned {response.status_code}", details
+            return False, "✘ Invalid Square Access Token", details
+        return False, f"✘ Square API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_infura_key(key: str) -> Tuple[bool, str, dict]:
@@ -1727,13 +1727,13 @@ def validate_infura_key(key: str) -> Tuple[bool, str, dict]:
             if "result" in data or "error" in data:
                 # Even an auth error from Infura with 200 means the project exists
                 if data.get("error", {}).get("code") == -32600:
-                    return True, f"✅ Valid Infura Project ID (Ethereum mainnet accessible)", details
-                return True, f"✅ Valid Infura Project ID", details
+                    return True, f"✓ Valid Infura Project ID (Ethereum mainnet accessible)", details
+                return True, f"✓ Valid Infura Project ID", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Infura Project ID", details
-        return False, f"❌ Infura API returned {response.status_code}", details
+            return False, "✘ Invalid Infura Project ID", details
+        return False, f"✘ Infura API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_hubspot_key(key: str) -> Tuple[bool, str, dict]:
@@ -1748,12 +1748,12 @@ def validate_hubspot_key(key: str) -> Tuple[bool, str, dict]:
             owners = response.json()
             details["owner_count"] = len(owners)
             names = [f"{o.get('firstName','')} {o.get('lastName','')}".strip() for o in owners[:3]]
-            return True, f"✅ Valid HubSpot API Key – {len(owners)} owner(s): {', '.join(filter(None, names))}", details
+            return True, f"✓ Valid HubSpot API Key – {len(owners)} owner(s): {', '.join(filter(None, names))}", details
         elif response.status_code == 401 or response.status_code == 403:
-            return False, "❌ Invalid HubSpot API Key", details
-        return False, f"❌ HubSpot API returned {response.status_code}", details
+            return False, "✘ Invalid HubSpot API Key", details
+        return False, f"✘ HubSpot API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_datadog_key(key: str) -> Tuple[bool, str, dict]:
@@ -1766,12 +1766,12 @@ def validate_datadog_key(key: str) -> Tuple[bool, str, dict]:
             headers=headers, timeout=10, verify=False
         )
         if response.status_code == 200 and response.json().get("valid"):
-            return True, "✅ Valid Datadog API Key", details
+            return True, "✓ Valid Datadog API Key", details
         elif response.status_code == 403:
-            return False, "❌ Invalid Datadog API Key", details
-        return False, f"❌ Datadog API returned {response.status_code}", details
+            return False, "✘ Invalid Datadog API Key", details
+        return False, f"✘ Datadog API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_facebook_token(token: str) -> Tuple[bool, str, dict]:
@@ -1786,12 +1786,12 @@ def validate_facebook_token(token: str) -> Tuple[bool, str, dict]:
             data = response.json()
             details["user_id"] = data.get("id")
             details["name"] = data.get("name")
-            return True, f"✅ Valid Facebook Token – {data.get('name', 'unknown')} (id: {data.get('id')})", details
+            return True, f"✓ Valid Facebook Token – {data.get('name', 'unknown')} (id: {data.get('id')})", details
         else:
             err = response.json().get("error", {}).get("message", "Unknown")
-            return False, f"❌ Invalid Facebook Token: {err}", details
+            return False, f"✘ Invalid Facebook Token: {err}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_teams_webhook(url: str) -> Tuple[bool, str, dict]:
@@ -1804,23 +1804,23 @@ def validate_teams_webhook(url: str) -> Tuple[bool, str, dict]:
         response = requests.post(url, json={}, timeout=10, verify=False)
         body = response.text.strip()
         if response.status_code in (200, 202):
-            return True, "✅ Valid Microsoft Teams Webhook URL", details
+            return True, "✓ Valid Microsoft Teams Webhook URL", details
         elif response.status_code == 400 and body:
             # A 400 with a Teams-style error message still confirms the URL is live
             if "BadRequest" in body or "text" in body.lower() or "summary" in body.lower():
-                return True, f"✅ Valid Microsoft Teams Webhook URL (probe accepted, no message sent)", details
+                return True, f"✓ Valid Microsoft Teams Webhook URL (probe accepted, no message sent)", details
         elif response.status_code == 403:
-            return False, "❌ Invalid or expired Microsoft Teams Webhook", details
-        return False, f"❌ Teams Webhook returned {response.status_code}: {body[:100]}", details
+            return False, "✘ Invalid or expired Microsoft Teams Webhook", details
+        return False, f"✘ Teams Webhook returned {response.status_code}: {body[:100]}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_shopify_token(token: str, shop_domain: Optional[str] = None) -> Tuple[bool, str, dict]:
     """Validate Shopify access token (requires shop domain)"""
     details = {}
     if not shop_domain:
-        return False, "⚠️ Shopify shop domain required for validation (e.g. 'mystore.myshopify.com')", details
+        return False, "⚠ Shopify shop domain required for validation (e.g. 'mystore.myshopify.com')", details
     try:
         response = requests.get(
             f"https://{shop_domain}/admin/api/2023-10/shop.json",
@@ -1830,12 +1830,12 @@ def validate_shopify_token(token: str, shop_domain: Optional[str] = None) -> Tup
             shop = response.json().get("shop", {})
             details["shop_name"] = shop.get("name")
             details["email"] = shop.get("email")
-            return True, f"✅ Valid Shopify Token – Shop: {shop.get('name', shop_domain)}", details
+            return True, f"✓ Valid Shopify Token – Shop: {shop.get('name', shop_domain)}", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Shopify Token", details
-        return False, f"❌ Shopify API returned {response.status_code}", details
+            return False, "✘ Invalid Shopify Token", details
+        return False, f"✘ Shopify API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_asana_token(token: str) -> Tuple[bool, str, dict]:
@@ -1852,19 +1852,19 @@ def validate_asana_token(token: str) -> Tuple[bool, str, dict]:
             details["name"] = data.get("name")
             details["email"] = data.get("email")
             details["gid"] = data.get("gid")
-            return True, f"✅ Valid Asana Token – {data.get('name', 'unknown')} ({data.get('email', '')})", details
+            return True, f"✓ Valid Asana Token – {data.get('name', 'unknown')} ({data.get('email', '')})", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Asana Token", details
-        return False, f"❌ Asana API returned {response.status_code}", details
+            return False, "✘ Invalid Asana Token", details
+        return False, f"✘ Asana API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 
 def validate_mailchimp_key(key: str) -> Tuple[bool, str, dict]:
     """Validate Mailchimp API key (extracts datacenter from key suffix)"""
     details = {}
     if "-" not in key:
-        return False, "❌ Invalid Mailchimp key format (expected key-usXX)", details
+        return False, "✘ Invalid Mailchimp key format (expected key-usXX)", details
     dc = key.split("-")[-1]
     try:
         response = requests.get(
@@ -1878,12 +1878,12 @@ def validate_mailchimp_key(key: str) -> Tuple[bool, str, dict]:
             details["account_name"] = account_name
             details["email"] = email
             details["datacenter"] = dc
-            return True, f"✅ Valid Mailchimp Key – Account: {account_name} ({email}), DC: {dc}", details
+            return True, f"✓ Valid Mailchimp Key – Account: {account_name} ({email}), DC: {dc}", details
         elif response.status_code == 401:
-            return False, "❌ Invalid Mailchimp Key", details
-        return False, f"❌ Mailchimp API returned {response.status_code}", details
+            return False, "✘ Invalid Mailchimp Key", details
+        return False, f"✘ Mailchimp API returned {response.status_code}", details
     except Exception as e:
-        return False, f"❌ Error: {str(e)}", details
+        return False, f"✘ Error: {str(e)}", details
 
 # =============================================================================
 # VALIDATION DISPATCHER
@@ -1898,7 +1898,7 @@ def validate_api_key(key_type: str, key: str, extra: Optional[str] = None) -> Tu
         "AWS Secret Key": lambda k: validate_aws_key("AKIAEXAMPLE", k),
         "Google API Key": validate_google_key,
         "Firebase API Key": validate_google_key,           # same underlying API
-        "Google OAuth": lambda k: (True, f"✅ OAuth Client ID format valid – {k}", {}),
+        "Google OAuth": lambda k: (True, f"✓ OAuth Client ID format valid – {k}", {}),
         "GitHub Token": validate_github_token,
         "GitHub Fine-grained": validate_github_token,
         "GitLab Token": validate_gitlab_token,
@@ -1908,19 +1908,19 @@ def validate_api_key(key_type: str, key: str, extra: Optional[str] = None) -> Tu
         "Stripe Live": validate_stripe_key,
         "Stripe Test": validate_stripe_key,
         "Stripe Restricted Key": validate_stripe_key,
-        "Stripe Publishable": lambda k: (True, f"✅ Stripe publishable key format valid – {k}", {}),
+        "Stripe Publishable": lambda k: (True, f"✓ Stripe publishable key format valid – {k}", {}),
         "Twilio SID": lambda k: validate_twilio_sid(k, extra),
-        "Twilio Token": lambda k: (True, f"✅ Twilio token format valid (pair with SID to test)", {}),
+        "Twilio Token": lambda k: (True, f"✓ Twilio token format valid (pair with SID to test)", {}),
         "SendGrid": validate_sendgrid_key,
         "Mailgun": lambda k: validate_mailgun_key(k, extra),
         "Mailchimp": validate_mailchimp_key,                # was a stub – now real
         "HubSpot": validate_hubspot_key,                    # was UUID-only stub
         "HubSpot API Key (v1)": validate_hubspot_key,
-        "Salesforce": lambda k: (True, f"✅ Salesforce session format valid – {k}", {}),
+        "Salesforce": lambda k: (True, f"✓ Salesforce session format valid – {k}", {}),
         "JWT Token": validate_jwt_token,
         "Bearer Token": validate_bearer_token,
         "Basic Auth": validate_basic_auth,
-        "Generic Base64": lambda k: (True, f"✅ Base64 string length {len(k)}", {}),
+        "Generic Base64": lambda k: (True, f"✓ Base64 string length {len(k)}", {}),
         "Generic Secret": validate_generic_secret,
         "Private Key": validate_private_key,
         # ── New KeyHacks-sourced validators ─────────────────────────────────
@@ -1928,28 +1928,28 @@ def validate_api_key(key_type: str, key: str, extra: Optional[str] = None) -> Tu
         "Firebase FCM Key": validate_firebase_fcm,
         "Telegram Bot Token": validate_telegram_bot,
         "Twitter/X Bearer Token": validate_twitter_bearer,
-        "Twitter/X API Key": lambda k: (True, f"ℹ️ Twitter/X API Key format – pair with secret to test OAuth1", {}),
+        "Twitter/X API Key": lambda k: (True, f"ℹ Twitter/X API Key format – pair with secret to test OAuth1", {}),
         "Pagerduty Token": validate_pagerduty_token,
         "Zendesk API Token": lambda k: validate_zendesk_token(k, extra),
         "NPM Token": validate_npm_token,
         "Square Access Token": validate_square_token,
-        "Square App Secret": lambda k: (True, f"ℹ️ Square App Secret format valid – combine with App ID to test OAuth", {}),
+        "Square App Secret": lambda k: (True, f"ℹ Square App Secret format valid – combine with App ID to test OAuth", {}),
         "Infura Project ID": validate_infura_key,
-        "Contentful Token": lambda k: (True, f"ℹ️ Contentful Token format valid – provide Space ID via 'extra' to test", {}),
+        "Contentful Token": lambda k: (True, f"ℹ Contentful Token format valid – provide Space ID via 'extra' to test", {}),
         "Datadog API Key": validate_datadog_key,
         "Facebook Access Token": validate_facebook_token,
         "Microsoft Teams Webhook": validate_teams_webhook,
-        "Azure Client Secret": lambda k: (True, f"ℹ️ Azure Client Secret detected – provide tenant+client IDs to test", {}),
+        "Azure Client Secret": lambda k: (True, f"ℹ Azure Client Secret detected – provide tenant+client IDs to test", {}),
         "Shopify Token": lambda k: validate_shopify_token(k, extra),
         "Asana Access Token": validate_asana_token,
-        "Cloudflare API Key": lambda k: (True, f"ℹ️ Potential Cloudflare key detected – provide email via 'extra' to test", {}),
-        "Heroku API Key": lambda k: (True, f"ℹ️ Potential Heroku key detected – UUID format; needs context to confirm", {}),
+        "Cloudflare API Key": lambda k: (True, f"ℹ Potential Cloudflare key detected – provide email via 'extra' to test", {}),
+        "Heroku API Key": lambda k: (True, f"ℹ Potential Heroku key detected – UUID format; needs context to confirm", {}),
     }
     
     if key_type in validators:
         return validators[key_type](key)
     else:
-        return True, f"ℹ️ Key type '{key_type}' – no validation implemented", {}
+        return True, f"ℹ Key type '{key_type}' – no validation implemented", {}
 
 # =============================================================================
 # API KEY ENTRY CLASS
@@ -2335,8 +2335,8 @@ class ApiKeyWorker(QThread):
             poc_commands.append(f"")
             
             if details.get("project_id"):
-                poc_commands.append(f"📌 Project ID: {details['project_id']}")
-                poc_commands.append(f"📌 GCP Console: https://console.cloud.google.com/project/{details['project_id']}")
+                poc_commands.append(f"🖈 Project ID: {details['project_id']}")
+                poc_commands.append(f"🖈 GCP Console: https://console.cloud.google.com/project/{details['project_id']}")
                 poc_commands.append(f"")
             
             # Only include endpoints that were fully working (not disabled)
@@ -2344,17 +2344,17 @@ class ApiKeyWorker(QThread):
             services = details.get('services_detected', [])
             
             if 'drive_api' in valid_endpoints:
-                poc_commands.append(f"✅ Google Drive API (enabled and working):")
+                poc_commands.append(f"✓ Google Drive API (enabled and working):")
                 poc_commands.append(f"curl 'https://www.googleapis.com/drive/v3/files?key={key}'")
                 poc_commands.append(f"")
                 
             if 'sheets_api' in valid_endpoints:
-                poc_commands.append(f"✅ Google Sheets API (enabled and working):")
+                poc_commands.append(f"✓ Google Sheets API (enabled and working):")
                 poc_commands.append(f"curl 'https://sheets.googleapis.com/v4/spreadsheets?key={key}'")
                 poc_commands.append(f"")
                 
             if 'custom_search' in valid_endpoints:
-                poc_commands.append(f"✅ Google Custom Search API (enabled and working):")
+                poc_commands.append(f"✓ Google Custom Search API (enabled and working):")
                 poc_commands.append(f"curl 'https://customsearch.googleapis.com/customsearch/v1?q=test&cx=YOUR_SEARCH_ENGINE_ID&key={key}'")
                 poc_commands.append(f"")
                 
@@ -2368,16 +2368,16 @@ class ApiKeyWorker(QThread):
                 disabled_apis.append("Custom Search API")
                 
             if disabled_apis and details.get("project_id"):
-                poc_commands.append(f"⚠️ Disabled APIs that can be enabled:")
+                poc_commands.append(f"⚠ Disabled APIs that can be enabled:")
                 for api in disabled_apis:
                     poc_commands.append(f"   • {api}")
                 poc_commands.append(f"")
-                poc_commands.append(f"🔧 Enable APIs at:")
+                poc_commands.append(f"⛏ Enable APIs at:")
                 poc_commands.append(f"   https://console.developers.google.com/apis?project={details['project_id']}")
                 poc_commands.append(f"")
                 
             if not poc_commands and details.get("project_id"):
-                poc_commands.append(f"✅ Key is valid but no APIs are enabled.")
+                poc_commands.append(f"✓ Key is valid but no APIs are enabled.")
                 poc_commands.append(f"Enable APIs at: https://console.developers.google.com/apis?project={details['project_id']}")
                 
         elif "AWS" in key_type:
@@ -2502,7 +2502,7 @@ class ApiKeyWorker(QThread):
                 poc_commands.append(f"Payload: {json.dumps(details['payload'], indent=2)}")
                 
             if details.get("expired"):
-                poc_commands.append(f"⚠️ Token expired: {details.get('expired_seconds', 0):.0f} seconds ago")
+                poc_commands.append(f"⚠ Token expired: {details.get('expired_seconds', 0):.0f} seconds ago")
                 
             poc_commands.append(f"")
             poc_commands.append(f"# Decode with Python:")
@@ -2642,7 +2642,7 @@ class FetchSubTab(QWidget):
         layout.setContentsMargins(10, 5, 10, 5)
         
         # Title
-        title = QLabel("🌐 API Key Scanner - Fetch Mode")
+        title = QLabel("⛏ API Key Scanner - Fetch Mode")
         title.setFont(QFont("Segoe UI", 12, QFont.Bold))
         layout.addWidget(title)
         
@@ -2667,7 +2667,7 @@ class FetchSubTab(QWidget):
         )
 
         # Add URL button
-        add_btn = QPushButton("➕ Add URL")
+        add_btn = QPushButton("🞥 Add URL")
         add_btn.clicked.connect(self.add_url_dialog)
         add_btn.setStyleSheet(btn_style)
         layout.addWidget(add_btn)
@@ -2686,7 +2686,7 @@ class FetchSubTab(QWidget):
         layout.addWidget(self.stop_btn)
         
         # Clear button
-        clear_btn = QPushButton("🗑️ Clear Queue")
+        clear_btn = QPushButton("🗑 Clear Queue")
         clear_btn.clicked.connect(self.clear_queue)
         clear_btn.setStyleSheet(btn_style)
         layout.addWidget(clear_btn)
@@ -2699,7 +2699,7 @@ class FetchSubTab(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         
         # Header
-        header = QLabel("📋 URL Queue")
+        header = QLabel("☰ URL Queue")
         header.setFont(QFont("Segoe UI", 10, QFont.Bold))
         layout.addWidget(header)
         
@@ -2727,7 +2727,7 @@ class FetchSubTab(QWidget):
         layout.setContentsMargins(5, 5, 5, 5)
         
         # Header
-        header = QLabel("⚙️ Scan Options")
+        header = QLabel("⚙ Scan Options")
         header.setFont(QFont("Segoe UI", 10, QFont.Bold))
         layout.addWidget(header)
         
@@ -2912,7 +2912,7 @@ class FetchSubTab(QWidget):
             
         menu = QMenu()
         
-        remove_action = menu.addAction("🗑️ Remove from Queue")
+        remove_action = menu.addAction("🗑 Remove from Queue")
         
         action = menu.exec_(self.queue_table.viewport().mapToGlobal(position))
         
@@ -2945,7 +2945,7 @@ class KeySubTab(QWidget):
         layout.setSpacing(15)
         
         # Title
-        title = QLabel("🔑 Manual API Key Testing")
+        title = QLabel("⛏ Manual API Key Testing")
         title.setFont(QFont("Segoe UI", 12, QFont.Bold))
         layout.addWidget(title)
         
@@ -3041,7 +3041,7 @@ class KeySubTab(QWidget):
         self.test_btn.setEnabled(False)
         self.parent.results_tab_widget.setCurrentIndex(0)  # Results tab
         self.parent.log_text.clear()
-        self.parent.append_log(f"🔑 Testing key: {key[:30]}...")
+        self.parent.append_log(f"⛏ Testing key: {key[:30]}...")
         
         # Start worker
         self.parent.worker.start()
@@ -3071,7 +3071,7 @@ class TextSubTab(QWidget):
         layout.setSpacing(10)
         
         # Title
-        title = QLabel("📄 Text Analysis")
+        title = QLabel("⛏ Text Analysis")
         title.setFont(QFont("Segoe UI", 12, QFont.Bold))
         layout.addWidget(title)
         
@@ -3118,7 +3118,7 @@ class TextSubTab(QWidget):
         self.analyze_btn.setMinimumWidth(150)
         button_layout.addWidget(self.analyze_btn)
         
-        self.clear_btn = QPushButton("🗑️ Clear")
+        self.clear_btn = QPushButton("🗑 Clear")
         self.clear_btn.clicked.connect(self.clear)
         button_layout.addWidget(self.clear_btn)
         
@@ -3196,18 +3196,18 @@ class ApiKeyTab(QWidget):
         # Input subtabs (top)
         self.sub_tabs = QTabWidget()
         self.fetch_tab = FetchSubTab(self)
-        self.sub_tabs.addTab(self.fetch_tab, "🌐 Fetch")
+        self.sub_tabs.addTab(self.fetch_tab, " Fetch")
         self.key_tab = KeySubTab(self)
-        self.sub_tabs.addTab(self.key_tab, "🔑 Key")
+        self.sub_tabs.addTab(self.key_tab, " Key")
         self.text_tab = TextSubTab(self)
-        self.sub_tabs.addTab(self.text_tab, "📄 Text")
+        self.sub_tabs.addTab(self.text_tab, " Text")
 
         # Flat result tabs (bottom) — all 4 tabs at the same level
         self.results_tab_widget = QTabWidget()
-        self.results_tab_widget.addTab(self._create_test_results_widget(), "📊 Test Results")
-        self.results_tab_widget.addTab(self._create_keys_found_widget(),   "🔑 Keys Found")
-        self.results_tab_widget.addTab(self._create_endpoints_widget(),    "🔗 Endpoints")
-        self.results_tab_widget.addTab(self._create_logs_tab(),            "📋 Logs")
+        self.results_tab_widget.addTab(self._create_test_results_widget(), " Test Results")
+        self.results_tab_widget.addTab(self._create_keys_found_widget(),   " Keys Found")
+        self.results_tab_widget.addTab(self._create_endpoints_widget(),    " Endpoints")
+        self.results_tab_widget.addTab(self._create_logs_tab(),            " Logs")
 
         splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(self.sub_tabs)
@@ -3268,7 +3268,7 @@ class ApiKeyTab(QWidget):
         filter_layout.setContentsMargins(0, 0, 0, 0)
         filter_layout.setSpacing(6)
 
-        filter_layout.addWidget(QLabel("🔍"))
+        filter_layout.addWidget(QLabel("⌕"))
         self._key_search = QLineEdit()
         self._key_search.setPlaceholderText("Filter by key / type…")
         self._key_search.setMaximumWidth(200)
@@ -3333,7 +3333,7 @@ class ApiKeyTab(QWidget):
         ep_bar = QWidget()
         ep_bar_layout = QHBoxLayout(ep_bar)
         ep_bar_layout.setContentsMargins(0, 0, 0, 0)
-        ep_bar_layout.addWidget(QLabel("🔍"))
+        ep_bar_layout.addWidget(QLabel("⌕"))
         self._ep_search = QLineEdit()
         self._ep_search.setPlaceholderText("Filter endpoints…")
         self._ep_search.setMaximumWidth(200)
@@ -3377,7 +3377,7 @@ class ApiKeyTab(QWidget):
         """Add URL from HTTP history to Fetch tab queue"""
         self.fetch_tab.add_from_history(url, method)
         self.sub_tabs.setCurrentWidget(self.fetch_tab)
-        self.append_log(f"➕ Added to queue: {url}")
+        self.append_log(f"🞥 Added to queue: {url}")
         
     def send_url(self, url: str, cookies: str = ""):
         """Alias for add_from_history for backward compatibility"""
@@ -3405,13 +3405,13 @@ class ApiKeyTab(QWidget):
         # Choose prefix and HTML color per level
         level_styles = {
             "INFO":     ("·",  "#a0a0a0"),
-            "SUCCESS":  ("✅", "#4caf50"),
-            "WARNING":  ("⚠️", "#ff9800"),
-            "ERROR":    ("❌", "#f44336"),
-            "CRITICAL": ("🔴", "#e53935"),
+            "SUCCESS":  ("✓", "#4caf50"),
+            "WARNING":  ("⚠", "#ff9800"),
+            "ERROR":    ("✘", "#f44336"),
+            "CRITICAL": ("Ⓒ", "#e53935"),
             "SECTION":  ("══", "#5c9bd4"),
-            "POC":      ("📋", "#ce93d8"),
-            "FOUND":    ("🔑", "#ffeb3b"),
+            "POC":      ("🞋", "#ce93d8"),
+            "FOUND":    ("🛈", "#ffeb3b"),
         }
 
         icon, color = level_styles.get(level, ("·", "#a0a0a0"))
@@ -3458,7 +3458,7 @@ class ApiKeyTab(QWidget):
         conf_item.setForeground(QBrush(QColor(color_map.get(entry.confidence, COLOR_TEXT))))
         self.keys_table.setItem(row, 2, conf_item)
 
-        # Col 3 – Entropy (colour: ≥3.5 = likely random ✅, <2.5 = low ⚠)
+        # Col 3 – Entropy (colour: ≥3.5 = likely random ✓, <2.5 = low ⚠)
         ent_item = QTableWidgetItem(f"{entry.entropy:.2f}")
         ent_item.setTextAlignment(Qt.AlignCenter)
         if entry.entropy >= 3.5:
@@ -3526,7 +3526,7 @@ class ApiKeyTab(QWidget):
 
         self.test_table.setItem(row, 1, QTableWidgetItem(result['type']))
 
-        valid_item = QTableWidgetItem("✅" if result['valid'] else "❌")
+        valid_item = QTableWidgetItem("✓" if result['valid'] else "✘")
         valid_item.setForeground(QBrush(QColor(COLOR_SUCCESS if result['valid'] else COLOR_CRITICAL)))
         valid_item.setTextAlignment(Qt.AlignCenter)
         self.test_table.setItem(row, 2, valid_item)
@@ -3562,7 +3562,7 @@ class ApiKeyTab(QWidget):
         for row in range(self.keys_table.rowCount()):
             key_item = self.keys_table.item(row, 1)
             if key_item and key_item.toolTip() == result['key']:
-                valid_item = QTableWidgetItem("✅" if result['valid'] else "❌")
+                valid_item = QTableWidgetItem("✓" if result['valid'] else "✘")
                 valid_item.setForeground(QBrush(QColor(COLOR_SUCCESS if result['valid'] else COLOR_CRITICAL)))
                 valid_item.setTextAlignment(Qt.AlignCenter)
                 self.keys_table.setItem(row, 4, valid_item)
@@ -3633,11 +3633,11 @@ class ApiKeyTab(QWidget):
             return
 
         menu = QMenu()
-        copy_key_action = menu.addAction("📋 Copy Key")
-        copy_ctx_action = menu.addAction("📋 Copy Context")
+        copy_key_action = menu.addAction("🗈 Copy Key")
+        copy_ctx_action = menu.addAction("🗈 Copy Context")
         menu.addSeparator()
-        detail_action = menu.addAction("🔍 View Details")
-        retest_action = menu.addAction("🔄 Re-test Key")
+        detail_action = menu.addAction("⌕ View Details")
+        retest_action = menu.addAction("⟳ Re-test Key")
 
         # Collect matching POC commands (properly tracked)
         poc_actions: List[Tuple[Any, str]] = []
@@ -3647,7 +3647,7 @@ class ApiKeyTab(QWidget):
         )
         if matching_result:
             menu.addSeparator()
-            poc_menu = menu.addMenu("📋 Copy POC Command")
+            poc_menu = menu.addMenu("🗈 Copy POC Command")
             poc_index = 0
             for poc in matching_result['poc']:
                 if poc.strip() and not poc.startswith('#'):
@@ -3658,7 +3658,7 @@ class ApiKeyTab(QWidget):
 
         if entry.endpoint:
             menu.addSeparator()
-            menu.addAction(f"🔗 {entry.endpoint[:80]}")
+            menu.addAction(f"✦ {entry.endpoint[:80]}")
 
         action = menu.exec_(self.keys_table.viewport().mapToGlobal(position))
         if not action:
@@ -3666,10 +3666,10 @@ class ApiKeyTab(QWidget):
 
         if action == copy_key_action:
             QApplication.clipboard().setText(entry.key)
-            self.append_log("📋 Key copied to clipboard")
+            self.append_log("🗈 Key copied to clipboard")
         elif action == copy_ctx_action:
             QApplication.clipboard().setText(entry.context)
-            self.append_log("📋 Context copied to clipboard")
+            self.append_log("🗈 Context copied to clipboard")
         elif action == detail_action:
             self._show_key_detail_dialog(row)
         elif action == retest_action:
@@ -3678,7 +3678,7 @@ class ApiKeyTab(QWidget):
             for act, poc in poc_actions:
                 if action == act:
                     QApplication.clipboard().setText(poc)
-                    self.append_log("📋 POC command copied to clipboard")
+                    self.append_log("🗈 POC command copied to clipboard")
                     break
                     
     # =========================================================================
@@ -3707,7 +3707,7 @@ class ApiKeyTab(QWidget):
             type_item = self.keys_table.item(row, 0)
             type_val = (type_item.text() if type_item else "").lower()
             valid_item = self.keys_table.item(row, 4)
-            is_valid = valid_item and valid_item.text() == "✅"
+            is_valid = valid_item and valid_item.text() == "✓"
             hide = (
                 conf not in allowed
                 or (text and text not in key_val and text not in type_val)
@@ -3780,13 +3780,13 @@ class ApiKeyTab(QWidget):
 
     def _retest_key(self, entry: 'ApiKeyEntry'):
         """Re-validate a single key entry from the context menu."""
-        self.append_log(f"🔄 Re-testing: {entry.key[:40]}…")
+        self.append_log(f"⟳ Re-testing: {entry.key[:40]}…")
         worker = ApiKeyWorker()
         worker.mode = "key"
         worker.single_key = entry.key
         worker.single_type = entry.key_type
         worker.test_result.connect(self.add_test_result)
-        worker.complete.connect(lambda: self.append_log("🔄 Re-test complete"))
+        worker.complete.connect(lambda: self.append_log("⟳ Re-test complete"))
         worker.error.connect(self.on_error)
         worker.start()
 
@@ -3828,7 +3828,7 @@ class ApiKeyTab(QWidget):
         if matching_result:
             lines += [
                 "",
-                f"Validation: {'✅ VALID' if matching_result['valid'] else '❌ INVALID'}",
+                f"Validation: {'✓ VALID' if matching_result['valid'] else '✘ INVALID'}",
                 f"Message:    {matching_result['message']}",
             ]
             if matching_result.get('poc'):
@@ -3845,9 +3845,9 @@ class ApiKeyTab(QWidget):
         dlg_layout.addWidget(info)
 
         btn_row = QHBoxLayout()
-        copy_key_btn = QPushButton("📋 Copy Key")
+        copy_key_btn = QPushButton("🗈 Copy Key")
         copy_key_btn.clicked.connect(lambda: QApplication.clipboard().setText(entry.key))
-        copy_all_btn = QPushButton("📋 Copy All")
+        copy_all_btn = QPushButton("🗈 Copy All")
         copy_all_btn.clicked.connect(lambda: QApplication.clipboard().setText(info.toPlainText()))
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(dialog.accept)
@@ -3875,7 +3875,7 @@ class ApiKeyTab(QWidget):
 
         lines = [
             f"Type:    {result.get('type', '')}",
-            f"Valid:   {'✅ YES' if result.get('valid') else '❌ NO'}",
+            f"Valid:   {'✓ YES' if result.get('valid') else '✘ NO'}",
             f"Time:    {result.get('timestamp', '')}",
             "",
             "Key:",
@@ -3898,7 +3898,7 @@ class ApiKeyTab(QWidget):
         dlg_layout.addWidget(info)
 
         btn_row = QHBoxLayout()
-        copy_btn = QPushButton("📋 Copy All")
+        copy_btn = QPushButton("🗈 Copy All")
         copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(info.toPlainText()))
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(dialog.accept)
