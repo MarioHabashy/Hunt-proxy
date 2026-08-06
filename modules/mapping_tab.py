@@ -3732,11 +3732,6 @@ class MappingTabPro(QWidget):
         export_btn.clicked.connect(self.export_surface)
         layout.addWidget(export_btn)
         
-        advanced_btn = QPushButton("Advanced")
-        advanced_btn.setStyleSheet(btn_style)
-        advanced_btn.clicked.connect(self.show_advanced_menu)
-        layout.addWidget(advanced_btn)
-        
         return toolbar
     
     def create_left_panel(self):
@@ -4674,17 +4669,6 @@ class MappingTabPro(QWidget):
                 json.dump(data, f, indent=2)
             
             QMessageBox.information(self, "Export Complete", f"Exported to {filename}")
-    
-    def show_advanced_menu(self):
-        """Show advanced features menu"""
-        menu = QMenu(self)
-        
-        # Add advanced features here
-        info_action = QAction("ℹ Advanced features coming soon", self)
-        info_action.setEnabled(False)
-        menu.addAction(info_action)
-        
-        menu.exec_(QCursor.pos())
 
     def show_url_context_menu(self, position):
         """Show context menu for URL table"""
