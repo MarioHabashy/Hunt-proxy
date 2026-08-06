@@ -248,7 +248,7 @@ class QueueEntry:
     STATUS_ERROR   = "error"
     STATUS_STOPPED = "stopped"
 
-    _ICONS  = {"pending":"⏳","running":"🔄","done":"✅","error":"❌","stopped":"⏹"}
+    _ICONS  = {"pending":"⏳","running":"⟳","done":"✓","error":"✗","stopped":"⏹"}
     _COLORS = {"pending":COLOR_TEXT_MUTED,"running":COLOR_MEDIUM,
                "done":COLOR_SUCCESS,"error":COLOR_CRITICAL,"stopped":COLOR_HIGH}
 
@@ -1299,7 +1299,7 @@ class ParamMinerTab:
         self.url_input.returnPressed.connect(self._enqueue_url)
         ly.addWidget(self.url_input)
 
-        self.add_btn = self._btn("➕ Add", COLOR_ACCENT, self._enqueue_url)
+        self.add_btn = self._btn("🞥 Add", COLOR_ACCENT, self._enqueue_url)
         ly.addWidget(self.add_btn)
 
         ly.addWidget(self._vsep())
@@ -1372,7 +1372,7 @@ class ParamMinerTab:
         qly.setSpacing(3)
 
         hdr = QHBoxLayout()
-        qlbl = QLabel("📋  URL QUEUE")
+        qlbl = QLabel("☰  URL QUEUE")
         qlbl.setStyleSheet(f"color: {COLOR_ACCENT}; font-weight: 700; font-size: 10pt;")
         hdr.addWidget(qlbl)
         hdr.addStretch()
@@ -1496,7 +1496,7 @@ class ParamMinerTab:
             f"color: {COLOR_SUCCESS}; font-weight: 700; font-size: {FONT_SIZE_SMALL};")
         fbar.addWidget(self._hits_count)
 
-        exp_btn = QPushButton("📤 Export JSON")
+        exp_btn = QPushButton("🠉 Export JSON")
         exp_btn.setFixedHeight(22)
         exp_btn.setStyleSheet(
             f"QPushButton {{ background: {COLOR_ELEVATED_BG}; color: {COLOR_ACCENT}; "
@@ -1699,7 +1699,7 @@ class ParamMinerTab:
         self.wordlist_input = QLineEdit()
         self.wordlist_input.setPlaceholderText("Wordlist path (optional)")
         self._style_input(self.wordlist_input)
-        wl_btn = QPushButton("🔍")
+        wl_btn = QPushButton("🗁")
         wl_btn.setMaximumWidth(30)
         wl_btn.setStyleSheet(
             f"QPushButton {{ background: {COLOR_DARK_BG}; color: {COLOR_ACCENT}; "
@@ -2110,10 +2110,10 @@ class ParamMinerTab:
             elif s == QueueEntry.STATUS_ERROR:   error    += 1
             elif s == QueueEntry.STATUS_STOPPED: stopped  += 1
         parts = []
-        if running:  parts.append(f"🔄 {running} running")
+        if running:  parts.append(f"⟳ {running} running")
         if pending:  parts.append(f"⏳ {pending} pending")
-        if done:     parts.append(f"✅ {done} done")
-        if error:    parts.append(f"❌ {error} error")
+        if done:     parts.append(f"✓ {done} done")
+        if error:    parts.append(f"✗ {error} error")
         if stopped:  parts.append(f"⏹ {stopped} stopped")
         paused_txt = "  [PAUSED]" if self._queue_paused else ""
         self._queue_stats_lbl.setText("  " + "  │  ".join(parts) + paused_txt
@@ -2148,7 +2148,7 @@ class ParamMinerTab:
         self._progress.setVisible(True)
         self.stop_btn.setEnabled(True)
         self.run_btn.setEnabled(False)
-        self._global_status.setText("🔄  Scanning…")
+        self._global_status.setText("⟳  Scanning…")
 
         # Clear terminal buffer for fresh scan on this URL
         self._terminal_buffers[url] = []
@@ -2221,7 +2221,7 @@ class ParamMinerTab:
     def _select_url(self, url: str):
         self._selected_url = url
         short = url[:80] + "…" if len(url) > 81 else url
-        self._url_ctx_lbl.setText(f"  🔎  {short}")
+        self._url_ctx_lbl.setText(f"  ⌕  {short}")
         self._refresh_hits_for(url)
         # Restore buffered terminal output for this URL (do NOT clear if running)
         self.terminal_output.clear()
@@ -2264,7 +2264,7 @@ class ParamMinerTab:
         if entry.status in (QueueEntry.STATUS_DONE,
                             QueueEntry.STATUS_ERROR,
                             QueueEntry.STATUS_STOPPED):
-            act_rerun = menu.addAction("🔄 Re-run")
+            act_rerun = menu.addAction("⟳ Re-run")
             act_rerun.setToolTip("Clear results and run this URL again with the same config")
             act_rerun.triggered.connect(lambda checked=False, u=url: self._rerun_entry(u))
 
@@ -2275,7 +2275,7 @@ class ParamMinerTab:
         act_rm.triggered.connect(lambda checked=False, u=url: self._remove_url(u))
 
         if entry.results:
-            act_exp = menu.addAction("📤 Export JSON")
+            act_exp = menu.addAction("🠉 Export JSON")
             act_exp.triggered.connect(lambda checked=False, u=url: self._export_entry(u))
 
         menu.exec_(self.queue_list.mapToGlobal(pos))
@@ -2380,8 +2380,8 @@ class ParamMinerTab:
             self._progress.setVisible(False)
         n = len(entry.results) if entry else 0
         self._global_status.setText(
-            f"✅  Done — {n} hit(s)" if status == QueueEntry.STATUS_DONE
-            else "🔄  Queue running…" if running > 0
+            f"✓  Done — {n} hit(s)" if status == QueueEntry.STATUS_DONE
+            else "⟳  Queue running…" if running > 0
             else "⏹  Stopped")
         self._update_queue_stats()
         self._save_queue()
@@ -2455,16 +2455,16 @@ class ParamMinerTab:
             f"border: 1px solid {COLOR_BORDER}; }} "
             f"QMenu::item:selected {{ background: {COLOR_ACCENT}; }}")
 
-        copy_param = menu.addAction("📋 Copy param name")
+        copy_param = menu.addAction("🗈 Copy param name")
         copy_param.triggered.connect(
             lambda: QApplication.clipboard().setText(hit.get("param","")))
 
-        copy_url = menu.addAction("🔗 Copy probe URL")
+        copy_url = menu.addAction("🗈 Copy probe URL")
         copy_url.triggered.connect(
             lambda: QApplication.clipboard().setText(hit.get("probe_repr","")))
 
         menu.addSeparator()
-        analyze = menu.addAction("🔬 Analyze…")
+        analyze = menu.addAction("⌕ Analyze…")
         analyze.triggered.connect(lambda: self._analyze_item(hit))
 
         menu.exec_(self.hits_tree.mapToGlobal(pos))
@@ -2627,8 +2627,8 @@ class ParamMinerTab:
 
     @staticmethod
     def _risk_icon(r: str) -> str:
-        return {"HIGH":"🔴 HIGH","MEDIUM":"🟠 MEDIUM",
-                "LOW":"🟡 LOW","INFO":"🔵 INFO"}.get(r, r)
+        return {"HIGH":"Ⓗ HIGH","MEDIUM":"Ⓜ MEDIUM",
+                "LOW":"Ⓛ LOW","INFO":"Ⓘ INFO"}.get(r, r)
 
     def _browse_wordlist(self):
         path, _ = QFileDialog.getOpenFileName(

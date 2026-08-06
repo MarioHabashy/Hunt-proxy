@@ -4137,24 +4137,24 @@ class HuntGUI(
         self._tools_subtab_map = {}
 
         # Sub-tab 0 : Param Miner
-        self.tools_sub_tabs.addTab(self.param_miner.widget, "⚡ Param Miner")
+        self.tools_sub_tabs.addTab(self.param_miner.widget, " Param Miner")
         self._tools_subtab_map["Param Miner"] = 0
 
         # Sub-tab 1 : JS Miner
-        self.tools_sub_tabs.addTab(self.js_miner_tab, "⛏️ JS Miner")
+        self.tools_sub_tabs.addTab(self.js_miner_tab, " JS Miner")
         self._tools_subtab_map["JS Miner"] = 1
 
         # Sub-tab 2 : Bypass
         bypass_widget = getattr(self, "bypass_tab", None)
         if bypass_widget is not None:
-            self.tools_sub_tabs.addTab(bypass_widget, "🛡️ Bypass")
+            self.tools_sub_tabs.addTab(bypass_widget, " Bypass")
             self._tools_subtab_map["Bypass"] = 2
 
         # Sub-tab 3 : Key Tester  (api_key_tab is set by add_api_key_tab)
         api_key_widget = getattr(self, "api_key_tab", None)
         if api_key_widget is not None:
             idx = self.tools_sub_tabs.count()
-            self.tools_sub_tabs.addTab(api_key_widget, "Key Tester")
+            self.tools_sub_tabs.addTab(api_key_widget, " Key Tester")
             self._tools_subtab_map["Key Tester"] = idx
             self._tools_subtab_map["API Key"]    = idx
             self._tools_subtab_map["API Keys"]   = idx
@@ -4164,7 +4164,7 @@ class HuntGUI(
             from modules.poc_tab import POCTab
             self.poc_tab = POCTab(self)
             idx = self.tools_sub_tabs.count()
-            self.tools_sub_tabs.addTab(self.poc_tab, "PoC Generator")
+            self.tools_sub_tabs.addTab(self.poc_tab, " PoC Generator")
             self._tools_subtab_map["PoC"] = idx
         except Exception as e:
             import traceback
