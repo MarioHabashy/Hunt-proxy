@@ -197,7 +197,7 @@ class OutputFormatter:
             severity_match = re.search(r'\[(critical|high|medium|low|info)\]', line.lower())
             if severity_match:
                 severity = severity_match.group(1).lower()
-                icon = severity_icons.get(severity, '🔍')
+                icon = severity_icons.get(severity, '⌕')
                 formatted.append(f"{icon} {line}")
             else:
                 formatted.append(line)
@@ -212,7 +212,7 @@ class OutputFormatter:
         
         for i, line in enumerate(lines, 1):
             if line.strip():
-                formatted.append(f"🌐 [{i:4d}] {line}")
+                formatted.append(f"🖥 [{i:4d}] {line}")
         
         return '\n'.join(formatted)
 
@@ -223,15 +223,15 @@ class OutputFormatter:
         formatted = []
         
         categories = {
-            'js': '📜 JavaScript',
-            'css': '🎨 CSS',
-            'jpg|jpeg|png|gif|svg': '🖼️ Images',
-            'php': '🐘 PHP',
-            'asp|aspx': '🔷 ASP.NET',
-            'json': '📦 JSON',
-            'xml': '🗉 XML',
-            'pdf': '📑 PDF',
-            'zip|tar|gz': '🗜️ Archives'
+            'js': '✦ JavaScript',
+            'css': '✦ CSS',
+            'jpg|jpeg|png|gif|svg': '✦ Images',
+            'php': '✦ PHP',
+            'asp|aspx': '✦ ASP.NET',
+            'json': '✦ JSON',
+            'xml': '✦ XML',
+            'pdf': '✦ PDF',
+            'zip|tar|gz': '✦ Archives'
         }
         
         for line in lines:
@@ -247,7 +247,7 @@ class OutputFormatter:
                     break
             
             if not categorized:
-                formatted.append(f"📎 {line}")
+                formatted.append(f"▶ {line}")
         
         return '\n'.join(formatted)
 
@@ -534,7 +534,7 @@ class NmapRunner:
         ]
 
     def parse_output(self, content: str) -> str:
-        formatted = "🔍 NMAP SCAN RESULTS\n" + "═" * 50 + "\n\n"
+        formatted = "⌕ NMAP SCAN RESULTS\n" + "═" * 50 + "\n\n"
         for line in content.split('\n'):
             if 'open' in line.lower() and '/' in line:
                 parts = line.split()
@@ -596,28 +596,28 @@ class ArchiveRunner:
 
         formatted = "📚 ARCHIVE URLS BY TYPE\n" + "═" * 50 + "\n\n"
         if js_urls:
-            formatted += f"📜 JavaScript Files ({len(js_urls)}):\n"
+            formatted += f"✦ JavaScript Files ({len(js_urls)}):\n"
             for u in js_urls[:20]:
                 formatted += f"  {u}\n"
             if len(js_urls) > 20:
                 formatted += f"  ... and {len(js_urls)-20} more\n"
             formatted += "\n"
         if css_urls:
-            formatted += f"🎨 CSS Files ({len(css_urls)}):\n"
+            formatted += f"✦ CSS Files ({len(css_urls)}):\n"
             for u in css_urls[:10]:
                 formatted += f"  {u}\n"
             if len(css_urls) > 10:
                 formatted += f"  ... and {len(css_urls)-10} more\n"
             formatted += "\n"
         if img_urls:
-            formatted += f"🖼️ Images ({len(img_urls)}):\n"
+            formatted += f"✦ Images ({len(img_urls)}):\n"
             for u in img_urls[:10]:
                 formatted += f"  {u}\n"
             if len(img_urls) > 10:
                 formatted += f"  ... and {len(img_urls)-10} more\n"
             formatted += "\n"
         if other_urls:
-            formatted += f"📎 Other URLs ({len(other_urls)}):\n"
+            formatted += f"▶ Other URLs ({len(other_urls)}):\n"
             for u in other_urls[:20]:
                 formatted += f"  {u}\n"
             if len(other_urls) > 20:
@@ -773,8 +773,8 @@ class BruteforceRunner:
                 clean_lines.append(f"{status:<6} {size:<8} {url}")
 
         icons = {'200': '✓', '301': '↬', '302': '↬', '403': '🔒', '500': '💥'}
-        formatted = "📂 CONTENT BRUTEFORCE RESULTS\n" + "═" * 50 + "\n\n"
-        formatted += "📊 Summary by Status:\n"
+        formatted = "🗁 CONTENT BRUTEFORCE RESULTS\n" + "═" * 50 + "\n\n"
+        formatted += "🗠 Summary by Status:\n"
         for status in sorted(status_counts):
             formatted += f"  {icons.get(status, '🗉')} HTTP {status}: {status_counts[status]} endpoints\n"
         formatted += "\n🗉 Discovered Endpoints:\n" + "-" * 60 + "\n"
@@ -807,8 +807,8 @@ class NucleiRunner:
                     buckets[sev].append(line)
                     break
 
-        icons = {"critical": "🔥", "high": "⚠", "medium": "⚡", "low": "ℹ️", "info": "📌"}
-        formatted = "☢️ NUCLEI SCAN RESULTS\n" + "═" * 50 + "\n\n"
+        icons = {"critical": "Ⓒ", "high": "Ⓗ", "medium": "Ⓜ", "low": "Ⓛ", "info": "Ⓘ"}
+        formatted = "☢ NUCLEI SCAN RESULTS\n" + "═" * 50 + "\n\n"
         any_findings = False
         for sev, lines in buckets.items():
             if not lines:
@@ -853,10 +853,10 @@ class WpscanRunner:
         return cmd
 
     def parse_output(self, content: str) -> str:
-        formatted = "🔷 WORDPRESS SCAN RESULTS\n" + "═" * 50 + "\n\n"
+        formatted = "✦ WORDPRESS SCAN RESULTS\n" + "═" * 50 + "\n\n"
         version_match = re.search(r'WordPress version (\d+\.\d+(\.\d+)?)', content)
         if version_match:
-            formatted += f"📌 Version: {version_match.group(1)}\n\n"
+            formatted += f"🛈 Version: {version_match.group(1)}\n\n"
         vulns = re.findall(r'\[\!\] (.*?CVE.*?)\n', content)
         if vulns:
             formatted += "⚠ Vulnerabilities Found:\n"
@@ -865,7 +865,7 @@ class WpscanRunner:
             formatted += "\n"
         users = re.findall(r'\[i\] (.*?)\n', content)
         if users:
-            formatted += "👤 Users Found:\n"
+            formatted += "𓁷 Users Found:\n"
             for u in users[:20]:
                 formatted += f"  • {u}\n"
         if not vulns and not users:
@@ -934,12 +934,12 @@ class SubdomainRunner:
             elif dots == 3: level4.append(sub)
             else:           others.append(sub)
 
-        formatted = "🌿 SUBDOMAIN ENUMERATION RESULTS\n" + "═" * 50 + "\n\n"
+        formatted = "🖧 SUBDOMAIN ENUMERATION RESULTS\n" + "═" * 50 + "\n\n"
         for label, icon, lst, limit in [
-            ("2nd Level", "🌐", level2, 20),
-            ("3rd Level", "🌍", level3, 30),
-            ("4th Level", "🌏", level4, 30),
-            ("Other",     "📌", others, 20),
+            ("2nd Level", "🖥", level2, 20),
+            ("3rd Level", "🖥", level3, 30),
+            ("4th Level", "🖥", level4, 30),
+            ("Other",     "🖥", others, 20),
         ]:
             if not lst:
                 continue
@@ -2007,7 +2007,7 @@ class TaskWorker(QThread):
                                 # Skip formatted header lines (emoji, ═, empty)
                                 if not s:
                                     continue
-                                if s.startswith(("🌐", "🌍", "🌏", "📌", "🌿", "═", "─", "Total", "...")):
+                                if s.startswith(("🖥", "🖥", "🖥", "🖥", "🖧", "═", "─", "Total", "...")):
                                     continue
                                 # Keep only lines that look like a hostname
                                 if "." in s and " " not in s and not s.startswith("#"):
@@ -2907,7 +2907,7 @@ class TaskWorker(QThread):
                 if "live_subdomains_file" in sig.parameters:
                     kwargs["live_subdomains_file"] = shared_live if os.path.isfile(shared_live) else None
                 report_path = mod.generate(domain, self.project_dir, **kwargs)
-                self._emit(f"[📊] Report updated: {report_path}")
+                self._emit(f"[🗠] Report updated: {report_path}")
         except Exception as exc:
             self._emit(f"[!] Could not update domain report: {exc}")
 
@@ -3445,7 +3445,7 @@ class CookiePromptDialog(QDialog):
 
     def __init__(self, cookie_value: str, source_url: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("🍪 Login Cookie Detected")
+        self.setWindowTitle("🤀 Login Cookie Detected")
         self.setMinimumWidth(580)
         self.choice = self.NO_COOKIE
         self.final_cookie = cookie_value
@@ -3483,13 +3483,13 @@ class CookiePromptDialog(QDialog):
         use_btn.clicked.connect(lambda: self._done(self.USE_COOKIE))
         btn_layout.addWidget(use_btn)
 
-        change_btn = QPushButton("✏️ Edit & Use")
+        change_btn = QPushButton("✎ Edit & Use")
         change_btn.setStyleSheet(f"background-color:{COLOR_ELEVATED_BG}; color:{COLOR_TEXT_BRIGHT}; "
                                  f"border:1px solid {COLOR_BORDER}; padding:6px 14px;")
         change_btn.clicked.connect(lambda: self._done(self.CHANGE))
         btn_layout.addWidget(change_btn)
 
-        skip_btn = QPushButton("🚫 Don't Use Cookie")
+        skip_btn = QPushButton("⊘ Don't Use Cookie")
         skip_btn.setStyleSheet(f"background-color:{COLOR_ELEVATED_BG}; color:{COLOR_CRITICAL}; "
                                f"border:1px solid {COLOR_CRITICAL}; padding:6px 14px;")
         skip_btn.clicked.connect(lambda: self._done(self.NO_COOKIE))
@@ -3777,14 +3777,14 @@ class MultiTaskDialog(QDialog):
         pal_l = QVBoxLayout(pal_grp)
 
         self._search = QLineEdit()
-        self._search.setPlaceholderText("🔍 Filter tasks…")
+        self._search.setPlaceholderText("⌕ Filter tasks…")
         self._search.textChanged.connect(self._filter_palette)
         pal_l.addWidget(self._search)
 
         # Target-type toggle
         type_row = QHBoxLayout()
-        self._type_domain_btn = QPushButton("🌍 Domain Tasks")
-        self._type_subdomain_btn = QPushButton("🌐 Subdomain Tasks")
+        self._type_domain_btn = QPushButton("🖥 Domain Tasks")
+        self._type_subdomain_btn = QPushButton("🖥 Subdomain Tasks")
         for btn in (self._type_domain_btn, self._type_subdomain_btn):
             btn.setCheckable(True)
             btn.setStyleSheet(
@@ -3804,7 +3804,7 @@ class MultiTaskDialog(QDialog):
 
         # add-to-group button row
         add_row = QHBoxLayout()
-        self._add_to_group_btn = QPushButton("➕ Add to Selected Group")
+        self._add_to_group_btn = QPushButton("🞥 Add to Selected Group")
         self._add_to_group_btn.clicked.connect(self._add_selected_to_group)
         self._add_to_group_btn.setStyleSheet(
             f"QPushButton{{background:{COLOR_SUCCESS};color:black;font-weight:bold;padding:6px 12px;}}"
@@ -3825,7 +3825,7 @@ class MultiTaskDialog(QDialog):
         grp_top.addWidget(QLabel("Execution Groups"))
         grp_top.addStretch()
 
-        self._add_group_btn = QPushButton("➕ Add Group")
+        self._add_group_btn = QPushButton("🞥 Add Group")
         self._add_group_btn.clicked.connect(self._add_group)
         self._add_group_btn.setStyleSheet(
             f"QPushButton{{background:{COLOR_ACCENT};color:black;font-weight:bold;padding:5px 10px;}}"
@@ -3845,7 +3845,7 @@ class MultiTaskDialog(QDialog):
         self._move_dn_btn.clicked.connect(lambda: self._move_group(1))
         grp_top.addWidget(self._move_dn_btn)
 
-        self._del_group_btn = QPushButton("✕ Del Group")
+        self._del_group_btn = QPushButton("🗑 Del Group")
         self._del_group_btn.setStyleSheet(
             f"QPushButton{{background:{COLOR_CRITICAL};color:white;padding:5px 8px;}}"
             f"QPushButton:hover{{background:#cc2222;}}"
@@ -4055,7 +4055,7 @@ class MultiTaskDialog(QDialog):
 
         # Task rows
         if not grp["tasks"]:
-            empty = QLabel("  (drop tasks here — select group then click ➕ Add)")
+            empty = QLabel("  (drop tasks here — select group then click 🞥 Add)")
             empty.setStyleSheet(f"color:{COLOR_TEXT_MUTED};font-style:italic;font-size:{FONT_SIZE_SMALL};padding:4px;")
             pl.addWidget(empty)
         else:
@@ -4206,40 +4206,40 @@ class TaskInputDialog(QDialog):
 
         # ── Tool info banner ─────────────────────────────────────────────────
         TOOL_INFO = {
-            "spider":      ("🕷️", "gospider + cariddi + katana + linkfinder + paramspider → sitemap.xml → httpx validation"),
-            "archive":     ("🗄️", "waybackurls + waymore + gau + gauplus + github-endpoints → uro → httpx"),
-            "ipinfo":      ("📍", "IP geolocation & ASN info via ipinfo CLI"),
+            "spider":      ("🕸", "gospider + cariddi + katana + linkfinder + paramspider → sitemap.xml → httpx validation"),
+            "archive":     ("🗊", "waybackurls + waymore + gau + gauplus + github-endpoints → uro → httpx"),
+            "ipinfo":      ("🛈", "IP geolocation & ASN info via ipinfo CLI"),
             "headers":     ("🗉", "HTTP response headers via curl -I"),
-            "tech":        ("🔬", "Technology fingerprinting via wad"),
-            "waf":         ("🛡️", "WAF detection via wafw00f"),
-            "cms":         ("📰", "CMS detection via cmseek"),
-            "ports":       ("🔌", "Top-1000 port scan with service/version detection (nmap)"),
-            "bruteforce":  ("📂", "Smart content bruteforce with tech-aware wordlists (feroxbuster)"),
-            "nuclei":      ("☢️", "Vulnerability scan with Nuclei templates"),
-            "nikto":       ("🔎", "Web server misconfiguration scanner (nikto)"),
+            "tech":        ("⚙", "Technology fingerprinting via wad"),
+            "waf":         ("🛡", "WAF detection via wafw00f"),
+            "cms":         ("🛈", "CMS detection via cmseek"),
+            "ports":       ("𝜬", "Top-1000 port scan with service/version detection (nmap)"),
+            "bruteforce":  ("🗁", "Smart content bruteforce with tech-aware wordlists (feroxbuster)"),
+            "nuclei":      ("☢", "Vulnerability scan with Nuclei templates"),
+            "nikto":       ("⌕", "Web server misconfiguration scanner (nikto)"),
             # Domain-level tools
             "whois":             ("🗉", "Whois domain registration info"),
-            "google_dorks":      ("🔎", "Google dork search URLs (dorks_hunter)"),
-            "github_dorks":      ("🐙", "GitHub secret/code search (gitdorks_go)"),
-            "github_secrets":    ("🔑", "Verified secrets scanner (trufflehog)"),
-            "emails":            ("📧", "Email discovery (emailfinder)"),
+            "google_dorks":      ("⌕", "Google dork search URLs (dorks_hunter)"),
+            "github_dorks":      ("🗉", "GitHub secret/code search (gitdorks_go)"),
+            "github_secrets":    ("🗉", "Verified secrets scanner (trufflehog)"),
+            "emails":            ("@", "Email discovery (emailfinder)"),
             "metadata":          ("🗉", "Document metadata extraction (metafinder)"),
-            "passive_subdomains":("🌿", "Passive enum: amass+subfinder+crt.sh+findomain+hackertarget"),
-            "active_subdomains": ("💥", "DNS brute-force (gobuster dns)"),
-            "guess_subdomains":  ("🔀", "Permutation guessing (altdns) — needs passive subs first"),
-            "vhost":             ("🏠", "Virtual host discovery (ffuf)"),
-            "bypass_40x":        ("🔓", "Bypass 401/403 responses (byp4xx)"),
-            "takeover":          ("🎯", "Subdomain takeover detection (subjack)"),
-            "service_scan":      ("🔌", "Port + service scan across all subdomains (smap)"),
-            "cloud_enum":        ("☁️", "Cloud asset enumeration (cloud_enum)"),
-            "screenshot":        ("📸", "Screenshot all live subdomains (eyewitness)"),
-            "wpscan":      ("🔷", "WordPress vulnerability scanner"),
-            "joomscan":    ("🟠", "Joomla vulnerability scanner"),
-            "droopescan":  ("🟣", "Drupal vulnerability scanner"),
-            "subdomains4": ("🌿", "Passive 4th-level subdomain enum: amass + subfinder + crt.sh + findomain + github"),
+            "passive_subdomains":("🖧", "Passive enum: amass+subfinder+crt.sh+findomain+hackertarget"),
+            "active_subdomains": ("🖧", "DNS brute-force (gobuster dns)"),
+            "guess_subdomains":  ("🖧", "Permutation guessing (altdns) — needs passive subs first"),
+            "vhost":             ("🖧", "Virtual host discovery (ffuf)"),
+            "bypass_40x":        ("⮊", "Bypass 401/403 responses (byp4xx)"),
+            "takeover":          ("⚠", "Subdomain takeover detection (subjack)"),
+            "service_scan":      ("𝜬", "Port + service scan across all subdomains (smap)"),
+            "cloud_enum":        ("🗉", "Cloud asset enumeration (cloud_enum)"),
+            "screenshot":        ("␨", "Screenshot all live subdomains (eyewitness)"),
+            "wpscan":      ("✦", "WordPress vulnerability scanner"),
+            "joomscan":    ("✦", "Joomla vulnerability scanner"),
+            "droopescan":  ("✦", "Drupal vulnerability scanner"),
+            "subdomains4": ("🖧", "Passive 4th-level subdomain enum: amass + subfinder + crt.sh + findomain + github"),
         }
         tool_lc = self.tool_name.lower()
-        icon, desc = TOOL_INFO.get(tool_lc, ("🔧", self.tool_name))
+        icon, desc = TOOL_INFO.get(tool_lc, ("⌖", self.tool_name))
         banner = QLabel(
             f"<b style='font-size:12pt'>{icon} {self.tool_name.title()}</b><br>"
             f"<span style='color:{COLOR_TEXT_MUTED}'>{desc}</span><br>"
@@ -4366,12 +4366,12 @@ class TaskInputDialog(QDialog):
 
             btn_row_auth.addSpacing(12)
 
-            get_cookie_btn = QPushButton("📜 Cookie from History")
+            get_cookie_btn = QPushButton(" Cookie from History")
             get_cookie_btn.setToolTip("Grab the latest session cookie from HTTP history")
             get_cookie_btn.clicked.connect(self._get_cookie_from_history)
             btn_row_auth.addWidget(get_cookie_btn)
 
-            detect_btn = QPushButton("🔍 Auto-detect Cookie")
+            detect_btn = QPushButton("⌕ Auto-detect Cookie")
             detect_btn.setToolTip("Scan HTTP history for a login session cookie")
             detect_btn.setStyleSheet(f"color:{COLOR_ACCENT_SECONDARY};")
             detect_btn.clicked.connect(self._auto_detect_cookie)
@@ -5070,7 +5070,7 @@ class TaskWidget(QWidget):
         meta_row.addWidget(self._time_chip)
 
         out = self.task_data.get("output_file", "")
-        tool_chip_text = f"🔧 {tool}"
+        tool_chip_text = f"⌖ {tool}"
         if out:
             tool_chip_text += f" · {os.path.basename(out)}"
         self._tool_chip = self._meta_chip(tool_chip_text)
@@ -5163,7 +5163,7 @@ class TaskWidget(QWidget):
         if out and hasattr(self, '_tool_chip'):
             tool = self.task_data.get("tool", "")
             self._tool_chip.setText(
-                f"🔧 {tool} · {os.path.basename(out)}"
+                f"⌖ {tool} · {os.path.basename(out)}"
             )
 
         # Status → (icon, icon-box bg, accent color, show-spinner, progress-mode)
@@ -5684,8 +5684,8 @@ class SubdomainWidget(QWidget):
         metadata_a       = menu.addAction(p("metadata")       + "Metadata Finder (metafinder)")
         menu.addSeparator()
 
-        # ── 🌐 Subdomains ─────────────────────────────────────────────────
-        subs_title = menu.addAction("── 🌐 Subdomain Enumeration ──")
+        # ── 🖥 Subdomains ─────────────────────────────────────────────────
+        subs_title = menu.addAction("── 🖥 Subdomain Enumeration ──")
         subs_title.setEnabled(False)
         passive_subs_a = menu.addAction(p("passive_subdomains") + "Passive Subdomains (amass+subfinder+crt.sh+findomain)")
         active_subs_a  = menu.addAction(p("active_subdomains")  + "Active Brute-Force (gobuster dns)")
@@ -5703,10 +5703,10 @@ class SubdomainWidget(QWidget):
         screenshot_a = menu.addAction(p("screenshot")   + "Screenshots (eyewitness)")
         menu.addSeparator()
 
-        # ── 📊 Report ─────────────────────────────────────────────────────
-        report_title = menu.addAction("── 📊 Report ──")
+        # ── 🗠 Report ─────────────────────────────────────────────────────
+        report_title = menu.addAction("── 🗠 Report ──")
         report_title.setEnabled(False)
-        open_report_a = menu.addAction("📊  Open Domain Report")
+        open_report_a = menu.addAction("🗠  Open Domain Report")
 
         btn_pos = self.menu_btn.mapToGlobal(QPoint(0, self.menu_btn.height()))
         action = menu.exec_(btn_pos)
@@ -5768,14 +5768,14 @@ class SubdomainWidget(QWidget):
             f"QMenu::separator{{background-color:{COLOR_BORDER};height:1px;margin:3px 8px;}}"
         )
 
-        # ── 🕸️ Crawling ──────────────────────────────────────────────────────
+        # ── 🖥️ Crawling ──────────────────────────────────────────────────────
         crawl_title = menu.addAction("──  Crawling ──")
         crawl_title.setEnabled(False)
         spider_a  = menu.addAction(p("spider")  + "Spider (gospider + cariddi + katana + linkfinder + paramspider)")
         archive_a = menu.addAction(p("archive") + "Web Archive (wayback + gau + waymore + gauplus)")
         menu.addSeparator()
 
-        # ── 🔍 Recon ─────────────────────────────────────────────────────────
+        # ── ⌕ Recon ─────────────────────────────────────────────────────────
         recon_title = menu.addAction("──  Recon ──")
         recon_title.setEnabled(False)
         ipinfo_a  = menu.addAction(p("ipinfo")  + "IP Info")
@@ -5792,7 +5792,7 @@ class SubdomainWidget(QWidget):
         bruteforce_a = menu.addAction(p("bruteforce") + "Content Bruteforce (feroxbuster + tech wordlists)")
         menu.addSeparator()
 
-        # ── ☢️ Scanning ───────────────────────────────────────────────────────
+        # ── ☢ Scanning ───────────────────────────────────────────────────────
         scan_title = menu.addAction("──  Vulnerability Scanning ──")
         scan_title.setEnabled(False)
         nuclei_a = menu.addAction(p("nuclei") + "Nuclei (all templates)")
@@ -5807,7 +5807,7 @@ class SubdomainWidget(QWidget):
         droope_a   = menu.addAction(p("droopescan") + "Droopescan (Drupal)")
         menu.addSeparator()
 
-        # ── 🌿 Enumeration ────────────────────────────────────────────────────
+        # ── 🖧 Enumeration ────────────────────────────────────────────────────
         enum_title = menu.addAction("──  Enumeration ──")
         enum_title.setEnabled(False)
         subs4_a = menu.addAction(p("subdomains4") + "4th-Level Subdomains (amass + subfinder + crt.sh)")
@@ -5962,7 +5962,7 @@ class DashboardTab(QWidget):
         hl = QHBoxLayout(header)
         hl.setContentsMargins(16, 6, 16, 6)
 
-        title = QLabel("📊 Task Dashboard")
+        title = QLabel("🗠 Task Dashboard")
         title.setStyleSheet(f"color:{COLOR_ACCENT};font-weight:bold;font-size:{FONT_SIZE_LARGE};")
         hl.addWidget(title)
 
@@ -5973,7 +5973,7 @@ class DashboardTab(QWidget):
         self._cookie_badge.setStyleSheet(f"color:{COLOR_SUCCESS};font-size:{FONT_SIZE_SMALL};")
         hl.addWidget(self._cookie_badge)
 
-        detect_cookie_btn = QPushButton("🔍 Detect Cookie")
+        detect_cookie_btn = QPushButton("⌕ Detect Cookie")
         detect_cookie_btn.setStyleSheet(
             f"QPushButton{{background-color:{COLOR_ELEVATED_BG};color:{COLOR_TEXT};"
             f"border:1px solid {COLOR_BORDER};padding:4px 10px;border-radius:4px;}}"
@@ -6038,7 +6038,7 @@ class DashboardTab(QWidget):
         targets_hdr.setMaximumHeight(32)
         tgt_hl = QHBoxLayout(targets_hdr)
         tgt_hl.setContentsMargins(12, 6, 12, 6)
-        tgt_hl.addWidget(QLabel("🌐 Targets"))
+        tgt_hl.addWidget(QLabel("🖥 Targets"))
         tgt_hl.addStretch()
         self._domain_count_label = QLabel("0")
         self._domain_count_label.setStyleSheet(
@@ -6089,7 +6089,7 @@ class DashboardTab(QWidget):
         self._tasks_stats_label.setStyleSheet("color:#888888;font-size:10px;border:none;")
         thl.addWidget(self._tasks_stats_label)
 
-        clear_btn = QPushButton("🗑️")
+        clear_btn = QPushButton("🗑")
         clear_btn.setFixedSize(26, 26)
         clear_btn.setToolTip("Clear completed / errored tasks")
         clear_btn.setStyleSheet(
@@ -6533,7 +6533,7 @@ class DashboardTab(QWidget):
 
         if added:
             self._update_target_counts()
-            self._set_status(f"🗺️ {added} new host{'s' if added != 1 else ''} discovered from traffic.")
+            self._set_status(f"🖥 {added} new host{'s' if added != 1 else ''} discovered from traffic.")
 
 
 
@@ -6850,7 +6850,7 @@ class DashboardTab(QWidget):
 
         if added:
             self._update_target_counts()
-            self._set_status(f"🌐 {added} new host{'s' if added != 1 else ''} discovered from traffic.")
+            self._set_status(f"🖥 {added} new host{'s' if added != 1 else ''} discovered from traffic.")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cookie detection
@@ -6904,7 +6904,7 @@ class DashboardTab(QWidget):
         if dlg.exec_() == QDialog.Accepted:
             if dlg.choice in (CookiePromptDialog.USE_COOKIE, CookiePromptDialog.CHANGE):
                 self._last_detected_cookie = dlg.final_cookie
-                self._cookie_badge.setText("🍪 Cookie active")
+                self._cookie_badge.setText("🤀 Cookie active")
                 self._set_status("Cookie saved — it will be pre-filled in new tasks.")
             else:
                 self._last_detected_cookie = ""
