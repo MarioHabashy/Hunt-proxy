@@ -578,7 +578,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
         points.append({
             "id": f"url:{name}", "name": name,
             "type": "URL Parameter", "value": val,
-            "category": "🌐 URL Parameters",
+            "category": "</> URL Parameters",
         })
 
     # ── URL path segments ─────────────────────────────────────────────────────
@@ -613,7 +613,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
                 "name": f"path[{seg_idx}]",
                 "type": "URL Path Segment",
                 "value": seg,
-                "category": "🛣️  URL Path Segments",
+                "category": "⧄  URL Path Segments",
             })
 
     # ── POST / body parameters ────────────────────────────────────────────────
@@ -626,7 +626,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
                 break
         is_json_body     = "application/json" in ct
         is_multipart     = "multipart/form-data" in ct
-        cat  = "📦 JSON Body Fields" if is_json_body else "📮 POST Body Parameters"
+        cat  = "⧄ JSON Body Fields" if is_json_body else "🠶 POST Body Parameters"
         btype = "JSON Field"          if is_json_body else "POST Body"
 
         for name, vals in body_params.items():
@@ -636,7 +636,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
                 points.append({
                     "id": f"body:{name}", "name": name,
                     "type": "File Upload Field", "value": val,
-                    "category": "📎 File Upload Fields",
+                    "category": "🠉 File Upload Fields",
                 })
             else:
                 points.append({
@@ -653,7 +653,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
                     points.append({
                         "id": f"body:{name}", "name": name,
                         "type": "JSON Field", "value": str(val),
-                        "category": "📦 JSON Body Fields",
+                        "category": "⧄ JSON Body Fields",
                     })
         except Exception:
             pass
@@ -663,7 +663,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
         points.append({
             "id": f"cookie:{name}", "name": name,
             "type": "Cookie", "value": val,
-            "category": "🍪 Cookies",
+            "category": "🤀 Cookies",
         })
 
     # ── HTTP headers (skip infra / hop-by-hop headers) ────────────────────────
@@ -675,7 +675,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
         points.append({
             "id": f"header:{name}", "name": name,
             "type": "HTTP Header", "value": val,
-            "category": "📋 HTTP Headers",
+            "category": "☰ HTTP Headers",
         })
 
     # ── Synthetic SSRF-specific headers ───────────────────────────────────────
@@ -711,7 +711,7 @@ def _parse_all_injection_points(request_data: Dict[str, Any]) -> List[Dict[str, 
                 "name":     hname,
                 "type":     "SSRF Header",
                 "value":    "",
-                "category": "🎯 SSRF-Specific Headers (injected)",
+                "category": "🞋 SSRF-Specific Headers (injected)",
             })
 
     return points
@@ -905,10 +905,10 @@ def _compute_scan_defaults(scan_types: List[str], request_data: Dict[str, Any]) 
             # Two cases:
             #   1. Header already in the original request (any casing) →
             #      use the ACTUAL stored name as the id so the checkbox in
-            #      "📋 HTTP Headers" gets ticked (e.g. "header:referer")
+            #      "☰ HTTP Headers" gets ticked (e.g. "header:referer")
             #   2. Header absent from the original request →
             #      use canonical casing — it will appear as a synthetic entry
-            #      in "🎯 SSRF-Specific Headers" (e.g. "header:Referer")
+            #      in "🞋 SSRF-Specific Headers" (e.g. "header:Referer")
             # Build a lowercase→actual-name lookup for headers in the request.
             _hdr_lower_map = {k.lower(): k for k in headers}
             for hname in SSRF_HEADERS:
@@ -1008,7 +1008,7 @@ class InjectionPointSelectorDialog(QDialog):
     def __init__(self, request_data: Dict[str, Any], scan_types: List[str],
                  parent=None, points=None):
         super().__init__(parent)
-        self.setWindowTitle("🎯 Select Injection Points")
+        self.setWindowTitle("⌖ Select Injection Points")
         self.setMinimumWidth(680)
         self.setMinimumHeight(520)
 
@@ -1029,7 +1029,7 @@ class InjectionPointSelectorDialog(QDialog):
 
         # Header
         title = QLabel(
-            f"<b>🎯 Injection Points</b> — "
+            f"<b>⌖ Injection Points</b> — "
             f"<span style='color:#53d8fb'>{', '.join(self._scan_types)}</span> scan"
         )
         title.setStyleSheet("font-size: 11pt;")
@@ -1038,7 +1038,7 @@ class InjectionPointSelectorDialog(QDialog):
         n_default = sum(1 for pt in self._all_points if pt["id"] in self._defaults)
         n_total   = len(self._all_points)
         subtitle = QLabel(
-            f"✅ <b>{n_default}</b> point(s) pre-checked = what this scan tests by default.  "
+            f"✓ <b>{n_default}</b> point(s) pre-checked = what this scan tests by default.  "
             f"Total detected: <b>{n_total}</b>.  Override freely."
         )
         subtitle.setWordWrap(True)
@@ -1146,7 +1146,7 @@ class InjectionPointSelectorDialog(QDialog):
         qrow = QHBoxLayout()
         qrow.setSpacing(6)
 
-        for label, state in [("✅ All", True), ("❌ None", False)]:
+        for label, state in [("✓ All", True), ("✗ None", False)]:
             btn = QPushButton(label)
             btn.setMaximumWidth(80)
             btn.clicked.connect(lambda _, s=state: self._set_all(s))
@@ -1168,7 +1168,7 @@ class InjectionPointSelectorDialog(QDialog):
 
         csrf_row = QHBoxLayout()
         csrf_row.setSpacing(8)
-        csrf_lbl = QLabel("🔄 CSRF Refresh URL:")
+        csrf_lbl = QLabel("⭮ CSRF Refresh URL:")
         csrf_lbl.setToolTip(
             "Optional — GET this URL before every probe request to fetch a fresh CSRF token.\n"
             "The token is auto-scraped from hidden form fields, meta csrf-token tags,\n"
@@ -1275,7 +1275,7 @@ class CsrfOptionCDialog(QDialog):
 
     def __init__(self, csrf_field_names: list, upload_url: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("🔐 CSRF Auto-Detect Failed — Option C")
+        self.setWindowTitle("✘ CSRF Auto-Detect Failed — Option C")
         self.setMinimumWidth(480)
         self.setWindowModality(Qt.ApplicationModal)
         self.refresh_url: Optional[str] = None   # set on Accept
@@ -1284,7 +1284,7 @@ class CsrfOptionCDialog(QDialog):
         layout.setSpacing(10)
 
         # ── Header ────────────────────────────────────────────────────────
-        title = QLabel("⚠️  CSRF Token Could Not Be Auto-Detected")
+        title = QLabel("⚠  CSRF Token Could Not Be Auto-Detected")
         font = QFont(); font.setBold(True)
         title.setFont(font)
         layout.addWidget(title)
@@ -1439,7 +1439,7 @@ class ScanWorker(
         self._step_event.set()   # starts set so the first request runs immediately
 
         # ── AI Payload Suggester ─────────────────────────────────────────────
-        # Set by ScannerTab.start_scan() when the "🤖 AI Payloads" checkbox is on.
+        # Set by ScannerTab.start_scan() when the "✨ AI Payloads" checkbox is on.
         # ai_suggest_payloads : boolean gate — False = feature disabled (default).
         # ai_settings         : dict from settings.json used to call the AI provider.
         self.ai_suggest_payloads: bool = False
@@ -2024,7 +2024,7 @@ class ScanWorker(
                 if resp_obj.status_code == 429 and attempt < _max_retries:
                     retry_after = int(resp_obj.headers.get('Retry-After', max(2, _req_delay * 2 or 3)))
                     self.scan_progress.emit(
-                        f"  ⚠️  429 Rate Limited — waiting {retry_after}s before retry "
+                        f"  ⚠  429 Rate Limited — waiting {retry_after}s before retry "
                         f"(attempt {attempt+1}/{_max_retries+1})"
                     )
                     time.sleep(retry_after)
@@ -2044,7 +2044,7 @@ class ScanWorker(
                 if attempt < _max_retries:
                     wait = min(2 ** attempt, 8)  # exponential back-off: 1s, 2s, 4s, 8s
                     self.scan_progress.emit(
-                        f"  ⚠️  Request error ({e.__class__.__name__}) — "
+                        f"  ⚠  Request error ({e.__class__.__name__}) — "
                         f"retry {attempt+1}/{_max_retries} in {wait}s"
                     )
                     time.sleep(wait)
@@ -2089,7 +2089,7 @@ class ScanWorker(
         try:
             from modules.ai_client import suggest_bypass_payloads
             self.scan_progress.emit(
-                f"  🤖 AI Payload Suggester: analysing probe response for '{param_name}' "
+                f"  ✨ AI Payload Suggester: analysing probe response for '{param_name}' "
                 f"[{scan_type}] (filter: {waf_fingerprint or 'none'}) …"
             )
             payloads = suggest_bypass_payloads(
@@ -2102,15 +2102,15 @@ class ScanWorker(
             )
             if payloads:
                 self.scan_progress.emit(
-                    f"  🤖 AI Payload Suggester: {len(payloads)} targeted payload(s) generated"
+                    f"  ✨ AI Payload Suggester: {len(payloads)} targeted payload(s) generated"
                 )
             else:
                 self.scan_progress.emit(
-                    "  🤖 AI Payload Suggester: no payloads returned (check AI config)"
+                    "  ✨ AI Payload Suggester: no payloads returned (check AI config)"
                 )
             return payloads
         except Exception as exc:
-            self.scan_progress.emit(f"  ⚠️  AI Payload Suggester error: {exc}")
+            self.scan_progress.emit(f"  ⚠  AI Payload Suggester error: {exc}")
             return []
 
     # ============================================================================
@@ -2243,7 +2243,7 @@ class CompareTab(QWidget):
         left_btn_row = QHBoxLayout()
         left_btn_row.setSpacing(6)
 
-        self._left_resend_btn = QPushButton("🔄 Resend")
+        self._left_resend_btn = QPushButton("⭮ Resend")
         self._left_resend_btn.setEnabled(False)
         self._left_resend_btn.setMaximumWidth(90)
         self._left_resend_btn.clicked.connect(self._resend_left)
@@ -2283,7 +2283,7 @@ class CompareTab(QWidget):
         right_btn_row = QHBoxLayout()
         right_btn_row.setSpacing(6)
 
-        self._right_resend_btn = QPushButton("🔄 Resend")
+        self._right_resend_btn = QPushButton("⭮ Resend")
         self._right_resend_btn.setEnabled(False)
         self._right_resend_btn.setMaximumWidth(90)
         self._right_resend_btn.clicked.connect(self._resend_right)
@@ -2333,9 +2333,9 @@ class CompareTab(QWidget):
         #
         #   LEFT column                RIGHT column
         #   ┌──────────────────┐       ┌──────────────────┐
-        #   │  📤 Request (A)  │       │  📤 Request (B)  │
+        #   │  🠉 Request (A)  │       │  🠉 Request (B)  │
         #   ├──────────────────┤       ├──────────────────┤
-        #   │  📥 Response (A) │       │  📥 Response (B) │
+        #   │  🠋 Response (A) │       │  🠋 Response (B) │
         #   └──────────────────┘       └──────────────────┘
         #
         main_split = QSplitter(Qt.Horizontal)
@@ -2354,14 +2354,14 @@ class CompareTab(QWidget):
         # Left Request
         self._left_req_text = self._make_diff_editor()
         left_col_split.addWidget(
-            self._wrap_pane("📤  Request  —  LEFT (Baseline / A)", self._left_req_text,
+            self._wrap_pane("🠉  Request  —  LEFT (Baseline / A)", self._left_req_text,
                             label_colour="#5b8dd9")
         )
 
         # Left Response
         self._left_resp_text = self._make_diff_editor()
         left_col_split.addWidget(
-            self._wrap_pane("📥  Response  —  LEFT (Baseline / A)", self._left_resp_text,
+            self._wrap_pane("🠋  Response  —  LEFT (Baseline / A)", self._left_resp_text,
                             label_colour="#5b8dd9")
         )
 
@@ -2381,14 +2381,14 @@ class CompareTab(QWidget):
         # Right Request
         self._right_req_text = self._make_diff_editor()
         right_col_split.addWidget(
-            self._wrap_pane("📤  Request  —  RIGHT (Payload / B)", self._right_req_text,
+            self._wrap_pane("🠉  Request  —  RIGHT (Payload / B)", self._right_req_text,
                             label_colour="#d98b5b")
         )
 
         # Right Response
         self._right_resp_text = self._make_diff_editor()
         right_col_split.addWidget(
-            self._wrap_pane("📥  Response  —  RIGHT (Payload / B)", self._right_resp_text,
+            self._wrap_pane("🠋  Response  —  RIGHT (Payload / B)", self._right_resp_text,
                             label_colour="#d98b5b")
         )
 
@@ -2459,7 +2459,7 @@ class CompareTab(QWidget):
 
     def _on_left_resend_done(self, new_entry: 'TrafficEntry'):
         self._left_entry = new_entry
-        self._left_label.setText("🔄 " + self._entry_summary(new_entry))
+        self._left_label.setText("⭮ " + self._entry_summary(new_entry))
         self._left_status_lbl.setText(
             f"✓ {new_entry.status_code}  {new_entry.content_length}b  {new_entry.response_time}s"
         )
@@ -2469,7 +2469,7 @@ class CompareTab(QWidget):
 
     def _on_right_resend_done(self, new_entry: 'TrafficEntry'):
         self._right_entry = new_entry
-        self._right_label.setText("🔄 " + self._entry_summary(new_entry))
+        self._right_label.setText("⭮ " + self._entry_summary(new_entry))
         self._right_status_lbl.setText(
             f"✓ {new_entry.status_code}  {new_entry.content_length}b  {new_entry.response_time}s"
         )
@@ -2770,7 +2770,7 @@ class ScannerTab(QWidget):
 
         # Results tab
         self.results_widget = self.create_results_tab()
-        self.content_tabs.addTab(self.results_widget, "📊 Results")
+        self.content_tabs.addTab(self.results_widget, "🗠 Results")
 
         # Request Logs tab
         self.logs_widget = self.create_logs_tab()
@@ -2778,7 +2778,7 @@ class ScannerTab(QWidget):
 
         # Traffic tab
         self.traffic_widget = self.create_traffic_tab()
-        self.content_tabs.addTab(self.traffic_widget, "🌐 Traffic")
+        self.content_tabs.addTab(self.traffic_widget, " Traffic")
 
         # Compare tab
         self.compare_tab = CompareTab(self)
@@ -2806,7 +2806,7 @@ class ScannerTab(QWidget):
         row1 = QHBoxLayout()
         row1.setSpacing(6)
 
-        title = QLabel("🔍 Active Scanner")
+        title = QLabel("⌕ Active Scanner")
         title.setFont(QFont("Segoe UI", 12, QFont.Bold))
         row1.addWidget(title)
 
@@ -2835,7 +2835,7 @@ class ScannerTab(QWidget):
             "  • Boost controls PARALLELISM (sequential vs parallel threads)\n"
             "  • Speed Preset controls PER-REQUEST settings (timeout, delay, retries)\n"
             "  • They are independent and stack — e.g. Fast+Boost = fastest overall\n\n"
-            "⚠️  Slow preset + Boost ON: parallelism is active but per-request delay\n"
+            "⚠  Slow preset + Boost ON: parallelism is active but per-request delay\n"
             "    and retries still apply (may partially offset the speed gain).\n\n"
             "Time-based blind payloads always run sequentially regardless of Boost."
         )
@@ -2845,7 +2845,7 @@ class ScannerTab(QWidget):
         self.ai_payloads_checkbox = QCheckBox(" AI Payloads")
         self.ai_payloads_checkbox.setChecked(False)
         self.ai_payloads_checkbox.setToolTip(
-            "🤖 AI Payload Suggester\n\n"
+            "✨ AI Payload Suggester\n\n"
             "After the initial probe phase, sends the WAF/filter fingerprint\n"
             "and probe response snippet to the configured AI provider to generate\n"
             "targeted bypass payloads tailored to the detected defenses.\n\n"
@@ -2903,7 +2903,7 @@ class ScannerTab(QWidget):
         row1.addWidget(self.stop_scan_btn)
 
         # Next button — only visible during One-by-one step mode
-        self.step_next_btn = QPushButton("⏩ Next")
+        self.step_next_btn = QPushButton("↠ Next")
         self.step_next_btn.setToolTip(
             "Send the next probe request.\n"
             "Only active in 🪜 One-by-one mode."
@@ -2947,7 +2947,7 @@ class ScannerTab(QWidget):
         row1.addWidget(self.scan_config_btn)
 
         # Clear dropdown menu
-        clear_menu_btn = QPushButton("🗑️ Clear ▼")
+        clear_menu_btn = QPushButton("🗑 Clear ▼")
         clear_menu = QMenu()
         clear_results_action = clear_menu.addAction("Clear Results & Logs")
         clear_results_action.triggered.connect(self.clear_results_and_logs)
@@ -2964,7 +2964,7 @@ class ScannerTab(QWidget):
         row1.addWidget(clear_menu_btn)
 
         # Payloads browser button
-        payloads_btn = QPushButton("📚 Payloads")
+        payloads_btn = QPushButton("☰ Payloads")
         payloads_btn.setToolTip(
             "Browse all payloads used by each scan type.\n\n"
             "Shows probe payloads, fingerprint payloads, error patterns\n"
@@ -3206,7 +3206,7 @@ class ScannerTab(QWidget):
         # Header row with title + live count badge
         hdr_row = QHBoxLayout()
         hdr_row.setContentsMargins(0, 0, 0, 0)
-        header = QLabel("📋 Scan Queue")
+        header = QLabel("☰ Scan Queue")
         header.setFont(QFont("Segoe UI", 9, QFont.Bold))
         hdr_row.addWidget(header)
         hdr_row.addStretch()
@@ -3282,7 +3282,7 @@ class ScannerTab(QWidget):
         
         # Header with controls
         header_layout = QHBoxLayout()
-        header = QLabel("🌐 HTTP Traffic Monitor")
+        header = QLabel("🖳 HTTP Traffic Monitor")
         header.setFont(QFont("Segoe UI", 10, QFont.Bold))
         header_layout.addWidget(header)
         
@@ -3336,7 +3336,7 @@ class ScannerTab(QWidget):
         header_layout.addWidget(self.delta_len_filter)
         
         # Auto-scroll toggle
-        self.auto_scroll_traffic = QPushButton("📜 Auto-scroll: ON")
+        self.auto_scroll_traffic = QPushButton(" Auto-scroll: ON")
         self.auto_scroll_traffic.setCheckable(True)
         self.auto_scroll_traffic.setChecked(True)
         self.auto_scroll_traffic.clicked.connect(self.toggle_auto_scroll)
@@ -3344,7 +3344,7 @@ class ScannerTab(QWidget):
         header_layout.addWidget(self.auto_scroll_traffic)
         
         # Clear traffic button — icon only to save space
-        clear_traffic_btn = QPushButton("🗑️")
+        clear_traffic_btn = QPushButton("🗑")
         clear_traffic_btn.setToolTip("Clear traffic")
         clear_traffic_btn.clicked.connect(self.clear_traffic)
         clear_traffic_btn.setFixedWidth(30)
@@ -3396,7 +3396,7 @@ class ScannerTab(QWidget):
         request_layout = QVBoxLayout(request_widget)
         request_layout.setContentsMargins(5, 5, 5, 5)
         
-        request_header = QLabel("📤 HTTP Request")
+        request_header = QLabel("🠉 HTTP Request")
         request_header.setFont(QFont("Segoe UI", 9, QFont.Bold))
         request_layout.addWidget(request_header)
         
@@ -3415,7 +3415,7 @@ class ScannerTab(QWidget):
 
         # Response header row
         resp_header_row = QHBoxLayout()
-        response_header = QLabel("📥 HTTP Response")
+        response_header = QLabel("🠋 HTTP Response")
         response_header.setFont(QFont("Segoe UI", 9, QFont.Bold))
         resp_header_row.addWidget(response_header)
         resp_header_row.addStretch()
@@ -3424,7 +3424,7 @@ class ScannerTab(QWidget):
         # Response search bar
         resp_search_row = QHBoxLayout()
         self.resp_search_input = QLineEdit()
-        self.resp_search_input.setPlaceholderText("🔍 Search in response...")
+        self.resp_search_input.setPlaceholderText("⌕ Search in response...")
         self.resp_search_input.setMaximumWidth(260)
         self.resp_search_input.textChanged.connect(self._on_resp_search_changed)
         resp_search_row.addWidget(self.resp_search_input)
@@ -3685,7 +3685,7 @@ class ScannerTab(QWidget):
   <div id="sc"><span style="color:#888">⏳ sending…</span></div>
   <pre id="resp" style="min-height:60px">—</pre>
 
-  <button onclick="send()">🔄 Resend</button>
+  <button onclick="send()">⭮ Resend</button>
 
   <script>
     async function send() {{
@@ -3711,7 +3711,7 @@ class ScannerTab(QWidget):
         }}
       }} catch(e) {{
         document.getElementById('sc').innerHTML =
-          '<span class="err">❌ ' + e.message + '</span>';
+          '<span class="err">✗ ' + e.message + '</span>';
         document.getElementById('resp').textContent =
           'Note: CORS may block cross-origin fetch responses in the browser.'
       }}
@@ -4084,7 +4084,7 @@ class ScannerTab(QWidget):
         # ══════════════════════════════════════════════════════════════════
         # SECTION 1 — SPEED PRESET
         # ══════════════════════════════════════════════════════════════════
-        speed_grp = QGroupBox("🚦  Request Speed Preset")
+        speed_grp = QGroupBox("⚙  Request Speed Preset")
         speed_grp.setStyleSheet(group_style)
         speed_layout = QVBoxLayout(speed_grp)
 
@@ -4102,10 +4102,10 @@ class ScannerTab(QWidget):
         speed_layout.addWidget(speed_desc)
 
         preset_row = QHBoxLayout()
-        self._cfg_radio_fast   = QRadioButton("⚡ Fast")
-        self._cfg_radio_normal = QRadioButton("✅ Normal  (default)")
-        self._cfg_radio_slow   = QRadioButton("🐢 Slow  (WAF / 429 evasion)")
-        self._cfg_radio_step   = QRadioButton("🪜 One by one  (manual step)")
+        self._cfg_radio_fast   = QRadioButton(" Fast")
+        self._cfg_radio_normal = QRadioButton(" Normal  (default)")
+        self._cfg_radio_slow   = QRadioButton(" Slow  (WAF / 429 evasion)")
+        self._cfg_radio_step   = QRadioButton(" One by one  (manual step)")
 
         self._cfg_radio_fast.setToolTip(
             "Shorter timeouts, minimal delay, higher concurrency.\n"
@@ -4118,7 +4118,7 @@ class ScannerTab(QWidget):
         )
         self._cfg_radio_step.setToolTip(
             "Send one probe request at a time and pause after each one.\n"
-            "A \"⏩ Next\" button appears in the toolbar — click it to send\n"
+            "A \"↠ Next\" button appears in the toolbar — click it to send\n"
             "the next request.  Useful when the result of a probe appears on\n"
             "a separate page that you need to review manually before continuing."
         )
@@ -4146,7 +4146,7 @@ class ScannerTab(QWidget):
         # ══════════════════════════════════════════════════════════════════
         # SECTION 2 — MANUAL SETTINGS
         # ══════════════════════════════════════════════════════════════════
-        manual_grp = QGroupBox("🔧  Manual Adjustment")
+        manual_grp = QGroupBox("✎  Manual Adjustment")
         manual_grp.setStyleSheet(group_style)
         manual_grid = QGridLayout(manual_grp)
         manual_grid.setColumnMinimumWidth(0, 230)
@@ -4205,7 +4205,7 @@ class ScannerTab(QWidget):
         # ══════════════════════════════════════════════════════════════════
         # SECTION 3 — REQUEST BEHAVIOUR
         # ══════════════════════════════════════════════════════════════════
-        req_grp = QGroupBox("🌐  Request Behaviour")
+        req_grp = QGroupBox("🖅  Request Behaviour")
         req_grp.setStyleSheet(group_style)
         req_grid = QGridLayout(req_grp)
         req_grid.setColumnMinimumWidth(0, 230)
@@ -4239,7 +4239,7 @@ class ScannerTab(QWidget):
         # ══════════════════════════════════════════════════════════════════
         # SECTION 4 — DETECTION TUNING
         # ══════════════════════════════════════════════════════════════════
-        det_grp = QGroupBox("🎯  Detection Tuning")
+        det_grp = QGroupBox("⌕  Detection Tuning")
         det_grp.setStyleSheet(group_style)
         det_grid = QGridLayout(det_grp)
         det_grid.setColumnMinimumWidth(0, 230)
@@ -4297,7 +4297,7 @@ class ScannerTab(QWidget):
         root.addWidget(sep)
 
         # Slow + Boost warning
-        self._cfg_warn_lbl = QLabel("⚠️  Slow preset + Boost Mode ON: parallelism is active but per-request delay still applies to every thread. This partially offsets the speed gain — consider Normal preset with Boost instead.")
+        self._cfg_warn_lbl = QLabel("⚠  Slow preset + Boost Mode ON: parallelism is active but per-request delay still applies to every thread. This partially offsets the speed gain — consider Normal preset with Boost instead.")
         self._cfg_warn_lbl.setWordWrap(True)
         self._cfg_warn_lbl.setStyleSheet("color: #e0a040; font-size: 8pt; font-weight: normal;")
         self._cfg_warn_lbl.setVisible(
@@ -4396,8 +4396,8 @@ class ScannerTab(QWidget):
             self._scan_time_threshold   = self._cfg_time_threshold.value()
 
             # Update tooltip on config button to show active preset
-            preset_icon = {"fast": "⚡", "normal": "✅", "slow": "🐢", "step": "🪜"}.get(
-                self._scan_speed_preset, "✅"
+            preset_icon = {"fast": "⚡", "normal": "✓", "slow": "🐢", "step": "🪜"}.get(
+                self._scan_speed_preset, "✓"
             )
             self.scan_config_btn.setToolTip(
                 f"Scan Config — {preset_icon} {self._scan_speed_preset.capitalize()} preset active\n"
@@ -4417,13 +4417,13 @@ class ScannerTab(QWidget):
         if not hasattr(self, '_cfg_summary_lbl'):
             return
         if self._cfg_radio_fast.isChecked():
-            preset = "⚡ Fast"
+            preset = " Fast"
         elif self._cfg_radio_slow.isChecked():
-            preset = "🐢 Slow"
+            preset = " Slow"
         elif hasattr(self, '_cfg_radio_step') and self._cfg_radio_step.isChecked():
-            preset = "🪜 One by one"
+            preset = " One by one"
         else:
-            preset = "✅ Normal"
+            preset = "✓ Normal"
         t  = self._cfg_timeout.value()
         d  = self._cfg_delay.value()
         w  = self._cfg_workers.value()
@@ -4513,7 +4513,7 @@ class ScannerTab(QWidget):
             layout = QVBoxLayout(dialog)
             layout.setSpacing(8)
 
-            title_lbl = QLabel(f"🌐 Blind OAST Detection — {oast_title_str}")
+            title_lbl = QLabel(f"⌕ Blind OAST Detection — {oast_title_str}")
             title_font = QFont()
             title_font.setBold(True)
             title_lbl.setFont(title_font)
@@ -4542,7 +4542,7 @@ class ScannerTab(QWidget):
                                     "     e.g.  kgji2ohoyw.oast.fun"))
             layout.addWidget(QLabel("  3. Paste it below (hostname only — no https://)."))
 
-            link_btn = QPushButton("🌐 Open app.interactsh.com")
+            link_btn = QPushButton(" Open app.interactsh.com")
             link_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://app.interactsh.com/")))
             layout.addWidget(link_btn)
 
@@ -4843,7 +4843,7 @@ class ScannerTab(QWidget):
             self.step_next_btn.setVisible(True)
             self.step_next_btn.setEnabled(False)   # enabled when first pause fires
 
-        preset_icon = {"fast": "⚡", "normal": "✅", "slow": "🐢", "step": "🪜"}.get(self._scan_speed_preset, "✅")
+        preset_icon = {"fast": "", "normal": "", "slow": "", "step": ""}.get(self._scan_speed_preset, "✓")
         status_msg = f"Scanning #{row + 1}... {preset_icon} {self._scan_speed_preset.capitalize()}"
         if boost_mode:
             status_msg += " | ⚡ BOOST"
@@ -4857,7 +4857,7 @@ class ScannerTab(QWidget):
             f"Bool consensus: {self._scan_bool_consensus} | "
             f"Time threshold: {self._scan_time_threshold}s | "
             f"Boost: {'ON' if boost_mode else 'OFF'} | "
-            f"AI Payloads: {'ON 🤖' if self.ai_payloads_checkbox.isChecked() else 'OFF'}"
+            f"AI Payloads: {'ON ✨' if self.ai_payloads_checkbox.isChecked() else 'OFF'}"
         )
         self.append_log(row, cfg_line)
         
@@ -4979,7 +4979,7 @@ class ScannerTab(QWidget):
         """Format scan results for display — handles any combination of scan types."""
         lines = []
         lines.append("=" * 80)
-        lines.append("🔍 VULNERABILITY SCAN RESULTS")
+        lines.append("⌕ VULNERABILITY SCAN RESULTS")
         lines.append("=" * 80)
         lines.append("")
 
@@ -5051,14 +5051,14 @@ class ScannerTab(QWidget):
         vuln     = results.get("vulnerable", False)
 
         lines.append(f"  Total payloads tested : {tested}")
-        lines.append(f"  Vulnerable            : {'YES ⚠️' if vuln else 'No'}")
+        lines.append(f"  Vulnerable            : {'YES ⚠' if vuln else 'No'}")
         lines.append("")
 
         if not findings:
             lines.append("  ✓ No NoSQL injection vulnerabilities detected.")
             return lines
 
-        lines.append(f"  ⚠️  {len(findings)} finding(s) detected:")
+        lines.append(f"  ⚠  {len(findings)} finding(s) detected:")
         lines.append("")
 
         SEVERITY_ORDER = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3, "Info": 4}
@@ -5078,7 +5078,7 @@ class ScannerTab(QWidget):
             snippet = f.get("response_snippet", "")
 
             sev_icon = {
-                "Critical": "🚨", "High": "⚠️", "Medium": "🔶", "Low": "🔵", "Info": "ℹ️"
+                "Critical": "Ⓒ", "High": "Ⓗ", "Medium": "Ⓜ", "Low": "Ⓛ", "Info": "Ⓘ"
             }.get(sev, "•")
 
             lines.append(f"  [{i}] {sev_icon} [{sev}] {ftype}")
@@ -5104,14 +5104,14 @@ class ScannerTab(QWidget):
                 return lines
 
             if "error" in result and not result.get("details"):
-                lines.append(f"  ❌ Error: {result['error']}")
+                lines.append(f"  ✗ Error: {result['error']}")
                 return lines
 
             vulnerable = result.get("vulnerable", False)
             summary    = result.get("summary", "")
             stats      = result.get("stats", {})
 
-            lines.append(f"  Status  : {'⚠️  MISCONFIGURED' if vulnerable else '✓ NOT VULNERABLE'}")
+            lines.append(f"  Status  : {'⚠  MISCONFIGURED' if vulnerable else '✓ NOT VULNERABLE'}")
             lines.append(f"  Summary : {summary}")
             lines.append(
                 f"  Stats   : {stats.get('probes_sent', 0)} probe(s) sent | "
@@ -5157,13 +5157,13 @@ class ScannerTab(QWidget):
                 )
             )
 
-            lines.append(f"  ⚠️  {len(sorted_details)} finding(s):")
+            lines.append(f"  ⚠  {len(sorted_details)} finding(s):")
             lines.append("")
 
             for i, d in enumerate(sorted_details, 1):
                 sev         = d.get("severity", d.get("confidence", "?"))
                 sev_icon    = {
-                    "CRITICAL": "🔴", "HIGH": "🚨", "MEDIUM": "⚠️", "LOW": "🔵"
+                    "CRITICAL": "Ⓒ", "HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ"
                 }.get(sev, "•")
                 tc          = d.get("test_case", "?")
                 desc        = d.get("description", "")
@@ -5287,7 +5287,7 @@ class ScannerTab(QWidget):
                     # XSS-chain specific exploit hint
                     if oclass == "xss_chain":
                         lines.append(
-                            f"       ⚠️  XSS chain: find XSS on {origin}, "
+                            f"       ⚠  XSS chain: find XSS on {origin}, "
                             f"inject the script below via:"
                         )
                         lines.append(
@@ -5298,14 +5298,14 @@ class ScannerTab(QWidget):
                     # TLS-break specific hint
                     if oclass == "tls_break":
                         lines.append(
-                            f"       ⚠️  TLS break: requires MITM on HTTP traffic to {origin}."
+                            f"       ⚠  TLS break: requires MITM on HTTP traffic to {origin}."
                         )
                         lines.append(
                             f"       Intercept victim HTTP request → inject CORS request to {url}"
                         )
                         lines.append("")
 
-                    lines.append(f"       💀 Exploit 1 — Standalone XHR")
+                    lines.append(f"       ⛏ Exploit 1 — Standalone XHR")
                     lines.append(f"       {'─' * 52}")
                     lines.append(f"       Host on: {attacker_origin}/exploit.js")
                     lines.append(
@@ -5316,7 +5316,7 @@ class ScannerTab(QWidget):
                         lines.append(f"       {el}")
                     lines.append("")
 
-                    lines.append(f"       💀 Exploit 2 — iframe sandbox (null origin / data: URI)")
+                    lines.append(f"       ⛏ Exploit 2 — iframe sandbox (null origin / data: URI)")
                     lines.append(f"       {'─' * 52}")
                     lines.append(
                         f"       Works when ACAO: null accepted — sandboxed iframe sends null origin."
@@ -5333,14 +5333,14 @@ class ScannerTab(QWidget):
 
                 # ── Remediation ───────────────────────────────────────────────
                 if remediation:
-                    lines.append(f"       🔧 Remediation:")
+                    lines.append(f"       ䷓ Remediation:")
                     for rem_line in textwrap.wrap(remediation, 65):
                         lines.append(f"       {rem_line}")
                 lines.append("")
 
             # ── Risk Summary ──────────────────────────────────────────────────
             lines.append(f"{'─' * 70}")
-            lines.append("  📋 CORS Risk Summary")
+            lines.append("  ☰ CORS Risk Summary")
             lines.append(f"{'─' * 70}")
 
             high_c    = [d for d in details if d.get("acac") == "true"]
@@ -5356,28 +5356,28 @@ class ScannerTab(QWidget):
 
             if high_c:
                 lines.append(
-                    f"  🔴 CRITICAL — {len(high_c)} finding(s) expose credentials cross-origin.\n"
+                    f"  Ⓒ CRITICAL — {len(high_c)} finding(s) expose credentials cross-origin.\n"
                     f"     Attacker page silently reads authenticated responses\n"
                     f"     (sessions, tokens, PII) from a logged-in victim."
                 )
             if wildcard:
                 lines.append(
-                    f"  🚨 WILDCARD — {len(wildcard)} finding(s) use ACAO: *.\n"
+                    f"  ⚔ WILDCARD — {len(wildcard)} finding(s) use ACAO: *.\n"
                     f"     Any origin on the internet can read these responses."
                 )
             if xss_chain:
                 lines.append(
-                    f"  🔗 XSS CHAIN — {len(xss_chain)} trusted subdomain(s) detected.\n"
+                    f"  ⚔ XSS CHAIN — {len(xss_chain)} trusted subdomain(s) detected.\n"
                     f"     XSS on any of these subdomains pivots to CORS credential theft."
                 )
             if tls_break:
                 lines.append(
-                    f"  🔓 TLS BREAK — {len(tls_break)} HTTP subdomain(s) trusted on HTTPS endpoint.\n"
+                    f"  ⚔ TLS BREAK — {len(tls_break)} HTTP subdomain(s) trusted on HTTPS endpoint.\n"
                     f"     MITM on HTTP traffic can inject a CORS request to the HTTPS endpoint."
                 )
             if private:
                 lines.append(
-                    f"  🏠 INTRANET — {len(private)} private IP/hostname(s) trusted.\n"
+                    f"  ⚔ INTRANET — {len(private)} private IP/hostname(s) trusted.\n"
                     f"     External page can use victim browser as proxy to read internal resources."
                 )
             if mswitch:
@@ -5391,21 +5391,21 @@ class ScannerTab(QWidget):
                     except Exception:
                         pass
                 lines.append(
-                    f"  🔀 METHOD-SWITCH — {len(mswitch)} finding(s) where CORS policy differs\n"
+                    f"  ⤮ METHOD-SWITCH — {len(mswitch)} finding(s) where CORS policy differs\n"
                     f"     by HTTP method. Restricted on {_orig_m} but not {_flip_m}."
                 )
             if high_nc:
                 lines.append(
-                    f"  ⚠️  HIGH — {len(high_nc)} finding(s) reflect arbitrary origins\n"
+                    f"  ⚠  HIGH — {len(high_nc)} finding(s) reflect arbitrary origins\n"
                     f"     without credentials. Non-auth data leakage possible."
                 )
             if med:
                 lines.append(
-                    f"  🔶 MEDIUM — {len(med)} finding(s) with partial misconfiguration."
+                    f"  Ⓜ MEDIUM — {len(med)} finding(s) with partial misconfiguration."
                 )
             if no_vary:
                 lines.append(
-                    f"  📦 CACHE RISK — {len(no_vary)} finding(s) missing Vary: Origin.\n"
+                    f"  🖂 CACHE RISK — {len(no_vary)} finding(s) missing Vary: Origin.\n"
                     f"     CDN may cache permissive response and serve to other origins."
                 )
             lines.append("")
@@ -5421,14 +5421,14 @@ class ScannerTab(QWidget):
             return lines
 
         if "error" in result and not result.get("details"):
-            lines.append(f"  ❌ Error: {result['error']}")
+            lines.append(f"  ✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
         summary    = result.get("summary", "")
         stats      = result.get("stats", {})
 
-        lines.append(f"  Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"  Status  : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"  Summary : {summary}")
         lines.append(
             f"  Stats   : {stats.get('params_tested', 0)} parameter(s) tested | "
@@ -5458,14 +5458,14 @@ class ScannerTab(QWidget):
 
         details = result.get("details", [])
 
-        _CONF_ICON = {"HIGH": "🔴", "MEDIUM": "⚠️", "LOW": "🔵"}
+        _CONF_ICON = {"HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ"}
         _CONF_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
         sorted_details = sorted(
             details,
             key=lambda d: _CONF_ORDER.get(d.get("confidence", "LOW"), 9)
         )
 
-        lines.append(f"  ⚠️  {len(sorted_details)} finding(s):")
+        lines.append(f"  ⚠  {len(sorted_details)} finding(s):")
         lines.append("")
 
         for i, d in enumerate(sorted_details, 1):
@@ -5513,14 +5513,14 @@ class ScannerTab(QWidget):
             return lines
 
         if "error" in result and not result.get("details"):
-            lines.append(f"  ❌ Error: {result['error']}")
+            lines.append(f"  ✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
         summary    = result.get("summary", "")
         stats      = result.get("stats", {})
 
-        lines.append(f"  Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"  Status  : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"  Summary : {summary}")
         lines.append(
             f"  Stats   : {stats.get('params_tested', 0)} parameter(s) tested | "
@@ -5550,14 +5550,14 @@ class ScannerTab(QWidget):
 
         details = result.get("details", [])
 
-        _CONF_ICON = {"HIGH": "🔴", "MEDIUM": "⚠️", "LOW": "🔵"}
+        _CONF_ICON = {"HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ"}
         _CONF_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
         sorted_details = sorted(
             details,
             key=lambda d: _CONF_ORDER.get(d.get("confidence", "LOW"), 9)
         )
 
-        lines.append(f"  ⚠️  {len(sorted_details)} finding(s):")
+        lines.append(f"  ⚠  {len(sorted_details)} finding(s):")
         lines.append("")
 
         for i, d in enumerate(sorted_details, 1):
@@ -5607,14 +5607,14 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result and not result.get("details"):
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
         summary    = result.get("summary", "")
         stats      = result.get("stats", {})
 
-        lines.append(f"Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status  : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"Summary : {summary}")
         lines.append(
             f"Stats   : {stats.get('points_tested', 0)} point(s) tested | "
@@ -5641,7 +5641,7 @@ class ScannerTab(QWidget):
             lines.append(f"{'─' * 60}")
 
             for idx, d in enumerate(group, 1):
-                unauth_tag = "  🔓 UNAUTHENTICATED PROBE" if d.get("unauth") else ""
+                unauth_tag = "  ※ UNAUTHENTICATED PROBE" if d.get("unauth") else ""
                 lines.append("")
                 lines.append(f"[{idx}] Parameter  : {d.get('parameter', '?')} "
                              f"({d.get('param_type', '?')}){unauth_tag}")
@@ -5661,14 +5661,14 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result and not result.get("details"):
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
         summary    = result.get("summary", "")
         stats      = result.get("stats", {})
 
-        lines.append(f"Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status  : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"Summary : {summary}")
         lines.append(
             f"Stats   : {stats.get('test_cases_run', 0)} test cases | "
@@ -5686,7 +5686,7 @@ class ScannerTab(QWidget):
         rce_findings = [d for d in details if d.get("rce_verified")]
         if rce_findings:
             lines.append(f"{'═' * 60}")
-            lines.append(f"  🔥 RCE CONFIRMED ({len(rce_findings)} payloads)")
+            lines.append(f"  ⚔ RCE CONFIRMED ({len(rce_findings)} payloads)")
             lines.append(f"{'═' * 60}")
             
             for idx, d in enumerate(rce_findings, 1):
@@ -5734,7 +5734,7 @@ class ScannerTab(QWidget):
             for d in by_tc[tc_key]:
                 idx += 1
                 lines.append("")
-                rce_mark = "🔥 RCE VERIFIED " if d.get("rce_verified") else ""
+                rce_mark = "⚔ RCE VERIFIED " if d.get("rce_verified") else ""
                 lines.append(f"[{idx}] {rce_mark}Filename    : {d.get('filename', '?')}")
                 lines.append(f"     Content-Type: {d.get('content_type', '?')}")
                 lines.append(f"     Description : {d.get('description', '?')}")
@@ -5756,7 +5756,7 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result and not result.get("details"):
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
@@ -5764,7 +5764,7 @@ class ScannerTab(QWidget):
         stats      = result.get("stats", {})
         det_summ   = result.get("detection_summary", {})
 
-        lines.append(f"Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status  : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"Summary : {summary}")
         lines.append(
             f"Stats   : {stats.get('candidates_found', 0)} candidate(s) found | "
@@ -5792,7 +5792,7 @@ class ScannerTab(QWidget):
             group = groups[conf_label]
             if not group:
                 continue
-            icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "INFO": "⚪"}[conf_label]
+            icon = {"HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ", "INFO": "ⓘ"}[conf_label]
             lines.append(f"{'─' * 60}")
             lines.append(f"  {icon} {conf_label} CONFIDENCE  ({len(group)} finding(s))")
             lines.append(f"{'─' * 60}")
@@ -5822,7 +5822,7 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result and not result.get("details"):
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
@@ -5830,7 +5830,7 @@ class ScannerTab(QWidget):
         stats      = result.get("stats", {})
         fuzz_target = result.get("fuzz_target", "")
 
-        lines.append(f"Status : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"Summary: {summary}")
         lines.append(
             f"Stats  : {stats.get('payloads_tested', 0)} payloads tested, "
@@ -5865,14 +5865,14 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result and not result.get("details"):
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
         summary    = result.get("summary", "")
         stats      = result.get("stats", {})
 
-        lines.append(f"Status : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"Summary: {summary}")
         lines.append(
             f"Stats  : output payloads={stats.get('output_payloads_tested', 0)} "
@@ -5918,7 +5918,7 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result and not result.get("details"):
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
@@ -5926,7 +5926,7 @@ class ScannerTab(QWidget):
         stats      = result.get("stats", {})
         details    = result.get("details", [])
 
-        lines.append(f"Status  : {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status  : {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append(f"Summary : {summary}")
         lines.append(
             f"Stats   : {stats.get('payloads_tested', 0)} payload(s) tested  |  "
@@ -5950,9 +5950,9 @@ class ScannerTab(QWidget):
         oob_f    = [d for d in details if d.get("confidence") == "INFO"]
 
         tier_map = [
-            ("🔴 HIGH — In-Band Confirmed",   high_f),
-            ("🟡 MEDIUM — Anomaly Detected",  medium_f),
-            ("⚪ INFO — OOB Probes Sent",      oob_f),
+            ("Ⓗ HIGH — In-Band Confirmed",   high_f),
+            ("Ⓜ MEDIUM — Anomaly Detected",  medium_f),
+            ("ⓘ INFO — OOB Probes Sent",      oob_f),
         ]
 
         for tier_label, group in tier_map:
@@ -5980,7 +5980,7 @@ class ScannerTab(QWidget):
         if oob_f and not (high_f or medium_f):
             lines.append("")
             lines.append(
-                "ℹ️  OOB payloads were sent.  "
+                "ℹ  OOB payloads were sent.  "
                 "Check your interactsh dashboard for DNS/HTTP interactions.\n"
                 "   Phases with OOB probes: 3 (blind entity), "
                 "4 (% parameter entity), 5 (exfil DTD)"
@@ -5993,17 +5993,17 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result:
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
-        lines.append(f"Status: {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status: {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
         lines.append("")
 
         # ── Payload sources ────────────────────────────────────────────────
         payload_sources = result.get('payload_sources', [])
         if payload_sources:
-            lines.append(f"📁 Payload files used ({len(payload_sources)}):")
+            lines.append(f"🗁 Payload files used ({len(payload_sources)}):")
             for ps in payload_sources:
                 lines.append(f"   • {ps}")
             lines.append("")
@@ -6020,11 +6020,11 @@ class ScannerTab(QWidget):
             low    = [d for d in details if d.get('xss_confidence') == 'LOW']
             info   = [d for d in details if d.get('xss_confidence') not in ('HIGH', 'MEDIUM', 'LOW')]
 
-            lines.append("🎯 CONFIDENCE BREAKDOWN:")
-            lines.append(f"  🔴 HIGH   (directly executable): {len(high)}")
-            lines.append(f"  🟡 MEDIUM (potentially exploitable): {len(medium)}")
-            lines.append(f"  🟢 LOW    (encoded / in comment): {len(low)}")
-            lines.append(f"  ⚪ INFO   (reflected, context unclear): {len(info)}")
+            lines.append("🞋 CONFIDENCE BREAKDOWN:")
+            lines.append(f"  Ⓗ HIGH   (directly executable): {len(high)}")
+            lines.append(f"  Ⓜ MEDIUM (potentially exploitable): {len(medium)}")
+            lines.append(f"  Ⓛ LOW    (encoded / in comment): {len(low)}")
+            lines.append(f"  ⓘ INFO   (reflected, context unclear): {len(info)}")
             lines.append("")
 
             lines.append(f"🔬 VULNERABLE PARAMETERS ({len(details)} finding(s)):")
@@ -6032,7 +6032,7 @@ class ScannerTab(QWidget):
 
             for i, detail in enumerate(details, 1):
                 conf = detail.get('xss_confidence', 'INFO')
-                icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "INFO": "⚪"}.get(conf, "⚪")
+                icon = {"HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ", "INFO": "ⓘ"}.get(conf, "ⓘ")
 
                 lines.append(f"  [{i}] {icon} [{conf}] — {detail.get('location', 'URL')} → "
                              f"param: '{detail.get('parameter', 'Unknown')}'")
@@ -6055,11 +6055,11 @@ class ScannerTab(QWidget):
         lines = []
 
         if "error" in result:
-            lines.append(f"❌ Error: {result['error']}")
+            lines.append(f"✗ Error: {result['error']}")
             return lines
 
         vulnerable = result.get("vulnerable", False)
-        lines.append(f"Status: {'⚠️  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
+        lines.append(f"Status: {'⚠  VULNERABLE' if vulnerable else '✓ NOT VULNERABLE'}")
 
         if vulnerable:
             lines.append("")
@@ -6069,37 +6069,37 @@ class ScannerTab(QWidget):
             lines.append("")
 
             confidence = result.get('confidence_score', 'INFO')
-            conf_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "INFO": "⚪"}.get(confidence, "⚪")
-            lines.append(f"🎯 OVERALL CONFIDENCE: {conf_icon} {confidence}")
+            conf_icon = {"HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ", "INFO": "ⓘ"}.get(confidence, "ⓘ")
+            lines.append(f"🞋 OVERALL CONFIDENCE: {conf_icon} {confidence}")
 
             db_fp = result.get('database_fingerprint')
             if db_fp:
-                lines.append(f"💾 DATABASE FINGERPRINT: {db_fp}")
+                lines.append(f"🖫 DATABASE FINGERPRINT: {db_fp}")
 
             lines.append("")
-            lines.append("📋 DETECTION TECHNIQUES TRIGGERED:")
+            lines.append("⛏ DETECTION TECHNIQUES TRIGGERED:")
 
             detection = result.get('detection_summary', {})
             tech_lines = []
             if detection.get('error_based'):
-                tech_lines.append("  ✅ Error-based     — database error messages exposed")
+                tech_lines.append("  ✓ Error-based     — database error messages exposed")
             if detection.get('boolean_based'):
-                tech_lines.append("  ✅ Boolean-based   — TRUE/FALSE conditions produce different responses")
+                tech_lines.append("  ✓ Boolean-based   — TRUE/FALSE conditions produce different responses")
             if detection.get('time_based'):
-                tech_lines.append("  ✅ Time-based      — deliberate delay observed in response")
+                tech_lines.append("  ✓ Time-based      — deliberate delay observed in response")
             if detection.get('union_based'):
-                tech_lines.append("  ✅ Union-based     — extra data appended to query output")
+                tech_lines.append("  ✓ Union-based     — extra data appended to query output")
             if detection.get('auth_bypass'):
-                tech_lines.append("  ✅ Auth bypass     — authentication logic subverted")
+                tech_lines.append("  ✓ Auth bypass     — authentication logic subverted")
             lines.extend(tech_lines)
 
             lines.append("")
-            lines.append("🔬 VULNERABLE INJECTION POINTS:")
+            lines.append("⌖ VULNERABLE INJECTION POINTS:")
             lines.append("")
 
             for idx, point in enumerate(result.get('details', []), 1):
                 conf_p = point.get('confidence', 'INFO')
-                icon_p = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "INFO": "⚪"}.get(conf_p, "⚪")
+                icon_p = {"HIGH": "Ⓗ", "MEDIUM": "Ⓜ", "LOW": "Ⓛ", "INFO": "ⓘ"}.get(conf_p, "ⓘ")
 
                 lines.append(f"  [{idx}] {point.get('injection_display', 'Unknown')}  {icon_p} {conf_p}")
                 lines.append(f"       Param type    : {point.get('injection_type', 'N/A')}")
@@ -6109,7 +6109,7 @@ class ScannerTab(QWidget):
                 # Vulnerability chain
                 chain = point.get('vulnerability_chain', [])
                 if chain:
-                    lines.append("       🔗 EVIDENCE CHAIN:")
+                    lines.append("       ⛏ EVIDENCE CHAIN:")
                     for link in chain:
                         lines.append(f"         {link}")
                     lines.append("")
@@ -6119,7 +6119,7 @@ class ScannerTab(QWidget):
                 evidence_items = point.get('evidence', [])
 
                 if indicators.get('error_based'):
-                    lines.append("       ❌ ERROR-BASED EVIDENCE:")
+                    lines.append("       ✗ ERROR-BASED EVIDENCE:")
                     # Pull matching evidence items
                     for ev in [e for e in evidence_items if e.get('db_type') or e.get('error_pattern')]:
                         lines.append(f"         • Payload   : {ev.get('payload', '')}")
@@ -6129,7 +6129,7 @@ class ScannerTab(QWidget):
                     lines.append("")
 
                 if indicators.get('boolean_based'):
-                    lines.append("       🔍 BOOLEAN-BASED EVIDENCE:")
+                    lines.append("       ⌕ BOOLEAN-BASED EVIDENCE:")
                     for ev in [e for e in evidence_items if e.get('payload_pair')]:
                         lines.append(f"         • Pair      : {ev.get('payload_pair', '')}")
                         lines.append(f"           True len  : {ev.get('true_length', 'N/A')}b")
@@ -6140,7 +6140,7 @@ class ScannerTab(QWidget):
                     lines.append("")
 
                 if indicators.get('time_based'):
-                    lines.append("       ⏱️  TIME-BASED EVIDENCE:")
+                    lines.append("       ⏱  TIME-BASED EVIDENCE:")
                     for ev in [e for e in evidence_items if e.get('time_difference') or (e.get('db_type') and e.get('baseline_time'))]:
                         lines.append(f"         • Payload   : {ev.get('payload', '')}")
                         lines.append(f"           DB type   : {ev.get('db_type', 'N/A')}")
@@ -6151,7 +6151,7 @@ class ScannerTab(QWidget):
                     lines.append("")
 
                 if indicators.get('union_based'):
-                    lines.append("       🔄 UNION-BASED EVIDENCE:")
+                    lines.append("       ⭮ UNION-BASED EVIDENCE:")
                     for ev in [e for e in evidence_items if e.get('length_increase')]:
                         lines.append(f"         • Payload   : {ev.get('payload', '')}")
                         lines.append(f"           Baseline  : {ev.get('baseline_length', '?')}b")
@@ -6161,7 +6161,7 @@ class ScannerTab(QWidget):
                     lines.append("")
 
                 if indicators.get('auth_bypass'):
-                    lines.append("       🔓 AUTH BYPASS EVIDENCE:")
+                    lines.append("       ⛞ AUTH BYPASS EVIDENCE:")
                     for ev in [e for e in evidence_items if e.get('payload')]:
                         lines.append(f"         • Payload   : {ev.get('payload', '')}")
                         lines.append(f"           Status    : HTTP {ev.get('status_code', '?')}")
@@ -6173,13 +6173,13 @@ class ScannerTab(QWidget):
                 # Baseline for reference
                 bl = point.get('baseline', {})
                 lines.append(
-                    f"       📈 Baseline: status={bl.get('status','?')}, "
+                    f"       🖂 Baseline: status={bl.get('status','?')}, "
                     f"length={bl.get('length','?')}b, time={bl.get('time','?')}s"
                 )
 
                 if point.get('param_reflected'):
                     lines.append(
-                        "       ℹ️  Note: param value is reflected in response "
+                        "       ℹ  Note: param value is reflected in response "
                         "(stricter detection thresholds applied)"
                     )
 
@@ -6187,8 +6187,8 @@ class ScannerTab(QWidget):
                 lines.append("  " + "-" * 55)
                 lines.append("")
 
-            lines.append(f"📊 TOTAL TESTS PERFORMED : {result.get('total_tests_performed', 0)}")
-            lines.append(f"📍 VULNERABLE POINTS FOUND: {len(result.get('vulnerable_points', []))}")
+            lines.append(f"🗠 TOTAL TESTS PERFORMED : {result.get('total_tests_performed', 0)}")
+            lines.append(f"◉ VULNERABLE POINTS FOUND: {len(result.get('vulnerable_points', []))}")
             lines.append("")
 
             # ── PROOF OF CONCEPT SECTION ──────────────────────────────────────
@@ -6223,17 +6223,17 @@ class ScannerTab(QWidget):
                     return f"║{label_col}{value:<{avail}}║"
 
                 lines.append(f"╔{LINE}╗")
-                lines.append(_pad(f"{'💀  PROOF OF CONCEPT SUMMARY  💀':^{W}}"))
+                lines.append(_pad(f"{'⛏  PROOF OF CONCEPT SUMMARY  ⛏':^{W}}"))
                 lines.append(f"╚{LINE}╝")
                 lines.append("")
 
                 for poc_idx, (detail, poc) in enumerate(all_pocs, 1):
                     lines.append(f"╔{LINE}╗")
-                    lines.append(_pad(f"{'💀  SQL INJECTION — PROOF OF CONCEPT  #' + str(poc_idx):^{W}}"))
+                    lines.append(_pad(f"{'⛏  SQL INJECTION — PROOF OF CONCEPT  #' + str(poc_idx):^{W}}"))
                     lines.append(f"╠{LINE}╣")
 
                     # Target
-                    lines.append(_pad("  🎯 TARGET"))
+                    lines.append(_pad("  🞋 TARGET"))
                     lines.append(_row("URL",        poc.get("target_url", "?")))
                     lines.append(_row("Inj. Point", poc.get("injection_point", "?")))
                     orig = poc.get("original_value", "")
@@ -6255,7 +6255,7 @@ class ScannerTab(QWidget):
                     # Extracted data
                     has_data = any(poc.get(f) for f in ("version", "db_name", "db_user", "hostname", "data_dir", "tables"))
                     lines.append(f"╠{LINE}╣")
-                    lines.append(_pad("  📊 EXTRACTED DATA"))
+                    lines.append(_pad("  🗠 EXTRACTED DATA"))
                     if has_data:
                         if poc.get("version"):
                             lines.append(_row("Version",  poc["version"]))
@@ -6273,12 +6273,12 @@ class ScannerTab(QWidget):
                         note = poc.get("extraction_note", "")
                         if note:
                             import textwrap as _tw
-                            lines.append(_pad("  ⚠️  EXTRACTION FAILED — Vulnerability IS confirmed but data"))
+                            lines.append(_pad("  ⚠  EXTRACTION FAILED — Vulnerability IS confirmed but data"))
                             lines.append(_pad("      could not be pulled via the probes tried. Reason:"))
                             for ln in _tw.wrap(note, W - 6):
                                 lines.append(_pad(f"      {ln}"))
                         else:
-                            lines.append(_pad("  ⚠️  No data extracted via error/union channel."))
+                            lines.append(_pad("  ⚠  No data extracted via error/union channel."))
                             lines.append(_pad("      Blind-only — time-based delay confirmed injection only."))
                             lines.append(_pad("      Use sqlmap --technique=T for full data extraction."))
 
@@ -6320,7 +6320,7 @@ class ScannerTab(QWidget):
             lines.append("")
             lines.append(result.get('summary', 'No SQL injection vulnerabilities detected.'))
             lines.append("")
-            lines.append(f"📊 TESTS PERFORMED: {result.get('total_tests_performed', 0)}")
+            lines.append(f"🗠 TESTS PERFORMED: {result.get('total_tests_performed', 0)}")
 
         return lines
     
@@ -6348,7 +6348,7 @@ class ScannerTab(QWidget):
         """
         self.step_next_btn.setEnabled(True)
         short = (label[:48] + "…") if len(label) > 48 else label
-        self.scan_status_label.setText(f"⏸ Paused — click ⏩ Next to continue  [{short}]")
+        self.scan_status_label.setText(f"⏸ Paused — click ↠ Next to continue  [{short}]")
 
     def _on_step_next_clicked(self):
         """
@@ -6421,7 +6421,7 @@ class ScannerTab(QWidget):
             # Warn if Slow preset is active — Slow+Boost is contradictory
             if self._scan_speed_preset == "slow":
                 self.scan_status_label.setText(
-                    "⚠️  Boost ON + Slow preset: delay/retry settings still apply per-request"
+                    "⚠  Boost ON + Slow preset: delay/retry settings still apply per-request"
                 )
             else:
                 self.scan_status_label.setText(
@@ -6490,9 +6490,9 @@ class ScannerTab(QWidget):
     def toggle_auto_scroll(self):
         """Toggle auto-scroll for traffic table"""
         if self.auto_scroll_traffic.isChecked():
-            self.auto_scroll_traffic.setText("📜 Auto-scroll: ON")
+            self.auto_scroll_traffic.setText(" Auto-scroll: ON")
         else:
-            self.auto_scroll_traffic.setText("📜 Auto-scroll: OFF")
+            self.auto_scroll_traffic.setText(" Auto-scroll: OFF")
     
     def clear_url_filter(self):
         """Clear URL filter and show all traffic"""
@@ -6563,17 +6563,17 @@ class ScannerTab(QWidget):
 
         menu = QMenu()
 
-        resend_action        = menu.addAction("🔄 Resend Request")
+        resend_action        = menu.addAction("⭮ Resend Request")
         menu.addSeparator()
-        copy_url_action      = menu.addAction("📋 Copy Full URL")
-        copy_request_action  = menu.addAction("📄 Copy Request")
-        copy_response_action = menu.addAction("📄 Copy Response")
+        copy_url_action      = menu.addAction("🗈 Copy Full URL")
+        copy_request_action  = menu.addAction("🗈 Copy Request")
+        copy_response_action = menu.addAction("🗈 Copy Response")
         menu.addSeparator()
-        filter_url_action    = menu.addAction("🔍 Show Only This URL")
+        filter_url_action    = menu.addAction("⌕ Show Only This URL")
         menu.addSeparator()
         compare_left_action  = menu.addAction("⬅  Set as LEFT  (Baseline)")
         compare_right_action = menu.addAction("➡  Set as RIGHT (Payload / B)")
-        open_compare_action  = menu.addAction("🔀 Open Compare Tab")
+        open_compare_action  = menu.addAction("⤭ Open Compare Tab")
         menu.addSeparator()
         send_endpoints_action = menu.addAction("→ Send to Attack Surface")
         send_report_action     = menu.addAction("� Report Bug")
@@ -6654,7 +6654,7 @@ class ScannerTab(QWidget):
                 if "Report" in main_win.tab_widget.tabText(i):
                     main_win.tab_widget.setCurrentIndex(i)
                     break
-            self._status("✅ Opened Report Bug dialog")
+            self._status("✓ Opened Report Bug dialog")
         except Exception as e:
             logger.error(f"[ScannerTab] send to report: {e}")
 
@@ -6683,9 +6683,9 @@ class ScannerTab(QWidget):
         
         menu = QMenu()
         
-        copy_url_action = menu.addAction("📋 Copy Full URL")
+        copy_url_action = menu.addAction("🗈 Copy Full URL")
         menu.addSeparator()
-        remove_action = menu.addAction("🗑️ Remove from Queue")
+        remove_action = menu.addAction("🗑 Remove from Queue")
         
         action = menu.exec_(self.queue_table.viewport().mapToGlobal(position))
         
