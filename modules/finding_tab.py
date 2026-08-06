@@ -75,10 +75,10 @@ SEV_COLOR = {
     "LOW":      ("#66bb6a", "#000000"),
 }
 SEV_ICON = {
-    "CRITICAL": "🔴",
-    "HIGH":     "🟠",
-    "MEDIUM":   "🟡",
-    "LOW":      "🟢",
+    "CRITICAL": "Ⓒ",
+    "HIGH":     "Ⓗ",
+    "MEDIUM":   "Ⓜ",
+    "LOW":      "Ⓛ",
 }
 
 METHOD_COLOR = {
@@ -138,7 +138,7 @@ class _DetailDialog(QDialog):
         # ── Severity badge header ─────────────────────────────────────────
         header = QLabel(
             f"<b style='color:{color};font-size:15px;'>"
-            f"{SEV_ICON.get(sev, '⚪')} {sev}</b>"
+            f"{SEV_ICON.get(sev, '🞅')} {sev}</b>"
             f"  <span style='font-size:13px;color:{COLOR_TEXT_MUTED};'>"
             f"{self.entry.get('method','GET')}  {self.entry.get('status','')}  "
             f"{self.entry.get('timestamp','')}</span>"
@@ -188,7 +188,7 @@ class _DetailDialog(QDialog):
         # ── Buttons ───────────────────────────────────────────────────────
         btn_row = QHBoxLayout()
 
-        history_btn = QPushButton("📜 Show in HTTP History")
+        history_btn = QPushButton("🖳 Show in HTTP History")
         history_btn.setStyleSheet(f"""
             QPushButton {{
                 background:{COLOR_ACCENT}; color:#fff;
@@ -203,11 +203,11 @@ class _DetailDialog(QDialog):
                 self._show_in_history_cb(self.entry)
         history_btn.clicked.connect(_go_history)
 
-        copy_url_btn = QPushButton("📋 Copy URL")
+        copy_url_btn = QPushButton("🗉 Copy URL")
         copy_url_btn.clicked.connect(
             lambda: QApplication.clipboard().setText(self.entry.get("url", ""))
         )
-        copy_param_btn = QPushButton("📋 Copy Parameter")
+        copy_param_btn = QPushButton("🗉 Copy Parameter")
         copy_param_btn.clicked.connect(
             lambda: QApplication.clipboard().setText(self.entry.get("parameter", ""))
         )
@@ -227,7 +227,7 @@ class _DetailDialog(QDialog):
 class RecordedTab(QWidget):
     """
     The "Recorded" sub-tab.  Instantiated once by MappingTabPro and
-    added as ``self.sub_tabs.addTab(self.finding_tab, "📋  Findings")``.
+    added as ``self.sub_tabs.addTab(self.finding_tab, "🗠  Findings")``.
     """
 
     def __init__(self, mapping_tab, parent=None):
@@ -355,7 +355,7 @@ class RecordedTab(QWidget):
             }}
         """
 
-        refresh_btn = QPushButton("🔄 Refresh")
+        refresh_btn = QPushButton("⟳ Refresh")
         refresh_btn.setStyleSheet(btn_style)
         refresh_btn.setToolTip("Reload recordings from disk")
         refresh_btn.clicked.connect(self._refresh)
@@ -385,7 +385,7 @@ class RecordedTab(QWidget):
 
         # Search box
         self._search = QLineEdit()
-        self._search.setPlaceholderText("🔍  Filter by URL, parameter, detection…")
+        self._search.setPlaceholderText("⌕  Filter by URL, parameter, detection…")
         self._search.setFixedWidth(260)
         self._search.setStyleSheet(f"""
             QLineEdit {{
@@ -401,7 +401,7 @@ class RecordedTab(QWidget):
         layout.addStretch()
 
         # Export / Clear buttons
-        export_btn = QPushButton("📤 Export")
+        export_btn = QPushButton("🠉 Export")
         export_btn.setStyleSheet(btn_style)
         export_btn.setToolTip("Export current view to JSON or CSV")
         export_btn.clicked.connect(self._export)
@@ -487,7 +487,7 @@ class RecordedTab(QWidget):
 
         # "All" entry
         total = sum(len(v) for v in data.values())
-        all_item = QListWidgetItem(f"  📋  All Findings  ({total})")
+        all_item = QListWidgetItem(f"  🗠  All Findings  ({total})")
         all_item.setData(Qt.UserRole, "__all__")
         all_item.setFont(QFont("Segoe UI", 11, QFont.Bold))
         all_item.setForeground(QColor(COLOR_TEXT_BRIGHT))
@@ -507,9 +507,9 @@ class RecordedTab(QWidget):
 
             badge = ""
             if crits:
-                badge = f"  🔴{crits}"
+                badge = f"  Ⓒ{crits}"
             elif highs:
-                badge = f"  🟠{highs}"
+                badge = f"  Ⓗ{highs}"
 
             item = QListWidgetItem(f"  {icon}  {name}  ({len(entries)}){badge}")
             item.setData(Qt.UserRole, key)
@@ -661,7 +661,7 @@ class RecordedTab(QWidget):
         total = stats.get("total", 0)
         cats  = stats.get("categories", 0)
         self._stats_bar.setText(
-            f"  🎯  {total} findings  ·  "
+            f"  🞋  {total} findings  ·  "
             f"{cats} categories  ·  "
             + ("  ".join(parts) if parts else "No critical findings")
         )
@@ -685,13 +685,13 @@ class RecordedTab(QWidget):
             QMenu::separator {{ height:1px; background:{COLOR_BORDER}; margin:4px 0; }}
         """)
 
-        detail_act   = menu.addAction("🔍  View Full Detail")
-        history_act  = menu.addAction("📜  Show in HTTP History")
-        surface_act  = menu.addAction("🎯  Send to Attack Surface")
+        detail_act   = menu.addAction("🗊  View Full Detail")
+        history_act  = menu.addAction("🖳  Show in HTTP History")
+        surface_act  = menu.addAction("🞋  Send to Attack Surface")
         menu.addSeparator()
-        copy_url_act = menu.addAction("📋  Copy URL")
-        copy_par_act = menu.addAction("📋  Copy Parameter")
-        copy_det_act = menu.addAction("📋  Copy Detections")
+        copy_url_act = menu.addAction("🗉  Copy URL")
+        copy_par_act = menu.addAction("🗉  Copy Parameter")
+        copy_det_act = menu.addAction("🗉  Copy Detections")
         menu.addSeparator()
         del_act      = menu.addAction("🗑  Delete This Entry")
 
@@ -796,7 +796,7 @@ class RecordedTab(QWidget):
 
             QMessageBox.information(
                 self, "Export Complete",
-                f"✅ Exported {len(visible_entries)} entries to:\n{path}"
+                f"✓ Exported {len(visible_entries)} entries to:\n{path}"
             )
         except Exception as exc:
             QMessageBox.critical(self, "Export Error", str(exc))
