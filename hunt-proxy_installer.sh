@@ -134,8 +134,11 @@ setup_venv_and_python_deps() {
     websocket-client
     wsproto
     pyngrok
+	boto3
+	botocore
+	stripe
   )
-  
+
   for pkg in "${core_pkgs[@]}"; do
     if safe_run retry 2 5 python3 -m pip install "$pkg"; then
       info "OK: $pkg"
