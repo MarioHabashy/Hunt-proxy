@@ -257,7 +257,7 @@ class WSHistoryTab(QWidget):
 
         tb_lay.addWidget(self._vsep())
 
-        clear_btn = QPushButton("🗑️ Clear")
+        clear_btn = QPushButton("🗑 Clear")
         clear_btn.setToolTip("Clear all captured WebSocket messages from the view")
         clear_btn.clicked.connect(self._clear)
         tb_lay.addWidget(clear_btn)
@@ -330,13 +330,13 @@ class WSHistoryTab(QWidget):
         )
         dh_lay = QHBoxLayout(detail_hdr)
         dh_lay.setContentsMargins(8, 3, 8, 3)
-        self._detail_title = QLabel("🔌 WebSocket Message")
+        self._detail_title = QLabel("🖅 WebSocket Message")
         self._detail_title.setStyleSheet(
             f"color: {COLOR_TEXT_BRIGHT}; font-weight: 700; font-size: 11px;"
         )
         dh_lay.addWidget(self._detail_title)
 
-        copy_btn = QPushButton("📋 Copy")
+        copy_btn = QPushButton("🗉 Copy")
         copy_btn.setMaximumWidth(60)
         copy_btn.setToolTip("Copy message payload to clipboard")
         copy_btn.clicked.connect(self._copy_payload)
@@ -344,7 +344,7 @@ class WSHistoryTab(QWidget):
         dh_lay.addWidget(copy_btn)
 
         # Note button in detail header
-        note_btn = QPushButton("📝 Note")
+        note_btn = QPushButton("🗈 Note")
         note_btn.setMaximumWidth(60)
         note_btn.setToolTip("Add / edit note for this message")
         note_btn.clicked.connect(self._add_note_current)
@@ -586,7 +586,7 @@ class WSHistoryTab(QWidget):
 
         arrow = "↑" if direction.startswith("client") else "↓"
         self._detail_title.setText(
-            f"🔌 {arrow} {host}{path}  [{opcode}  {self._fmt_size(length)}]"
+            f"🖅 {arrow} {host}{path}  [{opcode}  {self._fmt_size(length)}]"
         )
 
         if opcode == "text":
@@ -648,20 +648,20 @@ class WSHistoryTab(QWidget):
         menu = QMenu(self)
 
         # ── Copy actions
-        cp_payload = menu.addAction("📋 Copy payload")
-        cp_host    = menu.addAction("🔗 Copy host")
-        cp_url     = menu.addAction("🌐 Copy URL")
+        cp_payload = menu.addAction("🗉 Copy payload")
+        cp_host    = menu.addAction("🗉 Copy host")
+        cp_url     = menu.addAction("🗉 Copy URL")
         menu.addSeparator()
-        cp_all     = menu.addAction("📄 Copy all as JSON")
+        cp_all     = menu.addAction("🗉 Copy all as JSON")
         menu.addSeparator()
 
         # ── Send to tools
         rpt_act  = menu.addAction("➣ Send to Repeater")
-        cmp_act  = menu.addAction("📈 Send to Comparer")
+        cmp_act  = menu.addAction("➣ Send to Comparer")
         menu.addSeparator()
 
         # ── Highlight
-        hl_menu = menu.addMenu("🎨 Highlight row")
+        hl_menu = menu.addMenu(" Highlight row")
         hl_colors = [
             ("Red",    "#5a1e1e"),
             ("Orange", "#4a2e10"),
@@ -681,7 +681,7 @@ class WSHistoryTab(QWidget):
         menu.addSeparator()
 
         # ── Note
-        note_act = menu.addAction("📝 Add / edit note")
+        note_act = menu.addAction("🗈 Add / edit note")
 
         action = menu.exec_(self._table.viewport().mapToGlobal(pos))
 
@@ -729,7 +729,7 @@ class WSHistoryTab(QWidget):
         self._comparer_selection.clear()
         self._table.setRowCount(0)
         self._detail_text.clear()
-        self._detail_title.setText("🔌 WebSocket Message")
+        self._detail_title.setText("🖅 WebSocket Message")
         self._status_lbl.setText("No WebSocket traffic captured yet")
 
     # ── Send to Repeater (WS Sender tab in Repeater) ─────────────────────────────────
@@ -805,7 +805,7 @@ class WSHistoryTab(QWidget):
 
         if len(self._comparer_selection) == 1:
             self._status_lbl.setText(
-                "📈 Comparer: 1st message queued – right-click another row to compare"
+                "⽐ Comparer: 1st message queued – right-click another row to compare"
             )
             return
 
@@ -830,7 +830,7 @@ class WSHistoryTab(QWidget):
         name = f"WS #{idx_a+1} vs #{idx_b+1}"
         main_win.add_comparison(name, pay_a, pay_b, "text")
         self._comparer_selection.clear()
-        self._status_lbl.setText(f"📈 Sent to Comparer: {name}")
+        self._status_lbl.setText(f"➣ Sent to Comparer: {name}")
         if hasattr(main_win, "flash_tab"):
             main_win.flash_tab("Comparer")
 
