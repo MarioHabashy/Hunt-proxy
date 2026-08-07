@@ -10223,11 +10223,11 @@ class AnalysisTabMixin:
 
         # Tab 1: Security Headers (NEW)
         self._sec_headers_panel = self._create_security_headers_panel()
-        bottom_tabs.addTab(self._sec_headers_panel, "🛡️ Headers")
+        bottom_tabs.addTab(self._sec_headers_panel, "🛡 Headers")
 
         # Tab 2: Cookie Security (NEW)
         self._cookie_panel = self._create_cookie_panel()
-        bottom_tabs.addTab(self._cookie_panel, "🍪 Cookies")
+        bottom_tabs.addTab(self._cookie_panel, "🤀 Cookies")
 
         # Tab 3: CORS Analysis (NEW)
         self._cors_panel = self._create_cors_panel()
@@ -11687,7 +11687,7 @@ class AnalysisTabMixin:
 
             tab_specs = [
                 # idx  base_label            has_results              badge_n
-                (1,  "🛡️ Headers",    True,               None),   # always visible
+                (1,  "🛡 Headers",    True,               None),   # always visible
                 (2,  "≈ Cookies",    n_cookies > 0,      n_cookies),
                 (3,  "🌐 CORS",       n_cors > 0,         n_cors),
                 (4,  "⊞ Tech Stack", n_tech > 0,         n_tech),

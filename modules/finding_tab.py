@@ -290,7 +290,7 @@ class RecordedTab(QWidget):
 
         # Left: category list
         self._cat_list = QListWidget()
-        self._cat_list.setFixedWidth(210)
+        self._cat_list.setFixedWidth(340)
         self._cat_list.setStyleSheet(f"""
             QListWidget {{
                 background:{COLOR_DARK_BG};
