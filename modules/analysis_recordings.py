@@ -32,18 +32,18 @@ RECORDINGS_FILE = "analysis_recordings.json"
 # ── Category definitions ───────────────────────────────────────────────────────
 # Each entry maps (category_key) → (display_name, icon, priority)
 CATEGORIES: Dict[str, tuple] = {
-    "reflected":     ("Reflected Parameters",  "🔁", 1),
+    "reflected":     ("Reflected Parameters",  "</>", 1),
     "xss":           ("XSS Candidates",        "⚡", 2),
-    "sqli":          ("SQL Injection",          "💉", 3),
+    "sqli":          ("SQL Injection",          "⛏", 3),
     "ssrf":          ("SSRF",                   "🌐", 4),
-    "lfi":           ("LFI / Path Traversal",  "📁", 5),
-    "idor":          ("IDOR Candidates",        "🎯", 6),
-    "cors":          ("CORS Issues",            "🔀", 7),
-    "secrets":       ("Secrets / API Keys",    "🔑", 8),
-    "headers":       ("Security Headers",      "🛡️", 9),
-    "errors":        ("Error Disclosure",      "⚠️", 10),
-    "open_redirect": ("Open Redirect",         "↪️", 11),
-    "csrf":          ("CSRF",                  "🔓", 12),
+    "lfi":           ("LFI / Path Traversal",  "🗁", 5),
+    "idor":          ("IDOR Candidates",        "🞋", 6),
+    "cors":          ("CORS Issues",            "🛈", 7),
+    "secrets":       ("Secrets / API Keys",    "⚿", 8),
+    "headers":       ("Security Headers",      "🛡", 9),
+    "errors":        ("Error Disclosure",      "⚠", 10),
+    "open_redirect": ("Open Redirect",         "⮌", 11),
+    "csrf":          ("CSRF",                  "🤃", 12),
     "other":         ("Other Findings",        "🔍", 99),
 }
 
