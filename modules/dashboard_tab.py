@@ -6289,12 +6289,11 @@ class DashboardTab(QWidget):
             )
 
     def update_scope(self, slug: str, domain: str, subdomain: str):
-        """Called when scope changes in ScopeTab. Rebuilds domain list and reloads tasks."""
-        self._current_slug      = slug
-        self._current_domain    = domain
+        """Called when scope changes. Rebuilds domain list and categorizes subdomains."""
+        self._current_slug = slug
+        self._current_domain = domain
         self._current_subdomain = subdomain
 
-        # Update project_dir to match the new slug
         if slug:
             from . import project_manager as pm
             pm.ensure_project_dirs(slug)
@@ -6302,9 +6301,7 @@ class DashboardTab(QWidget):
             self.project_dir = paths["project_dir"]
 
         self._clear_targets_ui()
-        # Also clear loaded tasks so load_tasks re-reads from the correct file
         self._clear_tasks_ui()
-        # Reset traffic discovery so new scope re-scans history
         self._traffic_seen_hosts = set()
 
         if not slug:
@@ -6313,48 +6310,42 @@ class DashboardTab(QWidget):
 
         from . import project_manager as pm
 
-        # Logic 1: Program as target (slug set, domain="", subdomain="")
+        # Logic 1: Program as target
         if slug and not domain and not subdomain:
-            # Add all domains of this program to Domain Level
             all_domains = pm.list_domains(slug)
+            all_subdomains = []
+            
             for d in all_domains:
                 self._add_domain_widget(d)
-            
-            # Add all subdomains of all domains to Subdomain Level
-            for d in all_domains:
                 subs = pm.list_subdomains(slug, d)
+                all_subdomains.extend(subs)
                 for s in subs:
-                    self._add_subdomain_widget(s)
+                    self._add_subdomain_widget(s)  # Now auto-categorizes under parent domain
 
-        # Logic 2: Domain as target (slug set, domain set, subdomain="")
+        # Logic 2: Domain as target
         elif slug and domain and not subdomain:
-            # Add this domain to Domain Level
             self._add_domain_widget(domain)
-            
-            # Add all subdomains of this domain to Subdomain Level
             subs = pm.list_subdomains(slug, domain)
             for s in subs:
-                self._add_subdomain_widget(s)
+                self._add_subdomain_widget(s)  # Auto-categorizes under parent
 
-        # Logic 3: Subdomain as target (slug set, domain set, subdomain set)
+        # Logic 3: Subdomain as target
         elif slug and subdomain:
-            # Add the domain of this subdomain to Domain Level
-            if domain:
-                self._add_domain_widget(domain)
-            # Add this subdomain to Subdomain Level
+            # Extract and add parent domain
+            parent_domain = self._extract_domain_from_subdomain(subdomain)
+            if parent_domain:
+                self._add_domain_widget(parent_domain)
+            # Add the specific subdomain
             self._add_subdomain_widget(subdomain)
 
         self._update_target_counts()
         self._refresh_domain_subdomain_counts()
-
-        # Now load tasks filtered to the current scope domains
         self.load_tasks()
         self._update_stats()
         self._set_status(f"Scope updated.")
 
-        # Immediately scan traffic for any already-seen in-scope hosts
         QTimer.singleShot(200, self.refresh_from_traffic)
-
+    
     # ─────────────────────────────────────────────────────────────────────────
     # Subdomain management
     # ─────────────────────────────────────────────────────────────────────────
@@ -6369,8 +6360,18 @@ class DashboardTab(QWidget):
                 from urllib.parse import urlparse
                 parsed = urlparse(subdomain)
                 subdomain = parsed.netloc or parsed.path
+            
+            # Extract and create parent domain if needed
+            parent_domain = self._extract_domain_from_subdomain(subdomain)
+            if parent_domain and parent_domain != subdomain:
+                if parent_domain not in self.domain_widgets:
+                    self._add_domain_widget(parent_domain)
+            
+            # Add the subdomain
             self._add_subdomain_widget(subdomain)
             self._update_target_counts()
+            self._refresh_domain_subdomain_counts()
+            self._set_status(f"✓ Added {subdomain}")
 
     def _adjust_domains_height(self):
         """No-op: kept for compatibility; splitter replaced by unified scroll area."""
@@ -6397,25 +6398,75 @@ class DashboardTab(QWidget):
             dw.set_subdomain_count(n)
 
     def _add_subdomain_widget(self, subdomain: str):
+        """Add a subdomain widget, automatically creating parent domain if needed."""
         if subdomain in self.subdomain_widgets:
             return
-        w = SubdomainWidget(subdomain, self.project_dir, parent_tab=self, main_window=self.parent_window)
+        
+        # Try to find parent domain
+        parent_domain = self._find_parent_domain(subdomain)
+        
+        # If no parent domain exists, extract from subdomain
+        if not parent_domain:
+            parent_domain = self._extract_domain_from_subdomain(subdomain)
+            # Add the parent domain if it doesn't exist
+            if parent_domain and parent_domain not in self.domain_widgets:
+                self._add_domain_widget(parent_domain)
+        
+        # Create the subdomain widget
+        w = SubdomainWidget(subdomain, self.project_dir, parent_tab=self, 
+                        main_window=self.parent_window)
         w.clicked.connect(self._on_target_selected)
-
-        # Attach inline under the parent domain if possible, otherwise fall back to targets layout
-        parent_domain = next(
-            (d for d in self.domain_widgets if subdomain.endswith("." + d) or subdomain == d),
-            None
-        )
+        
+        # Attach under parent domain
         if parent_domain and parent_domain in self.domain_widgets:
             self.domain_widgets[parent_domain].add_subdomain_row(w)
         else:
+            # Fallback: add to targets layout
             self._targets_layout.insertWidget(self._targets_layout.count() - 1, w)
-
+        
         self.subdomain_widgets[subdomain] = w
         count = self.target_task_counts.get(subdomain, 0)
         w.update_task_count(count)
-        self._refresh_domain_subdomain_counts()
+        
+        # Update domain's subdomain count
+        if parent_domain and parent_domain in self.domain_widgets:
+            self._refresh_domain_subdomain_counts()
+        
+        self._update_target_counts()
+
+    def _find_parent_domain(self, subdomain: str) -> Optional[str]:
+        """
+        Find if this subdomain belongs to any existing domain widget.
+        Returns the parent domain if found, else None.
+        """
+        for domain in self.domain_widgets.keys():
+            if subdomain.endswith('.' + domain) or subdomain == domain:
+                return domain
+        return None
+
+    def _extract_domain_from_subdomain(self, subdomain: str) -> str:
+        """
+        Extract the parent domain from a subdomain.
+        Examples:
+            www.ex.com → ex.com
+            dev.api.ex.com → ex.com (or api.ex.com if 3+ levels)
+            sub.ex.com → ex.com
+        """
+        parts = subdomain.split('.')
+        
+        # If it's already a domain (2 parts like ex.com or 3+ parts with known TLD)
+        if len(parts) >= 2:
+            # Check for common TLDs to handle cases like co.uk, com.au
+            tlds = ['com', 'org', 'net', 'uk', 'au', 'co', 'io', 'app', 'dev']
+            
+            # If last part is a TLD and second-last is also a TLD (e.g., co.uk)
+            if len(parts) >= 3 and parts[-2] in ['co', 'com', 'org', 'net'] and parts[-1] in ['uk', 'au', 'nz', 'jp']:
+                return '.'.join(parts[-3:])  # e.g., ex.co.uk
+            else:
+                # Standard case: take last 2 parts
+                return '.'.join(parts[-2:])
+        
+        return subdomain  # Fallback
 
     def _clear_targets_ui(self):
         for w in list(self.domain_widgets.values()):
@@ -6478,11 +6529,8 @@ class DashboardTab(QWidget):
 
     def refresh_from_traffic(self):
         """
-        Scan HTTP history for hosts that are in the current scope but not yet
-        shown in the left panel, and add them automatically — like the sitemap.
-
-        This gives you live discovery: as you browse through the proxy, new
-        subdomains appear in the dashboard ready to run tasks against.
+        Scan HTTP history for hosts in scope and add them automatically.
+        Creates parent domains when subdomains are discovered.
         """
         pw = self.parent_window
         if not pw or not self._current_slug:
@@ -6491,12 +6539,12 @@ class DashboardTab(QWidget):
             return
 
         from . import project_manager as pm
-        # Get list of defined domains in the project to categorize correctly
         project_domains = set(pm.list_domains(self._current_slug))
 
-        findings = list(pw.findings)   # snapshot
+        findings = list(pw.findings)
         seen_hosts: set = set()
-
+        
+        # First pass: collect all hosts
         for finding in findings:
             url = finding.get("url", "")
             if not url:
@@ -6507,35 +6555,54 @@ class DashboardTab(QWidget):
                 continue
             if not host:
                 continue
-            # Only add hosts that are in scope
             if not self._is_host_in_current_scope(host):
                 continue
-            
-            # Add to set for processing
             seen_hosts.add(host)
 
         added = 0
         for host in sorted(seen_hosts):
-            # Check if it's already displayed
+            # Skip if already displayed
             if host in self.domain_widgets or host in self.subdomain_widgets:
                 continue
 
-            # Decide where to add it
+            # Check if this is a project domain
             if host in project_domains:
-                # It's a known project domain -> add to Domains panel
                 self._add_domain_widget(host)
+                self._traffic_seen_hosts.add(host)
+                added += 1
             else:
-                # It's a subdomain or discovered host -> add to Subdomains panel
-                self._add_subdomain_widget(host)
-            
-            self._traffic_seen_hosts.add(host)
-            added += 1
+                # Check if it belongs to an existing domain
+                parent_domain = self._find_parent_domain(host)
+                
+                if parent_domain:
+                    # It's a subdomain of an existing domain
+                    self._add_subdomain_widget(host)
+                    self._traffic_seen_hosts.add(host)
+                    added += 1
+                else:
+                    # New domain or subdomain without parent
+                    extracted_domain = self._extract_domain_from_subdomain(host)
+                    
+                    if extracted_domain != host:
+                        # It's a subdomain - create parent domain if needed
+                        if extracted_domain not in self.domain_widgets:
+                            self._add_domain_widget(extracted_domain)
+                            self._traffic_seen_hosts.add(extracted_domain)
+                            added += 1
+                        # Add the subdomain under the parent
+                        self._add_subdomain_widget(host)
+                        self._traffic_seen_hosts.add(host)
+                        added += 1
+                    else:
+                        # It's likely a domain itself
+                        self._add_domain_widget(host)
+                        self._traffic_seen_hosts.add(host)
+                        added += 1
 
         if added:
             self._update_target_counts()
+            self._refresh_domain_subdomain_counts()
             self._set_status(f"🖥 {added} new host{'s' if added != 1 else ''} discovered from traffic.")
-
-
 
     # ─────────────────────────────────────────────────────────────────────────
     # Task management
@@ -6799,23 +6866,13 @@ class DashboardTab(QWidget):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _poll_traffic_hosts(self):
-        """
-        Scan HTTP history every 5 s and auto-add any in-scope hostnames
-        not yet shown in the left panel — exactly like the sitemap in HTTP History.
-
-        Logic:
-          1. Get current scope hosts from project_manager.
-          2. For each finding in parent.findings, parse the URL host.
-          3. If the host is in scope AND not yet in subdomain_widgets, add it.
-          4. Track added hosts in _traffic_seen_hosts so we only process each once.
-        """
+        """Scan HTTP history every 5s and auto-add in-scope hosts with proper categorization."""
         if not self._current_slug:
             return
         pw = self.parent_window
         if not pw or not hasattr(pw, "findings") or not pw.findings:
             return
 
-        # Collect all hosts seen in traffic
         new_hosts = set()
         for finding in pw.findings:
             url = finding.get("url", "")
@@ -6825,10 +6882,8 @@ class DashboardTab(QWidget):
                 host = _safe_urlparse_host(url)
                 if not host:
                     continue
-                # Only care about hosts in current scope
                 if not self._is_host_in_current_scope(host):
                     continue
-                # Already processed or already in panel
                 if (host in self._traffic_seen_hosts or 
                     host in self.subdomain_widgets or 
                     host in self.domain_widgets):
@@ -6840,17 +6895,34 @@ class DashboardTab(QWidget):
         if not new_hosts:
             return
 
-        # Add new hostnames to the panel (sorted for consistent display)
         added = 0
+        from . import project_manager as pm
+        project_domains = set(pm.list_domains(self._current_slug))
+        
         for host in sorted(new_hosts):
             self._traffic_seen_hosts.add(host)
-            if host not in self.subdomain_widgets and host not in self.domain_widgets:
-                self._add_subdomain_widget(host)
+            
+            if host in project_domains:
+                self._add_domain_widget(host)
                 added += 1
+            else:
+                # Check if parent domain exists or needs to be created
+                parent_domain = self._find_parent_domain(host)
+                if not parent_domain:
+                    parent_domain = self._extract_domain_from_subdomain(host)
+                    if parent_domain and parent_domain != host:
+                        if parent_domain not in self.domain_widgets:
+                            self._add_domain_widget(parent_domain)
+                            added += 1
+                
+                if host not in self.subdomain_widgets and host not in self.domain_widgets:
+                    self._add_subdomain_widget(host)
+                    added += 1
 
         if added:
             self._update_target_counts()
-            self._set_status(f"🖥 {added} new host{'s' if added != 1 else ''} discovered from traffic.")
+            self._refresh_domain_subdomain_counts()
+            self._set_status(f"🖥 {added} new host{'s' if added != 1 else ''} discovered.")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cookie detection
