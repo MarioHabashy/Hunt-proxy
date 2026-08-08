@@ -4547,6 +4547,34 @@ class HuntGUI(
 
     # ── Status-bar navigation helpers ─────────────────────────────────────
 
+    def _go_to_http_history_tab(self):
+        """Switch to the HTTP History tab."""
+        for i in range(self.tab_widget.count()):
+            if self.tab_widget.tabText(i).strip() == "HTTP History":
+                self.tab_widget.setCurrentIndex(i)
+                return
+        # Fallback: match loosely in case the label carries an icon/prefix
+        for i in range(self.tab_widget.count()):
+            if "HTTP History" in self.tab_widget.tabText(i):
+                self.tab_widget.setCurrentIndex(i)
+                return
+
+    def _go_to_findings_tab(self):
+        """Switch to the Mapping tab, then activate its internal Findings sub-tab."""
+        if not hasattr(self, "mapping_tab"):
+            return
+        # Activate the main Mapping tab
+        for i in range(self.tab_widget.count()):
+            if self.tab_widget.tabText(i).strip() == "Mapping":
+                self.tab_widget.setCurrentIndex(i)
+                break
+        # Find the Findings sub-tab inside Mapping's own QTabWidget(s)
+        for sub_tabs in self.mapping_tab.findChildren(QTabWidget):
+            for j in range(sub_tabs.count()):
+                if "finding" in sub_tabs.tabText(j).strip().lower():
+                    sub_tabs.setCurrentIndex(j)
+                    return
+
     def _go_to_attack_surface_tab(self):
         """Switch to the Attack Surface tab."""
         if hasattr(self, "attack_surface_tab"):
@@ -6488,7 +6516,7 @@ class HuntGUI(
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED};")
 
-        self.requests_label = QLabel("Requests: 0")
+        self.requests_label = ClickableLabel("HTTP Requests: 0")
         self.requests_label.setStyleSheet(
             f"""
             QLabel {{
@@ -6496,8 +6524,27 @@ class HuntGUI(
                 padding: 0 8px;
                 border-right: 1px solid {COLOR_BORDER};
             }}
+            QLabel:hover {{ color: {COLOR_ACCENT}; text-decoration: underline; }}
         """
         )
+        self.requests_label.setCursor(Qt.PointingHandCursor)
+        self.requests_label.setToolTip("Click to open HTTP History tab")
+        self.requests_label.clicked.connect(self._go_to_http_history_tab)
+
+        self.findings_label = ClickableLabel("Findings")
+        self.findings_label.setStyleSheet(
+            f"""
+            QLabel {{
+                color: {COLOR_TEXT_BRIGHT};
+                padding: 0 8px;
+                border-right: 1px solid {COLOR_BORDER};
+            }}
+            QLabel:hover {{ color: {COLOR_ACCENT}; text-decoration: underline; }}
+        """
+        )
+        self.findings_label.setCursor(Qt.PointingHandCursor)
+        self.findings_label.setToolTip("Click to open the Findings tab (inside Mapping)")
+        self.findings_label.clicked.connect(self._go_to_findings_tab)
 
         self.attack_surface_label = ClickableLabel("Attack Surface: 0")
         self.attack_surface_label.setStyleSheet(
@@ -6587,6 +6634,7 @@ class HuntGUI(
         self.status_bar.addPermanentWidget(self.load_progress_bar)
         self.status_bar.addPermanentWidget(self.project_notes_btn)
         self.status_bar.addPermanentWidget(self.requests_label)
+        self.status_bar.addPermanentWidget(self.findings_label)
         self.status_bar.addPermanentWidget(self.attack_surface_label)
         self.status_bar.addPermanentWidget(self.bugs_reported_label)
 
@@ -6745,7 +6793,7 @@ class HuntGUI(
                 len(self.findings)
                 if hasattr(self, 'findings') else stats.get('total', 0)
             )
-            self.requests_label.setText(f"Requests: {req_count}")
+            self.requests_label.setText(f"HTTP Requests: {req_count}")
             as_count = (
                 len(self.attack_surface_tab._entries)
                 if hasattr(self, 'attack_surface_tab') else 0
@@ -8649,7 +8697,7 @@ class HuntGUI(
         try:
             if hasattr(self, 'findings') and hasattr(self, 'requests_label'):
                 self.requests_label.setText(
-                    f"Requests: {len(self.findings)}"
+                    f"HTTP Requests: {len(self.findings)}"
                 )
             if hasattr(self, 'attack_surface_tab') and hasattr(self, 'attack_surface_label'):
                 self.attack_surface_label.setText(
