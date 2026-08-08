@@ -10490,8 +10490,6 @@ class AnalysisTabMixin:
         """)
 
         self.param_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.param_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.param_table.customContextMenuRequested.connect(self.show_param_table_context_menu)
         self.param_table.verticalHeader().setDefaultSectionSize(24)
         self.param_table.verticalHeader().hide()
 
@@ -10594,9 +10592,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)                           # Status
         hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # Risk
         hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Description
-        tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         # populate with empty/placeholder rows so table is self-documenting
         self._populate_security_headers_table({})
         return container
@@ -10618,8 +10613,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(6, QHeaderView.ResizeToContents)                           # Type
         hdr.setSectionResizeMode(7, QHeaderView.Stretch)                                    # Issues
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_cors_panel(self) -> QWidget:
@@ -10636,8 +10629,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 165)  # Value
         hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Risk Description
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_tech_stack_panel(self) -> QWidget:
@@ -10652,8 +10643,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)                           # Category
         hdr.setSectionResizeMode(2, QHeaderView.Stretch)                                    # Evidence
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_jwt_panel(self) -> QWidget:
@@ -10670,8 +10659,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 170)  # Expiry
         hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Findings / Claims
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_cache_panel(self) -> QWidget:
@@ -10688,8 +10675,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 125)  # Value
         hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Description
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_endpoints_panel(self) -> QWidget:
@@ -10705,8 +10690,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(2, QHeaderView.Stretch)                                    # Original URL
         hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)                           # Risk
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_weird_panel(self) -> QWidget:
@@ -10723,8 +10706,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 245)  # Detail
         hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Evidence
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     def _create_js_dom_panel(self) -> QWidget:
@@ -10741,8 +10722,6 @@ class AnalysisTabMixin:
         hdr.setSectionResizeMode(3, QHeaderView.Interactive);  tbl.setColumnWidth(3, 205)  # Sink / Name
         hdr.setSectionResizeMode(4, QHeaderView.Stretch)                                    # Context / Code
         tbl.setContextMenuPolicy(Qt.CustomContextMenu)
-        tbl.customContextMenuRequested.connect(
-            lambda pos, t=tbl: self._show_table_context_menu(pos, t))
         return container
 
     # Prefixes that route a params key to the JS/DOM tab
@@ -11729,129 +11708,6 @@ class AnalysisTabMixin:
     # ------------------------------------------------------------------
     # Generic context menu shared by ALL bottom-section tables
     # ------------------------------------------------------------------
-    def _show_table_context_menu(self, position, table):
-        """Right-click context menu for any security-panel table (headers, cookies, CORS, etc.)."""
-        item = table.itemAt(position)
-        if not item:
-            return
-
-        row = item.row()
-        ncols = table.columnCount()
-
-        # Collect all cell texts for this row, paired with their header label
-        col_headers = [
-            table.horizontalHeaderItem(c).text() if table.horizontalHeaderItem(c) else f"Col {c}"
-            for c in range(ncols)
-        ]
-        col_values = []
-        for c in range(ncols):
-            it = table.item(row, c)
-            col_values.append(it.text().strip() if it else "")
-
-        # Identify the "primary" column (first non-empty text that isn't a severity badge)
-        _severity_words = {"HIGH", "MEDIUM", "LOW", "INFO", "CRITICAL",
-                           "✓", "✗", "✓", "△", "●", "▲", "◆", "○"}
-        primary_col = 0
-        for c, v in enumerate(col_values):
-            if v and v not in _severity_words and not all(ch in "✓✗✓△●▲◆○ " for ch in v):
-                primary_col = c
-                break
-
-        primary_val = col_values[primary_col]
-        primary_hdr = col_headers[primary_col]
-
-        # "Value" column: prefer a column whose header contains "value" or is the 2nd/3rd col
-        value_col = None
-        for c, h in enumerate(col_headers):
-            if "value" in h.lower() and c != primary_col:
-                value_col = c
-                break
-        if value_col is None and ncols > primary_col + 1:
-            value_col = primary_col + 1
-        value_val = col_values[value_col] if value_col is not None else ""
-
-        # Full row as tab-separated
-        full_row = "\t".join(col_values)
-
-        def _copy(text):
-            if text:
-                QApplication.clipboard().setText(text)
-
-        def _clip(text, n=45):
-            return (text[:n] + "…") if len(text) > n else text
-
-        # ── Build menu ────────────────────────────────────────────────────
-        menu = QMenu(table)
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: #252526;
-                color: #cccccc;
-                border: 1px solid #3c3c3c;
-                padding: 4px 0;
-            }
-            QMenu::item { padding: 5px 20px 5px 10px; font-size: 12px; }
-            QMenu::item:selected { background-color: #094771; color: #ffffff; }
-            QMenu::separator { height: 1px; background: #3c3c3c; margin: 3px 6px; }
-            QMenu::item:disabled { color: #555555; }
-        """)
-
-        # ── Copy section ──────────────────────────────────────────────────
-        lbl = menu.addAction("── Copy ──")
-        lbl.setEnabled(False)
-
-        act_copy_primary = menu.addAction(f"⊏  Copy {primary_hdr}  \"{_clip(primary_val)}\"")
-        act_copy_value   = None
-        if value_val and value_val != primary_val:
-            vh = col_headers[value_col] if value_col is not None else "Value"
-            act_copy_value = menu.addAction(f"⊏  Copy {vh}  \"{_clip(value_val)}\"")
-        act_copy_row = menu.addAction("⊏  Copy Full Row")
-        menu.addSeparator()
-
-        # ── Search section — only if panes are available ──────────────────
-        has_req  = bool(getattr(self, 'current_request_raw',  None))
-        has_resp = bool(getattr(self, 'current_response_raw', None))
-
-        act_sp_req = act_sv_req = act_sp_resp = act_sv_resp = None
-
-        if has_req or has_resp:
-            lbl2 = menu.addAction("── Search in Request / Response ──")
-            lbl2.setEnabled(False)
-
-            loc = self._guess_location_from_header(col_headers)
-
-            if has_req:
-                act_sp_req = menu.addAction(
-                    f"🔍  Search  \"{_clip(primary_val)}\"  in Request")
-            if has_req and value_val and value_val != primary_val:
-                act_sv_req = menu.addAction(
-                    f"🔍  Search value  \"{_clip(value_val)}\"  in Request")
-            if has_resp:
-                act_sp_resp = menu.addAction(
-                    f"🔍  Search  \"{_clip(primary_val)}\"  in Response")
-            if has_resp and value_val and value_val != primary_val:
-                act_sv_resp = menu.addAction(
-                    f"🔍  Search value  \"{_clip(value_val)}\"  in Response")
-
-        # ── Execute ───────────────────────────────────────────────────────
-        action = menu.exec_(table.viewport().mapToGlobal(position))
-        if action is None:
-            return
-
-        if action == act_copy_primary:
-            _copy(primary_val)
-        elif action == act_copy_value:
-            _copy(value_val)
-        elif action == act_copy_row:
-            _copy(full_row)
-        elif action == act_sp_req:
-            self._search_text_in_pane(primary_val, loc, "request")
-        elif action == act_sv_req:
-            self._search_text_in_pane(value_val, loc, "request")
-        elif action == act_sp_resp:
-            self._search_text_in_pane(primary_val, loc, "response")
-        elif action == act_sv_resp:
-            self._search_text_in_pane(value_val, loc, "response")
-
     def _guess_location_from_header(self, col_headers: list) -> str:
         """Guess the location hint (HEADER/COOKIE/URL/…) from a table's column headers."""
         joined = " ".join(col_headers).lower()
@@ -11862,116 +11718,6 @@ class AnalysisTabMixin:
         if "path" in joined or "endpoint" in joined or "url" in joined:
             return "URL"
         return ""
-
-    def show_param_table_context_menu(self, position):
-        """Rich right-click context menu for the parameter analysis table."""
-        item = self.param_table.itemAt(position)
-        if not item:
-            return
-
-        row = item.row()
-
-        # ── Pull all columns for this row ────────────────────────────────
-        def _cell(col):
-            it = self.param_table.item(row, col)
-            return it.text().strip() if it else ""
-
-        location   = _cell(0)   # BODY / URL / HEADER / …
-        param_name = _cell(1)   # parameter name
-        param_val  = _cell(2)   # detected value (may be truncated display)
-        risk       = _cell(3)   # ● CRITICAL / ▲ HIGH / …
-        vulns      = _cell(4)   # XSS, SQLI, …
-        meta       = _cell(5)   # metadata
-
-        # Strip VALUE: prefix that we write into the column for display
-        raw_value = param_val
-        if raw_value.startswith("VALUE:"):
-            raw_value = raw_value[6:]
-
-        # Full row as plain text
-        full_row = "\t".join(filter(None, [location, param_name, raw_value, risk, vulns, meta]))
-
-        # ── Helper: clip to clipboard ─────────────────────────────────────
-        def _copy(text):
-            if text:
-                QApplication.clipboard().setText(text)
-
-        # ── Build menu ────────────────────────────────────────────────────
-        menu = QMenu(self.param_table)
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: #252526;
-                color: #cccccc;
-                border: 1px solid #3c3c3c;
-                padding: 4px 0;
-            }
-            QMenu::item {
-                padding: 5px 20px 5px 10px;
-                font-size: 12px;
-            }
-            QMenu::item:selected {
-                background-color: #094771;
-                color: #ffffff;
-            }
-            QMenu::separator {
-                height: 1px;
-                background: #3c3c3c;
-                margin: 3px 6px;
-            }
-            QMenu::item:disabled {
-                color: #555555;
-            }
-        """)
-
-        # ── Section: Copy ─────────────────────────────────────────────────
-        lbl_copy = menu.addAction("── Copy ──")
-        lbl_copy.setEnabled(False)
-
-        act_copy_name  = menu.addAction(f"⊏  Copy Param Name  \"{param_name[:50]}\"")
-        act_copy_val   = menu.addAction(f"⊏  Copy Value  \"{raw_value[:50]}\"") if raw_value else None
-        act_copy_vulns = menu.addAction(f"⊏  Copy Vulnerabilities  \"{vulns[:60]}\"") if vulns else None
-        act_copy_row   = menu.addAction("⊏  Copy Full Row")
-        menu.addSeparator()
-
-        # ── Section: Search in Request ────────────────────────────────────
-        lbl_req = menu.addAction("── Search in Request ──")
-        lbl_req.setEnabled(False)
-
-        display_name = param_name[:30] + "…" if len(param_name) > 30 else param_name
-        display_val  = raw_value[:30] + "…" if len(raw_value) > 30 else raw_value
-
-        act_search_name_req = menu.addAction(f"🔍  Search name  \"{display_name}\"  in Request")
-        act_search_val_req  = menu.addAction(f"🔍  Search value  \"{display_val}\"  in Request") if raw_value else None
-        menu.addSeparator()
-
-        # ── Section: Search in Response ───────────────────────────────────
-        lbl_resp = menu.addAction("── Search in Response ──")
-        lbl_resp.setEnabled(False)
-
-        act_search_name_resp = menu.addAction(f"🔍  Search name  \"{display_name}\"  in Response")
-        act_search_val_resp  = menu.addAction(f"🔍  Search value  \"{display_val}\"  in Response") if raw_value else None
-
-        # ── Execute ───────────────────────────────────────────────────────
-        action = menu.exec_(self.param_table.viewport().mapToGlobal(position))
-        if action is None:
-            return
-
-        if action == act_copy_name:
-            _copy(param_name)
-        elif action == act_copy_val:
-            _copy(raw_value)
-        elif action == act_copy_vulns:
-            _copy(vulns)
-        elif action == act_copy_row:
-            _copy(full_row)
-        elif action == act_search_name_req:
-            self._search_text_in_pane(param_name, location, "request")
-        elif action == act_search_val_req and raw_value:
-            self._search_text_in_pane(raw_value, location, "request")
-        elif action == act_search_name_resp:
-            self._search_text_in_pane(param_name, location, "response")
-        elif action == act_search_val_resp and raw_value:
-            self._search_text_in_pane(raw_value, location, "response")
 
     # ------------------------------------------------------------------
     # Unified search helper — switches to the right pane then highlights
@@ -12282,55 +12028,6 @@ class AnalysisTabMixin:
         group.setLayout(layout)
         return group
     
-    def show_highlight_table_context_menu(self, position):
-        """Show context menu for highlight table"""
-        # Get the clicked item
-        item = self.highlight_table.itemAt(position)
-        if not item:
-            return
-        
-        row = item.row()
-        
-        # Get pattern type from column 0
-        pattern_item = self.highlight_table.item(row, 0)
-        if not pattern_item:
-            return
-        
-        pattern_type = pattern_item.text()
-        
-        # Get preview from column 3
-        preview_item = self.highlight_table.item(row, 3)
-        preview = preview_item.text() if preview_item else ""
-        
-        # Extract actual text to search for (from preview)
-        search_text = preview.split("...")[0] if "..." in preview else preview
-        if len(search_text) > 30:
-            search_text = search_text[:30]
-        
-        # Create context menu
-        menu = QMenu()
-        
-        # Add action to search in response
-        if search_text:
-            search_action = menu.addAction(f"🔍earch '{search_text}' in Response")
-            search_action.setData({"pattern": pattern_type, "text": search_text})
-        
-        # Add action to copy pattern
-        copy_action = menu.addAction(f"⊏ Copy '{pattern_type}'")
-        
-        # Execute menu
-        action = menu.exec_(self.highlight_table.viewport().mapToGlobal(position))
-        
-        if action == search_action and search_text:
-            self.search_text_in_response(search_text, pattern_type)
-        elif action == copy_action:
-            clipboard = QApplication.clipboard()
-            clipboard.setText(pattern_type)
-            
-            if hasattr(self, 'status_label'):
-                self.status_label.setText(f"⊏ Copied '{pattern_type}'")
-                QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
-
     def search_text_in_response(self, search_text: str, pattern_type: str):
         """Search for text in response tab"""
         if not hasattr(self, 'current_response_raw') or not self.current_response_raw:
