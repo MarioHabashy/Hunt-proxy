@@ -1294,29 +1294,16 @@ class HTTPHistoryTab(AnalysisTabMixin):
         _insp_title.setStyleSheet(
             f"color: {COLOR_TEXT_BRIGHT}; font-weight: 700; font-size: 12px;"
         )
+
+        _insp_hint = QLabel("double-click to copy")
+        _insp_hint.setStyleSheet(
+            "color: #777777; font-size: 10px; font-weight: 400;"
+        )
+
         _insp_hdr_layout.addWidget(_insp_title)
+        _insp_hdr_layout.addWidget(_insp_hint)
         _insp_hdr_layout.addStretch()
 
-        self._inspector_swap_btn = QPushButton("⇄ Swap")
-        self._inspector_swap_btn.setToolTip("Hide Inspector (req/resp full width)")
-        self._inspector_swap_btn.setMaximumWidth(72)
-        self._inspector_swap_btn.setStyleSheet(
-            f"""
-            QPushButton {{
-                background-color: {COLOR_ELEVATED_BG};
-                color: {COLOR_TEXT_MUTED};
-                border: 1px solid {COLOR_BORDER};
-                padding: 2px 6px;
-                font-size: 11px;
-            }}
-            QPushButton:hover {{
-                background-color: {COLOR_HOVER};
-                color: {COLOR_TEXT_BRIGHT};
-            }}
-        """
-        )
-        self._inspector_swap_btn.clicked.connect(self._swap_inspector_side)
-        _insp_hdr_layout.addWidget(self._inspector_swap_btn)
 
         inspector_panel_layout.addWidget(inspector_header)
 
@@ -4179,49 +4166,6 @@ class HTTPHistoryTab(AnalysisTabMixin):
             pass
         except Exception as e:
             logger.error(f"Error going back to tabs: {e}")
-
-    def _swap_inspector_side(self):
-        """Cycle the Inspector panel through three states:
-          0 → normal  (inspector right, ~30%)
-          1 → hidden  (inspector collapsed, req/resp full width)
-          2 → full    (inspector full width, req/resp collapsed)
-        """
-        try:
-            bs = self._bottom_splitter
-            total = sum(bs.sizes()) or 1000
-
-            # Advance to the next state
-            self._inspector_state = (self._inspector_state + 1) % 3
-
-            if self._inspector_state == 0:
-                # Normal: req/resp ~70%, inspector ~30% (inspector on right)
-                if bs.indexOf(self._inspector_panel) != 1:
-                    self._inspector_panel.setParent(None)
-                    bs.addWidget(self._inspector_panel)
-                bs.setSizes([int(total * 0.7), int(total * 0.3)])
-                self._inspector_swap_btn.setText("⇄ Swap")
-                self._inspector_swap_btn.setToolTip("Hide Inspector (req/resp full width)")
-
-            elif self._inspector_state == 1:
-                # Hidden: inspector collapsed to 0, req/resp takes full width
-                if bs.indexOf(self._inspector_panel) != 1:
-                    self._inspector_panel.setParent(None)
-                    bs.addWidget(self._inspector_panel)
-                bs.setSizes([total, 0])
-                self._inspector_swap_btn.setText("■ Full")
-                self._inspector_swap_btn.setToolTip("Expand Inspector to full width")
-
-            else:
-                # Full: inspector takes full width, req/resp collapsed to 0
-                if bs.indexOf(self._inspector_panel) != 1:
-                    self._inspector_panel.setParent(None)
-                    bs.addWidget(self._inspector_panel)
-                bs.setSizes([0, total])
-                self._inspector_swap_btn.setText("↺ Reset")
-                self._inspector_swap_btn.setToolTip("Restore normal layout")
-
-        except Exception as e:
-            logger.error(f"Error swapping inspector: {e}")
 
     def _close_merged_tab(self):
         """Close/remove the merged Request/Response tab."""
