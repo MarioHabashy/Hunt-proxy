@@ -3745,7 +3745,7 @@ class MappingTabPro(QWidget):
         self.stats_card = QLabel()
         self.stats_card.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.stats_card.setWordWrap(True)
-        self.stats_card.setFixedHeight(170)
+        self.stats_card.setFixedHeight(250)
         self.stats_card.setStyleSheet(f"""
             QLabel {{
                 background-color: {COLOR_CARD_BG};
