@@ -403,7 +403,7 @@ class DecoderTab:
 
         # Add new tab button
         new_tab_btn = QPushButton("✚ New Tab")
-        new_tab_btn.clicked.connect(self.add_decoder_io_tab)
+        new_tab_btn.clicked.connect(lambda: self.add_decoder_io_tab())
         new_tab_btn.setMaximumWidth(100)
         self.decoder_tabs.setCornerWidget(new_tab_btn)
 
