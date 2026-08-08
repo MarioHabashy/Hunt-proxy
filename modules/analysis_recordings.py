@@ -6,12 +6,30 @@ Persistent storage layer for Analysis Tab detections.
 Every time the Analysis tab finishes analysing a request it calls
 ``RecordingManager.save_finding(project_dir, finding, analysis_results)``.
 Results are grouped into *categories* (Reflected, SQLi, XSS, SSRF, LFI,
-Secrets, CORS, Headers, Errors, Other) and written to a single JSON file:
+Secrets, CORS, Headers, Errors, Other, ...) and written to a single JSON file:
 
     <project_dir>/analysis_recordings.json
 
 The Recorded sub-tab in Attack Surface reads this file and displays the
 data in a professional, filterable table.
+
+── Design note (2024 rewrite) ─────────────────────────────────────────────
+The original version of this module filtered `analysis_results["params"]`
+through an *allow-list* of keyword substrings before deciding whether a
+detection was worth persisting. That approach silently dropped a large
+number of real (often HIGH/CRITICAL) findings produced by analysis_tab.py
+because their exact tag text didn't happen to contain one of the coded
+keywords (e.g. "SECRET_IN_INLINE_JS" doesn't contain a word-bounded
+"SECRET", "RESPONSE GRAPHQL ..." wasn't covered at all, etc.), and it never
+looked at `results['weird']`, `results['cookies']`, or `results['tech_stack']`
+at all — three entire detection buckets produced by SecurityAnalyzer.
+
+This version instead records everything by default and only excludes a
+short, explicit list of "pure noise" tags used purely to populate the
+attack-surface parameter table (not real detections). It also ingests the
+weird/cookies/tech_stack buckets. This makes the recorder resilient to new
+detection tags being added to analysis_tab.py in the future — anything not
+explicitly marked as noise gets captured.
 """
 
 from __future__ import annotations
@@ -44,31 +62,75 @@ CATEGORIES: Dict[str, tuple] = {
     "errors":        ("Error Disclosure",      "⚠", 10),
     "open_redirect": ("Open Redirect",         "⮌", 11),
     "csrf":          ("CSRF",                  "🤃", 12),
+    "ssti":          ("Template Injection",    "🤅", 13),
+    "xxe":           ("XXE",                    "🗉", 14),
+    "graphql":       ("GraphQL Issues",        "⬡", 15),
+    "websocket":     ("WebSocket Issues",      "◈", 16),
+    "jsonp":         ("JSONP Endpoints",       "🖈", 17),
+    "exposure":      ("Sensitive Exposure",    "🕳", 18),
+    "cookies":       ("Cookie Security",       "🤀", 19),
+    "recon":         ("Recon / Tech Stack",    "🄬", 20),
+    "anomalies":     ("Anomalies",             "?", 21),
     "other":         ("Other Findings",        "🔍", 99),
 }
 
 # ── Keyword → category mapping ─────────────────────────────────────────────────
 # Checked against the *vulnerabilities* column string of each param row.
+# NOTE: patterns here are deliberately permissive (no forced trailing \b in
+# most cases) so that compound tags like "SECRET_IN_INLINE_JS" or
+# "CSRF_VIA_OAUTH" still classify correctly.
 _CATEGORY_RULES: List[tuple] = [
     # (regex_pattern, category_key)
     (r"\bREFLECTED\b",                                     "reflected"),
-    (r"\bXSS\b|\bDOM_XSS\b|\bXSS_SINK\b",                "xss"),
-    (r"\bSQLI\b|\bSQL_INJECT\b|\bSQL_ERROR\b",            "sqli"),
-    (r"\bSSRF\b",                                         "ssrf"),
-    (r"\bLFI\b|\bPATH_TRAVERSAL\b|\bRFI\b",              "lfi"),
-    (r"\bIDOR\b|\bBOLA\b",                                "idor"),
-    # CORS_ prefix covers CORS_INDICATOR, CORS_MISCONFIGURATION, etc.
-    (r"CORS",                                             "cors"),
-    (r"\bAPI_KEY\b|\bSECRET\b|\bTOKEN_LEAK\b|"
-     r"\bAWS_KEY\b|\bGITHUB_TOKEN\b",                    "secrets"),
-    # MISSING_ prefix + SECURITY_MISC prefix + DEBUG_HEADER + CLICKJACKING
-    (r"MISSING_|SECURITY_MISC|\bDEBUG_HEADER\b|\bCLICKJACKING\b|\bHOST_HEADER\b",
-                                                          "headers"),
-    (r"\bSQL_ERROR\b|\bERROR_DISCLOS\b|"
-     r"\bSTACK_TRACE\b|\bEXCEPTION\b",                   "errors"),
-    (r"\bOPEN_REDIRECT\b|\bREDIRECT\b",                  "open_redirect"),
-    (r"\bCSRF\b",                                         "csrf"),
+    (r"\bXSS\b|XSS_SINK|_XSS\b|\bXSS_",                    "xss"),
+    (r"\bSQLI\b|SQL_INJECT|SQL_ERROR|CLIENT_SIDE_SQLI",     "sqli"),
+    (r"\bSSRF\b",                                           "ssrf"),
+    (r"\bLFI\b|PATH_TRAVERSAL|\bRFI\b",                     "lfi"),
+    (r"\bIDOR\b|\bBOLA\b",                                  "idor"),
+    (r"\bCORS",                                             "cors"),
+    (r"SECRET|API_KEY|AWS_KEY|GITHUB_TOKEN|_TOKEN\b|TOKEN_STORAGE|"
+     r"STRIPE_KEY|GENERIC_API_KEY|PRIVATE_KEY|HARDCODED_SECRET",
+                                                             "secrets"),
+    (r"MISSING_|SECURITY_MISC|\bDEBUG_HEADER\b|\bCLICKJACKING\b|"
+     r"\bHOST_HEADER\b|WEAK_CSP|UNCOMMON_HEADER",
+                                                             "headers"),
+    (r"ERROR_DISCLOS|STACK_TRACE|\bEXCEPTION\b|PHP_FATAL|PHP_WARNING|"
+     r"PHP_PARSE|PYTHON_TRACEBACK|JAVA_EXCEPTION|DOTNET_EXCEPTION|"
+     r"RUNTIME_ERROR|TYPE_ERROR|VALUE_ERROR",
+                                                             "errors"),
+    (r"\bOPEN_REDIRECT\b|\bREDIRECT\b",                    "open_redirect"),
+    (r"\bCSRF\b|CSRF_VIA_OAUTH|CSRF_HIDDEN",                "csrf"),
+    (r"\bSSTI\b|TEMPLATE_INJECT",                           "ssti"),
+    (r"\bXXE\b|ENTITY_SYSTEM|ENTITY_PUBLIC|DOCTYPE_WITH_DTD|"
+     r"XXE_TESTING_CANDIDATE|XXE_EXPLOITATION_ATTEMPT",
+                                                             "xxe"),
+    (r"GRAPHQL",                                            "graphql"),
+    (r"WEBSOCKET",                                          "websocket"),
+    (r"JSONP",                                              "jsonp"),
+    (r"ADMIN_PANEL|DEFAULT_CRED|WEB_CACHE_DECEPTION|"
+     r"REFLECTED_FILE_DOWNLOAD|\bRFD\b|SOURCE_MAP|INTERNAL_HOST|"
+     r"SUBDOMAIN_TAKEOVER|OAUTH_STATE_MISSING|DIRECTORY_LISTING",
+                                                             "exposure"),
 ]
+
+# Tags that are pure "attack surface" noise — used to populate the
+# parameter table but not, by themselves, a security detection. An entry
+# is skipped ONLY if every one of its non-metadata tokens falls in this set.
+_NOISE_TAGS = {
+    "INFO", "INTERESTING", "TECHNOLOGY_DETECTED", "GOOD", "REQUIRED",
+    "UNKNOWN", "STANDALONE", "HIDDEN",
+}
+
+# Prefixes used for metadata tokens (e.g. "VALUE:foo", "NOTE:bar") — these
+# carry detail, not a signal of their own, so they never make an entry
+# "noisy" or "meaningful" on their own.
+_METADATA_PREFIXES = (
+    "VALUE:", "EVIDENCE:", "NOTE:", "CODE:", "TYPE:", "SOURCE:", "SINK:",
+    "VAR:", "EXPR:", "PATH:", "URL:", "HREF:", "PARAM:", "SERVICE:",
+    "CALLBACK:", "ERROR_MSG:", "HEADER:", "RISK:", "LOC:", "TAG:",
+)
+
+_SEVERITY_WORDS = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -84,9 +146,51 @@ def _classify(vuln_string: str) -> str:
     return "other"
 
 
+def _is_pure_noise(tokens: List[str]) -> bool:
+    """
+    Return True if *tokens* contains nothing but noise markers and/or
+    metadata-prefixed detail (i.e. there is no real detection signal here).
+    """
+    for tok in tokens:
+        tok_upper = str(tok).upper().strip()
+        if not tok_upper:
+            continue
+        if tok_upper in _SEVERITY_WORDS:
+            # A bare severity word alone isn't a signal, but keep scanning —
+            # other tokens decide.
+            continue
+        if tok_upper in _NOISE_TAGS:
+            continue
+        if any(tok_upper.startswith(p) for p in _METADATA_PREFIXES):
+            continue
+        # Anything else (a bare tag like "SECRET_IN_INLINE_JS", "GRAPHQL_QUERY",
+        # "ADMIN_PANEL", "SSTI", etc.) counts as real signal.
+        return False
+    return True
+
+
 def _severity_order(sev: str) -> int:
     """Lower = more severe."""
     return {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}.get(sev.upper(), 4)
+
+
+def _explicit_severity(tokens: List[str]) -> Optional[str]:
+    """Return CRITICAL/HIGH/MEDIUM/LOW if a bare severity token is present, else None."""
+    upper_tokens = [str(t).upper() for t in tokens]
+    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+        if sev in upper_tokens:
+            return sev
+    return None
+
+
+def _severity_from_tokens(tokens: List[str], default: str = "LOW") -> str:
+    explicit = _explicit_severity(tokens)
+    if explicit:
+        return explicit
+    joined = " ".join(str(t).upper() for t in tokens)
+    if any(k in joined for k in ["XSS", "SQLI", "RCE", "SSRF", "SECRET"]):
+        return "HIGH"
+    return default
 
 
 def _extract_reflected_params(analysis_results: Dict) -> List[str]:
@@ -99,6 +203,10 @@ def _extract_reflected_params(analysis_results: Dict) -> List[str]:
             parts = param_name.split(" ", 1)
             reflected.append(parts[1] if len(parts) > 1 else param_name)
     return reflected
+
+
+def _make_id(seed: str) -> str:
+    return f"{hash(seed) & 0xFFFFFFFF:08x}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,8 +225,10 @@ class RecordingManager:
         analysis_results: Dict,
     ) -> bool:
         """
-        Extract noteworthy detections from *analysis_results* and append them
-        to the project's recordings file, grouped by category.
+        Extract every noteworthy detection from *analysis_results* — params,
+        weird-analyzer anomalies, cookie security issues, and tech-stack
+        recon — and append them to the project's recordings file, grouped
+        by category.
 
         Returns True on success.
         """
@@ -135,75 +245,112 @@ class RecordingManager:
             ts      = datetime.now().isoformat(timespec="seconds")
             severity_overall = analysis_results.get("severity", "LOW")
 
-            # ── Iterate every detected parameter ──────────────────────────
-            for param_full, detections in analysis_results.get("params", {}).items():
-                det_str = (
-                    " ".join(str(d) for d in detections)
-                    if isinstance(detections, (list, set))
-                    else str(detections)
-                )
+            reflected_params = _extract_reflected_params(analysis_results)
 
-                # Skip boring INFO-only rows that have no real vulnerability flag.
-                # Note: no trailing \b so CORS_INDICATOR, MISSING_X_FRAME_OPTIONS,
-                # MISCONFIGURATION, CORS_INDICATOR etc. are all captured.
-                if not re.search(
-                    r"REFLECTED|\bXSS\b|SQLI|SQL_ERROR|\bSSRF\b|\bLFI\b|\bRFI\b|"
-                    r"\bIDOR\b|CORS|API_KEY|\bSECRET\b|\bTOKEN\b|"
-                    r"MISSING_|MISCONFIG|ERROR_DISCLOS|"
-                    r"REDIRECT|\bCSRF\b|PATH_TRAVERSAL|\bRCE\b|COMMAND_INJ|"
-                    r"DEBUG_HEADER|CLICKJACKING|HOST_HEADER|SUBDOMAIN_TAKEOVER",
-                    det_str.upper()
-                ):
+            def _add_entry(category: str, severity: str, location: str,
+                            parameter: str, det_str: str, extra: Optional[Dict] = None):
+                entry = {
+                    "id":         _make_id(f"{ts}|{url}|{category}|{parameter}|{det_str}"),
+                    "timestamp":  ts,
+                    "url":        url,
+                    "host":       host,
+                    "method":     method,
+                    "status":     status,
+                    "severity":   severity,
+                    "category":   category,
+                    "location":   location,
+                    "parameter":  parameter,
+                    "detections": det_str,
+                    "reflected_params": reflected_params,
+                    "overall_severity": severity_overall,
+                }
+                if extra:
+                    entry.update(extra)
+
+                bucket = recordings.setdefault(category, [])
+                dup = any(
+                    e.get("url") == url
+                    and e.get("parameter") == parameter
+                    and e.get("category") == category
+                    and e.get("detections") == det_str
+                    for e in bucket
+                )
+                if not dup:
+                    bucket.append(entry)
+
+            # ── 1. Iterate every detected parameter ───────────────────────
+            for param_full, detections in analysis_results.get("params", {}).items():
+                tokens = list(detections) if isinstance(detections, (list, set)) else [detections]
+                det_str = " ".join(str(d) for d in tokens)
+
+                # An explicit CRITICAL/HIGH/MEDIUM severity is always a real
+                # detection signal — record it even if the identifying tag
+                # is only embedded inside a "TYPE:" token or inside the key
+                # itself (e.g. "RESPONSE GRAPHQL introspection" -> ['HIGH']).
+                # Only fall back to the noise-tag check when there is no
+                # explicit elevated severity at all.
+                explicit_sev = _explicit_severity(tokens)
+                if explicit_sev in (None, "LOW") and _is_pure_noise(tokens):
                     continue
 
-                category = _classify(det_str)
-
-                # Determine individual severity
-                if "CRITICAL" in det_str.upper():
-                    sev = "CRITICAL"
-                elif "HIGH" in det_str.upper() or any(
-                    k in det_str.upper() for k in ["XSS", "SQLI", "RCE", "SSRF", "API_KEY"]
-                ):
-                    sev = "HIGH"
-                elif "MEDIUM" in det_str.upper():
-                    sev = "MEDIUM"
-                else:
-                    sev = "LOW"
+                # Classify using the key (which often carries the actual
+                # detection type, e.g. "JS SOURCE_MAP ...", "URL ADMIN_PANEL
+                # ...") together with the values, not values alone.
+                category = _classify(f"{param_full} {det_str}")
+                sev = explicit_sev or _severity_from_tokens(tokens)
 
                 # Parse location / param name
                 parts = param_full.split(" ", 1)
                 location = parts[0] if len(parts) > 1 else "UNKNOWN"
                 param_name = parts[1] if len(parts) > 1 else param_full
 
-                # Reflected params list
-                reflected_params = _extract_reflected_params(analysis_results)
+                _add_entry(category, sev, location, param_name, det_str)
 
-                entry = {
-                    "id":         f"{ts}_{hash(url + param_full) & 0xFFFFFF:06x}",
-                    "timestamp":  ts,
-                    "url":        url,
-                    "host":       host,
-                    "method":     method,
-                    "status":     status,
-                    "severity":   sev,
-                    "category":   category,
-                    "location":   location,
-                    "parameter":  param_name,
-                    "detections": det_str,
-                    "reflected_params": reflected_params,
-                    "overall_severity": severity_overall,
-                }
-
-                # Avoid duplicate (same url + param + category already recorded today)
-                bucket = recordings.setdefault(category, [])
-                dup = any(
-                    e.get("url") == url
-                    and e.get("parameter") == param_name
-                    and e.get("category") == category
-                    for e in bucket
+            # ── 2. Weird-analyzer anomalies ────────────────────────────────
+            for weird in analysis_results.get("weird", []):
+                if not isinstance(weird, dict):
+                    continue
+                sev = str(weird.get("severity", "LOW")).upper()
+                title = weird.get("title", "Anomaly")
+                detail = weird.get("detail", "")
+                evidence = weird.get("evidence", "")
+                sub_category = weird.get("category", "Anomaly")
+                det_str = " | ".join(
+                    p for p in [sub_category, title, detail, evidence] if p
                 )
-                if not dup:
-                    bucket.append(entry)
+                _add_entry(
+                    "anomalies", sev, "WEIRD", title, det_str,
+                    extra={"weird_category": sub_category},
+                )
+
+            # ── 3. Cookie security issues ──────────────────────────────────
+            for cookie in analysis_results.get("cookies", []):
+                if not isinstance(cookie, dict):
+                    continue
+                issues = cookie.get("issues") or []
+                if not issues:
+                    continue
+                name = cookie.get("name", "cookie")
+                source = cookie.get("source", "")
+                for issue in issues:
+                    # issue is (code, severity, message)
+                    if isinstance(issue, (list, tuple)) and len(issue) == 3:
+                        code, sev, msg = issue
+                    else:
+                        code, sev, msg = str(issue), "MEDIUM", ""
+                    det_str = f"{code} {msg}".strip()
+                    _add_entry(
+                        "cookies", str(sev).upper(), source or "COOKIE",
+                        name, det_str,
+                    )
+
+            # ── 4. Tech stack / recon fingerprints ───────────────────────
+            tech_stack = analysis_results.get("tech_stack", {})
+            if isinstance(tech_stack, dict) and tech_stack:
+                for tech_name, evidence_list in tech_stack.items():
+                    evidence = evidence_list if isinstance(evidence_list, (list, tuple)) else [evidence_list]
+                    det_str = "; ".join(str(e) for e in evidence[:5])
+                    _add_entry("recon", "LOW", "TECH", tech_name, det_str)
 
             RecordingManager._save_raw(project_dir, recordings)
             return True
