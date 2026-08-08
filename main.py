@@ -2640,7 +2640,7 @@ class PopoutTabBar(QTabBar):
             QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; }
             QMenu::item:selected { background-color: #0e639c; color: #fff; }
         """)
-        popout_act = menu.addAction("🔲  Pop out in window")
+        popout_act = menu.addAction(" Pop out in window")
         if menu.exec_(event.globalPos()) == popout_act:
             self._main_window.popout_tab(idx)
 
@@ -3982,9 +3982,6 @@ class HuntGUI(
 
         self.create_menu_bar()
 
-        # Project banner (slim bar between menu and tabs)
-        self._build_project_banner(main_layout)
-
         self.tab_widget = QTabWidget()
         self.tab_widget.setDocumentMode(True)
         self.tab_widget.currentChanged.connect(self._on_tab_changed)
@@ -4297,59 +4294,6 @@ class HuntGUI(
         self.intercept_tab.resolve_flow(flow_id, action, data)
         dialog.accept()
 
-    def _build_project_banner(self, main_layout):
-        """Slim project info bar below menu, added directly to main_layout."""
-        self._banner = QFrame()
-        self._banner.setFixedHeight(28)
-        self._banner.setStyleSheet(
-            f"QFrame {{ background-color: {COLOR_DARK_BG}; "
-            f"border-bottom: 1px solid {COLOR_BORDER}; }}"
-        )
-        bl = QHBoxLayout(self._banner)
-        bl.setContentsMargins(12, 0, 12, 0)
-        bl.setSpacing(6)
-
-        self._banner_prog_lbl = QLabel("—")
-        self._banner_prog_lbl.setStyleSheet(
-            f"color: {COLOR_ACCENT}; font-weight: 600; font-size: {FONT_SIZE_SMALL};"
-        )
-        bl.addWidget(QLabel("◎"))
-        bl.addWidget(self._banner_prog_lbl)
-
-        sep = QLabel("▸")
-        sep.setStyleSheet(f"color: {COLOR_TEXT_MUTED};")
-        bl.addWidget(sep)
-
-        self._banner_domain_lbl = QLabel("all scope")
-        self._banner_domain_lbl.setStyleSheet(
-            f"color: {COLOR_SUCCESS}; font-size: {FONT_SIZE_SMALL};"
-        )
-        bl.addWidget(self._banner_domain_lbl)
-        bl.addStretch()
-
-        # Switch scope button
-        switch_btn = QPushButton("⚙ Change Scope")
-        switch_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {COLOR_TEXT_MUTED}; "
-            f"border: none; font-size: {FONT_SIZE_SMALL}; }}"
-            f"QPushButton:hover {{ color: {COLOR_ACCENT}; }}"
-        )
-        switch_btn.clicked.connect(self._show_scope_tab)
-        bl.addWidget(switch_btn)
-
-        # Add banner to main layout (called before tab_widget is added)
-        main_layout.addWidget(self._banner)
-
-        self._update_banner()
-
-    def _update_banner(self):
-        data = pm.get_program(self._project_slug) if self._project_slug else None
-        prog_name = data["name"] if data else "No project"
-        self._banner_prog_lbl.setText(prog_name)
-
-        scope_text = self._project_subdomain or self._project_domain or "all scope"
-        self._banner_domain_lbl.setText(scope_text)
-
     def _show_scope_tab(self):
         """Show scope configuration in a dialog"""
         dialog = QDialog(self)
@@ -4488,7 +4432,6 @@ class HuntGUI(
         """Called when user changes scope in ScopeTab."""
         self._project_domain   = domain
         self._project_subdomain = subdomain
-        self._update_banner()
         self._update_notes_scope_domains()  # re-colour scope URLs in notes
 
         # Scope rules are auto-reloaded by the addon        # via its file watcher — so we DON'T need a full proxy restart on every scope change.
@@ -6440,7 +6383,13 @@ class HuntGUI(
 
         proxy_menu.addSeparator()
 
-        configure_proxy_action = QAction("⚙ Configure Proxy...", self)
+        configure_scope_action = QAction("🞋 Change Scope", self)
+        configure_scope_action.triggered.connect(self._show_scope_tab)
+        proxy_menu.addAction(configure_scope_action)
+
+        proxy_menu.addSeparator()
+        
+        configure_proxy_action = QAction("⚙ Configure Proxy", self)
         configure_proxy_action.triggered.connect(self.show_proxy_config)
         proxy_menu.addAction(configure_proxy_action)
 

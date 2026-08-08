@@ -716,13 +716,8 @@ class ScopeTab(QWidget):
 
         self.open_url_btn = _btn("🌐 Open Platform", COLOR_ACCENT)
         self.open_url_btn.clicked.connect(self._open_platform_url)
-        self.open_url_btn.setVisible(False)
+        self.open_url_btn.setVisible(False)  # hidden until a program URL is available
         banner_layout.addWidget(self.open_url_btn)
-
-        self.set_program_target_btn = _btn("Target All", COLOR_SUCCESS)
-        self.set_program_target_btn.setToolTip("Set the entire program scope as the active target")
-        self.set_program_target_btn.clicked.connect(self._set_program_target)
-        banner_layout.addWidget(self.set_program_target_btn)
 
         root.addWidget(banner)
 
@@ -1095,13 +1090,6 @@ class ScopeTab(QWidget):
             self._refresh_domains()
             self._update_banner()
 
-    def _set_program_target(self):
-        if not self._current_slug:
-            return
-        self._current_domain = ""
-        self._current_subdomain = ""
-        self._update_banner()
-        self._emit_scope()
 
     def _set_domain_target(self):
         item = self.domain_list.currentItem()
