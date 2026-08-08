@@ -813,7 +813,7 @@ class HTTPHistoryTab(AnalysisTabMixin):
         header_layout.addWidget(title)
 
         header_layout.addSpacing(10)
-        self.sitemap_filter_cb = QCheckBox("Filter Using Sitemap")
+        self.sitemap_filter_cb = QCheckBox("Filter")
         self.sitemap_filter_cb.setChecked(True)
         self.sitemap_filter_cb.setToolTip("Filter history by sitemap selection")
         self.sitemap_filter_cb.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: {FONT_SIZE_SMALL};")
