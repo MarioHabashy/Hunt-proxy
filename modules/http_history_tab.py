@@ -3896,9 +3896,9 @@ class HTTPHistoryTab(AnalysisTabMixin):
         view_action = getattr(self, "url_view_action", None)
         if view_action is not None:
             if self._url_view:
-                view_action.setText("\u2b21 Switch to Host / Path view")
+                view_action.setText("↹ Switch to Host / Path view")
             else:
-                view_action.setText("\ud83d\udd17 Switch to URL column view")
+                view_action.setText("↹ Switch to URL column view")
 
     def copy_url(self, finding: Dict[str, Any]):
         url = finding.get("url", "")

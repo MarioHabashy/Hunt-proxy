@@ -6365,7 +6365,7 @@ class HuntGUI(
 
         view_menu.addSeparator()
 
-        self.url_view_action = QAction("⇋ Switch to URL column view", self)
+        self.url_view_action = QAction("↹ Switch to URL column view", self)
         self.url_view_action.triggered.connect(self._switch_url_view_mode)
         view_menu.addAction(self.url_view_action)
         
