@@ -10418,6 +10418,7 @@ class AnalysisTabMixin:
         self.param_table.setHorizontalHeaderLabels([
             "Location", "Parameter", "Value", "Risk", "Vulnerabilities", "Metadata"
         ])
+        self._setup_table_double_click_copy(self.param_table)
         _phdr = self.param_table.horizontalHeader()
         _phdr.setStretchLastSection(False)
         _phdr.setMinimumSectionSize(38)
@@ -10488,6 +10489,7 @@ class AnalysisTabMixin:
             }}
         """)
 
+        self.param_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.param_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.param_table.customContextMenuRequested.connect(self.show_param_table_context_menu)
         self.param_table.verticalHeader().setDefaultSectionSize(24)
@@ -10573,6 +10575,10 @@ class AnalysisTabMixin:
             }}
         """)
         layout.addWidget(tbl)
+        
+        # Enable double-click copy on this table
+        self._setup_table_double_click_copy(tbl)
+        
         return container, tbl
 
     def _create_security_headers_panel(self) -> QWidget:
@@ -12265,6 +12271,9 @@ class AnalysisTabMixin:
                 font-weight: bold;
             }}
         """)
+        
+        self.highlight_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._setup_table_double_click_copy(self.highlight_table)
         self.highlight_table.verticalHeader().setDefaultSectionSize(22)
         self.highlight_table.verticalHeader().hide()
         
@@ -12352,6 +12361,26 @@ class AnalysisTabMixin:
         if hasattr(self, 'status_label'):
             self.status_label.setText(f"🔍 Searching '{pattern_type}' pattern in response...")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
+            
+    def _setup_table_double_click_copy(self, table: QTableWidget):
+        """Set up double-click to copy cell text to clipboard"""
+        table.cellDoubleClicked.connect(
+            lambda row, col: self._copy_cell_text(table, row, col)
+        )
+
+    def _copy_cell_text(self, table: QTableWidget, row: int, col: int):
+        """Copy the cell's text to clipboard and show feedback"""
+        item = table.item(row, col)
+        if item and item.text():
+            text = item.text().strip()
+            if text:
+                QApplication.clipboard().setText(text)
+                
+                # Show brief feedback
+                if hasattr(self, 'status_label'):
+                    display = text[:40] + ('…' if len(text) > 40 else '')
+                    self.status_label.setText(f"📋 Copied: \"{display}\"")
+                    QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
     # ========================================================================
     # ANALYSIS LOGIC
     # ========================================================================
